@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/app/(auth)/actions";
 import {
   IconBall,
+  IconBell,
   IconGrid,
   IconLogout,
   IconPlus,
@@ -24,9 +25,11 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({
   name,
+  unread = 0,
   children,
 }: {
   name: string;
+  unread?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -85,11 +88,29 @@ export function AppShell({
           >
             <IconBall size={24} />
           </Link>
-          <div className="ml-auto flex items-center gap-2 rounded-full bg-surface py-1.5 pl-1.5 pr-4 shadow-card">
-            <Avatar name={name} size={34} />
-            <span className="max-w-40 truncate text-sm font-semibold">
-              {name}
-            </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href="/inbox"
+              aria-label={`Inbox${unread > 0 ? `, ${unread} unread` : ""}`}
+              className={`relative grid size-11 place-items-center rounded-full shadow-card ${
+                pathname === "/inbox"
+                  ? "bg-ink text-surface"
+                  : "bg-surface text-ink-soft hover:text-ink"
+              }`}
+            >
+              <IconBell size={20} />
+              {unread > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              ) : null}
+            </Link>
+            <div className="flex items-center gap-2 rounded-full bg-surface py-1.5 pl-1.5 pr-4 shadow-card">
+              <Avatar name={name} size={34} />
+              <span className="max-w-40 truncate text-sm font-semibold">
+                {name}
+              </span>
+            </div>
           </div>
         </header>
 

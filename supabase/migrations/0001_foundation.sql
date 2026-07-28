@@ -2,8 +2,6 @@
 -- profiles, organizations, leagues, league_members
 -- + auth trigger, join-by-code / create-league RPCs, RLS on everything.
 
-create extension if not exists pgcrypto;
-
 -- ---------------------------------------------------------------- utilities
 
 create or replace function public.set_updated_at()

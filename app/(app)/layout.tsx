@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { requireUser } from "@/lib/auth";
+import { getUnreadCount } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -9,11 +10,10 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, unread] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    getUnreadCount(),
+  ]);
 
   const name =
     profile?.full_name ||
@@ -21,5 +21,9 @@ export default async function AppLayout({
     user.email ||
     "Player";
 
-  return <AppShell name={name}>{children}</AppShell>;
+  return (
+    <AppShell name={name} unread={unread}>
+      {children}
+    </AppShell>
+  );
 }

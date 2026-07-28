@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CourtDiagram } from "@/components/court-diagram";
-import {
-  IconBall,
-  IconChart,
-  IconTrophy,
-  IconUsers,
-  IconWhistle,
-} from "@/components/icons";
+import { IconBall, IconChart, IconTrophy } from "@/components/icons";
 import {
   Avatar,
   Button,
@@ -112,79 +106,32 @@ export default function DesignPage() {
         </section>
       </div>
 
-      {/* Dashboard composition — the inspo layout in our system */}
+      {/* Data display primitives — sample values, labeled as such */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight text-white">
-          Composition — stat tiles and meters
+          Data display primitives{" "}
+          <span className="text-sm font-normal text-white/60">
+            (sample values — real compositions live in the app)
+          </span>
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            label="Total teams"
-            value="8"
-            icon={<IconTrophy size={16} />}
-          />
-          <StatTile
-            label="Registered"
-            value="96"
-            icon={<IconUsers size={16} />}
-          >
-            <p className="text-xs text-ink-faint">players this season</p>
+          <StatTile label="Stat tile" value="128" icon={<IconTrophy size={16} />}>
+            <p className="text-xs text-ink-faint">label · numeral · caption</p>
           </StatTile>
-          <StatTile
-            label="Season progress"
-            value="68%"
-            icon={<IconChart size={16} />}
-          >
+          <StatTile label="With meter" value="68%" icon={<IconChart size={16} />}>
             <Meter value={68} max={100} className="mt-1" />
           </StatTile>
-          <StatTile
-            label="Games this week"
-            value="12"
-            icon={<IconWhistle size={16} />}
-          >
-            <p className="text-xs text-ink-faint">across 3 venues</p>
-          </StatTile>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="card p-6 lg:col-span-2">
-            <div className="mb-1 flex items-center justify-between">
-              <h3 className="font-semibold tracking-tight">Most active teams</h3>
-              <span className="text-xs text-ink-faint">
-                teams with the most games
-              </span>
-            </div>
-            <div className="mt-4 space-y-4">
-              {[
-                ["Thunder FC", 28],
-                ["Phoenix United", 26],
-                ["Titan Sports", 24],
-                ["Storm Warriors", 22],
-              ].map(([team, games]) => (
-                <div key={team as string} className="flex items-center gap-4">
-                  <span className="w-32 truncate text-sm font-semibold">
-                    {team}
-                  </span>
-                  <Meter value={games as number} max={30} className="flex-1" />
-                  <span className="tabular w-6 text-right text-sm font-semibold">
-                    {games}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="card grid place-items-center p-6">
-            <CourtDiagram className="max-h-72" />
+          <div className="card grid place-items-center p-4 lg:col-span-2">
+            <CourtDiagram className="max-h-48" />
           </div>
         </div>
-
         <div className="card max-w-md p-6">
           <h3 className="mb-3 font-semibold tracking-tight">Empty state</h3>
           <EmptyState
             icon={<IconBall size={26} />}
             title="No games scheduled"
-            body="Auto-generate a schedule or drag matchups into slots."
-            action={<Button variant="soft">Open schedule builder</Button>}
+            body="Every empty state says what fills it and who acts."
+            action={<Button variant="soft">Primary recovery action</Button>}
           />
         </div>
       </section>

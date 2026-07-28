@@ -1,124 +1,289 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
+import { GameCard } from "@/components/game-card";
+import { IconArrowRight, IconBall, IconCalendar, IconTrophy } from "@/components/icons";
+import { StandingsTable } from "@/components/standings-table";
+import { Avatar, EmptyState } from "@/components/ui";
+import { requireUser } from "@/lib/auth";
 import {
-  IconArrowRight,
-  IconCalendar,
-  IconTrophy,
-  IconUsers,
-} from "@/components/icons";
-import { EmptyState, RoleBadge, StatTile } from "@/components/ui";
-import {
-  getLeagueBySlug,
-  getLeagueMembers,
-  isLeagueAdmin,
-  sportLabel,
-} from "@/lib/leagues";
+  getActiveSeason,
+  getGames,
+  getLeague,
+  getPosts,
+  getSeasonPlayerStats,
+  getSeasonStandings,
+  getTeams,
+} from "@/lib/data";
+import { isLeagueAdmin } from "@/lib/league-constants";
+import { aggregateLines, perGame } from "@/lib/stats";
+import { FeedComposer } from "./feed-composer";
 
-export default async function LeaguePage({
+function currentWeek(startsOn: string, numWeeks: number): number {
+  const start = new Date(`${startsOn}T00:00:00`);
+  const diff = Math.floor((Date.now() - start.getTime()) / (7 * 24 * 3600 * 1000));
+  return Math.min(Math.max(diff + 1, 1), numWeeks);
+}
+
+export default async function LeagueOverviewPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const league = await getLeagueBySlug(slug);
+  const user = await requireUser();
+  const league = await getLeague(slug);
   if (!league) notFound();
-  const members = await getLeagueMembers(league.id);
   const admin = isLeagueAdmin(league.role);
+  const season = await getActiveSeason(league.id);
+
+  if (!season) {
+    return (
+      <div className="card p-6">
+        <EmptyState
+          icon={<IconBall size={28} />}
+          title="No season yet"
+          body={
+            admin
+              ? "Create a season in the console, add time slots and venues, then draft teams."
+              : "The commissioner is still setting up the season."
+          }
+          action={
+            admin ? (
+              <Link
+                href={`/league/${slug}/console`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-ink px-5 text-[15px] font-medium text-surface-bright"
+              >
+                Open console <IconArrowRight size={16} />
+              </Link>
+            ) : undefined
+          }
+        />
+      </div>
+    );
+  }
+
+  const [games, teams, posts, statRows, standings] = await Promise.all([
+    getGames(season.id),
+    getTeams(season.id),
+    getPosts(league.id, 12),
+    getSeasonPlayerStats(season.id),
+    getSeasonStandings(season.id),
+  ]);
+
+  const week = currentWeek(season.starts_on, season.num_weeks);
+  const weekGames = games.filter((g) => g.week === week && !g.is_playoff);
+  const displayGames =
+    weekGames.length > 0
+      ? weekGames
+      : games.filter((g) => g.status === "scheduled").slice(0, 4);
+
+  // leaders: PPG, min 1 game
+  const byPlayer = new Map<string, { name: string; lines: typeof statRows }>();
+  for (const row of statRows) {
+    if (!byPlayer.has(row.user_id))
+      byPlayer.set(row.user_id, { name: row.full_name ?? "Unnamed", lines: [] });
+    byPlayer.get(row.user_id)!.lines.push(row);
+  }
+  const leaders = [...byPlayer.entries()]
+    .map(([userId, { name, lines }]) => {
+      const totals = aggregateLines(lines);
+      return { userId, name, ppg: perGame(totals.pts, totals.games), games: totals.games };
+    })
+    .sort((a, b) => b.ppg - a.ppg)
+    .slice(0, 3);
+
+  const captainTeam = teams.find((t) => t.captain_id === user.id) ?? null;
 
   return (
-    <div className="space-y-5">
-      {/* League hero */}
-      <section
-        className="card overflow-hidden"
-        style={{ backgroundColor: league.primary_color }}
-      >
-        <div className="flex flex-wrap items-end justify-between gap-4 p-6 sm:p-8">
-          <div>
-            <p className="text-sm font-medium text-white/70">
-              {sportLabel(league.sport)}
-            </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              {league.name}
-            </h1>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="chip">{members.length} members</span>
-              <RoleBadge role={league.role} />
-            </div>
-          </div>
-          {admin ? (
-            <div className="rounded-panel bg-white/15 p-4 backdrop-blur">
-              <p className="text-xs font-medium text-white/80">Join code</p>
-              <p className="stat-num mt-0.5 font-mono text-2xl tracking-[0.3em] text-white">
-                {league.join_code}
-              </p>
-              <div className="mt-2">
-                <CopyButton
-                  text={league.join_code}
-                  getText="invite-link"
-                  label="Copy invite link"
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {/* Snapshot tiles */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatTile
-          label="Members"
-          value={members.length}
-          icon={<IconUsers size={17} />}
-        />
-        <StatTile label="Teams" value="—" icon={<IconTrophy size={17} />}>
-          <p className="text-xs text-ink-faint">Draft arrives in Phase 1</p>
-        </StatTile>
-        <StatTile
-          label="Games this week"
-          value="—"
-          icon={<IconCalendar size={17} />}
-          className="col-span-2 lg:col-span-1"
-        >
-          <p className="text-xs text-ink-faint">Scheduling arrives in Phase 2</p>
-        </StatTile>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Roster preview */}
+    <div className="grid gap-5 lg:grid-cols-3">
+      <div className="space-y-5 lg:col-span-2">
+        {/* This week */}
         <section className="card p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">Roster</h2>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {weekGames.length > 0 ? `Week ${week}` : "Upcoming games"}
+            </h2>
             <Link
-              href={`/league/${league.slug}/members`}
+              href={`/league/${slug}/schedule`}
               className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
             >
-              {admin ? "Manage" : "View all"} <IconArrowRight size={16} />
+              Full schedule <IconArrowRight size={16} />
             </Link>
           </div>
-          <ul className="space-y-1">
-            {members.slice(0, 6).map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center justify-between gap-3 rounded-panel px-2 py-2"
-              >
-                <span className="truncate font-medium">{m.full_name}</span>
-                <RoleBadge role={m.role} />
-              </li>
-            ))}
-          </ul>
+          {displayGames.length === 0 ? (
+            <EmptyState
+              icon={<IconCalendar size={26} />}
+              title="Nothing scheduled yet"
+              body={
+                admin
+                  ? "Generate the schedule from the Schedule tab once availability is in."
+                  : "Games will appear once the commissioner builds the schedule."
+              }
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {displayGames.map((g) => (
+                <GameCard key={g.id} game={g} slug={slug} />
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* Standings placeholder */}
+        {/* Feed */}
         <section className="card p-5 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            Standings
+            League feed
           </h2>
-          <EmptyState
-            icon={<IconTrophy size={26} />}
-            title="No season yet"
-            body="Standings light up once teams are drafted and games go final."
-          />
+          {admin || captainTeam ? (
+            <div className="mb-4">
+              <FeedComposer
+                leagueId={league.id}
+                seasonId={season.id}
+                slug={slug}
+                captainTeam={captainTeam ? { id: captainTeam.id, name: captainTeam.name } : null}
+                admin={admin}
+              />
+            </div>
+          ) : null}
+          {posts.length === 0 ? (
+            <p className="text-sm text-ink-faint">
+              No posts yet. Finals and trades show up here automatically.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {posts.map((p) => (
+                <li key={p.id} className="flex gap-3 rounded-panel bg-surface-dim/60 p-3.5">
+                  {p.kind === "auto" ? (
+                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                      <IconBall size={16} />
+                    </span>
+                  ) : (
+                    <Avatar name={p.author_name ?? "?"} size={32} className="mt-1" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-ink-faint">
+                      {p.kind === "auto"
+                        ? "League update"
+                        : (p.author_name ?? "Member") +
+                          (p.kind === "team" ? " · team post" : "")}
+                      {" · "}
+                      {new Date(p.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    <p className="text-sm leading-relaxed">{p.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className="space-y-5">
+        {/* Standings snapshot */}
+        <section className="card p-5">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">Standings</h2>
+            <Link
+              href={`/league/${slug}/standings`}
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
+            >
+              Full <IconArrowRight size={16} />
+            </Link>
+          </div>
+          {standings.rows.length === 0 ? (
+            <p className="text-sm text-ink-faint">No teams yet.</p>
+          ) : (
+            <StandingsTable rows={standings.rows.slice(0, 5)} slug={slug} />
+          )}
+        </section>
+
+        {/* Scoring leaders */}
+        <section className="card p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">Top scorers</h2>
+            <Link
+              href={`/league/${slug}/stats`}
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
+            >
+              Stats <IconArrowRight size={16} />
+            </Link>
+          </div>
+          {leaders.length === 0 ? (
+            <p className="text-sm text-ink-faint">
+              Leaders appear after the first final.
+            </p>
+          ) : (
+            <ol className="space-y-2.5">
+              {leaders.map((l, i) => (
+                <li key={l.userId}>
+                  <Link
+                    href={`/league/${slug}/player/${l.userId}`}
+                    className="flex items-center gap-3 hover:underline"
+                  >
+                    <span className="w-4 text-right text-xs font-semibold text-ink-faint">
+                      {i + 1}
+                    </span>
+                    <Avatar name={l.name} size={30} />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      {l.name}
+                    </span>
+                    <span className="stat-num text-lg">{l.ppg.toFixed(1)}</span>
+                    <span className="text-xs text-ink-faint">PPG</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        {/* Season / invite */}
+        <section className="card p-5">
+          <h2 className="mb-2 text-lg font-semibold tracking-tight">
+            {season.name}
+          </h2>
+          <dl className="space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">Week</dt>
+              <dd className="tabular font-semibold">
+                {week} of {season.num_weeks}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">Teams</dt>
+              <dd className="tabular font-semibold">{teams.length}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">Status</dt>
+              <dd className="font-semibold capitalize">{season.status}</dd>
+            </div>
+          </dl>
+          {admin ? (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-panel bg-surface-dim/70 p-3">
+              <div>
+                <p className="text-xs font-medium text-ink-soft">Join code</p>
+                <p className="stat-num font-mono text-xl tracking-[0.25em]">
+                  {league.join_code}
+                </p>
+              </div>
+              <CopyButton
+                text={league.join_code}
+                getText="invite-link"
+                label="Invite"
+              />
+            </div>
+          ) : null}
+          {season.status === "playoffs" || season.status === "complete" ? (
+            <Link
+              href={`/league/${slug}/playoffs`}
+              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent text-[15px] font-medium text-white"
+            >
+              <IconTrophy size={18} /> View bracket
+            </Link>
+          ) : null}
         </section>
       </div>
     </div>
