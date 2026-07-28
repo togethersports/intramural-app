@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/*
+  Intramural design language — derived from the "Tournament Organizer
+  Dashboard" inspiration:
+
+  - Muted steel-blue canvas that everything floats on
+  - Warm off-white cards with generous (28px) radii
+  - Near-black ink, crimson as the single data/accent color
+  - Steel "court" blue for schematic panels, sage/amber as support tones
+  - Pill chips, airy density, tabular numerals for stats
+*/
+
+@theme {
+  /* Canvas */
+  --color-canvas: #8399ac;
+  --color-canvas-deep: #64798c;
+  --color-canvas-soft: #9db0c0;
+
+  /* Surfaces */
+  --color-surface: #f4f4f1;
+  --color-surface-dim: #e9eae4;
+  --color-surface-bright: #fbfbf9;
+
+  /* Ink */
+  --color-ink: #191c1f;
+  --color-ink-soft: #4e5860;
+  --color-ink-faint: #8b959d;
+
+  /* Accent — crimson, the one data color */
+  --color-accent: #c8232c;
+  --color-accent-deep: #9d1b22;
+  --color-accent-wash: #f3e0de;
+
+  /* Court — schematic steel blue */
+  --color-court: #54749b;
+  --color-court-deep: #3f5a7c;
+
+  /* Support tones */
+  --color-sage: #8fae7f;
+  --color-sage-deep: #6d8c5e;
+  --color-amber: #dfa04f;
+
+  /* Radii */
+  --radius-card: 1.75rem; /* 28px — outer cards */
+  --radius-panel: 1.25rem; /* 20px — nested panels */
+  --radius-control: 0.875rem; /* 14px — inputs, buttons */
+
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(20 26 32 / 0.05),
+    0 16px 40px -16px rgb(20 26 32 / 0.22);
+  --shadow-float: 0 2px 6px rgb(20 26 32 / 0.08),
+    0 24px 60px -20px rgb(20 26 32 / 0.35);
+}
+
+body {
+  background-color: var(--color-canvas);
+  background-image: linear-gradient(
+    165deg,
+    var(--color-canvas-soft) 0%,
+    var(--color-canvas) 45%,
+    var(--color-canvas-deep) 100%
+  );
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* Off-white floating card — the primary surface */
+  .card {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Translucent pill chip on the canvas (hero tags, filters) */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: calc(infinity * 1px);
+    border: 1px solid rgb(255 255 255 / 0.28);
+    background-color: rgb(255 255 255 / 0.16);
+    padding: 0.4375rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Big stat numerals */
+  .stat-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer base {
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
