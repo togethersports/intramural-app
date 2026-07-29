@@ -523,7 +523,120 @@ assert(
   "commissioner CAN edit the league",
 );
 
+// Rules: any member reads, only admins write.
+assert(
+  !(await rejects(
+    `insert into league_rules (league_id, content, updated_by) values ($1, $2, $3)`,
+    [league.id, "Games are 4x10 minute periods.", uid(1)],
+  )),
+  "commissioner CAN write the rules",
+);
+await asAuthenticated(5);
+assert(
+  (await visible(`select id from league_rules where league_id = $1`, [league.id])) === 1,
+  "player CAN read the rules",
+);
+assert(
+  await rejects(
+    `update league_rules set content = 'hijacked' where league_id = $1`,
+    [league.id],
+  ),
+  "player cannot edit the rules",
+);
+assert(
+  await rejects(
+    `insert into rule_files (league_id, name, storage_path) values ($1, 'x.pdf', $2)`,
+    [league.id, `${league.id}/x.pdf`],
+  ),
+  "player cannot upload a rule file",
+);
+
 await asOwner();
+
+
+/* ------------------------------------------------------------------------
+   ACCOUNT DELETION  (App Store Guideline 5.1.1(v))
+------------------------------------------------------------------------ */
+
+console.log("\n— account deletion —");
+
+await asOwner();
+// A plain player with data across the schema.
+const victim = uid(8);
+const eventsBefore = (await one(`select count(*)::int as c from game_events`)).c;
+
+await asAuthenticated(8);
+assert(
+  !(await rejects(`select delete_my_account()`)),
+  "a player can delete their own account",
+);
+
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from auth.users where id = $1`, [victim])).c === 0,
+  "the auth user is really gone",
+);
+assert(
+  (await one(`select count(*)::int as c from profiles where id = $1`, [victim])).c === 0,
+  "their profile cascaded away",
+);
+assert(
+  (await one(`select count(*)::int as c from league_members where user_id = $1`, [victim])).c === 0,
+  "their league membership cascaded away",
+);
+
+// The commissioner guard.
+await asAuthenticated(1);
+assert(
+  await rejects(`select delete_my_account()`),
+  "a sitting commissioner cannot delete their account",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from auth.users where id = $1`, [uid(1)])).c === 1,
+  "the blocked commissioner still exists",
+);
+
+// The scorekeeper case — this is the one that used to destroy other people's data.
+await asOwner();
+const skEvents = (await one(
+  `select count(*)::int as c from game_events where created_by = $1`, [uid(2)],
+)).c;
+// Events where they are ALSO the player cascade away via user_id — that's
+// their own personal data. Only the ones about other players should survive.
+const skEventsAboutOthers = (await one(
+  `select count(*)::int as c from game_events
+   where created_by = $1 and (user_id is null or user_id <> $1)`,
+  [uid(2)],
+)).c;
+assert(
+  skEvents > 0 && skEventsAboutOthers > 0,
+  `scorekeeper recorded ${skEvents} events, ${skEventsAboutOthers} of them about other players`,
+);
+
+// user 2 captains a team, so hand the captaincy off before deleting.
+await db.query(`update teams set captain_id = null where captain_id = $1`, [uid(2)]);
+await asAuthenticated(2);
+assert(
+  !(await rejects(`select delete_my_account()`)),
+  "the scorekeeper can delete their account",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from game_events where created_by is null`)).c ===
+    skEventsAboutOthers,
+  "other players' events SURVIVED, de-attributed (created_by set null)",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from game_events where user_id = $1`, [uid(2)],
+  )).c === 0,
+  "but their own player events were removed",
+);
+assert(
+  (await one(`select count(*)::int as c from games`)).c > 0,
+  "the games themselves survived",
+);
 
 // ---------------------------------------------------------------- summary
 if (failures > 0) {

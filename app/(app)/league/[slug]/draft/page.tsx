@@ -12,7 +12,7 @@ import {
   getLeague,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/lib/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { DraftRoom } from "./draft-room";
 import { DraftSetupForm } from "./draft-setup";
 

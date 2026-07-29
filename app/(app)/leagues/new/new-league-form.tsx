@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createLeague, type ActionState } from "../../actions";
 import { Button, Field, FormError, Input, Select } from "@/components/ui";
-import { LEAGUE_COLORS, SPORTS } from "@/lib/league-constants";
+import { LEAGUE_COLORS, SPORTS } from "@core/league-constants";
 
 const initial: ActionState = { error: null };
 

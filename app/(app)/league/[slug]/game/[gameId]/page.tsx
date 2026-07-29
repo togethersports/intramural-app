@@ -9,11 +9,11 @@ import {
   getLineups,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/lib/league-constants";
-import { EVENT_LABELS } from "@/lib/game-constants";
-import { computeBoxScore, type StatLine } from "@/lib/stats";
+import { isLeagueAdmin } from "@core/league-constants";
+import { EVENT_LABELS } from "@core/game-constants";
+import { computeBoxScore, type StatLine } from "@core/stats";
 import { createClient } from "@/lib/supabase/server";
-import type { PlayerGameStatRow } from "@/lib/types";
+import type { PlayerGameStatRow } from "@core/types";
 import { LiveRefresher } from "./live-refresher";
 
 function BoxTable({
@@ -33,7 +33,7 @@ function BoxTable({
         <TeamBadge abbrev={abbrev} color={color} size={28} />
         {title}
       </h3>
-      <div className="overflow-x-auto p-4">
+      <div className="scroll-x p-4">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-faint">
@@ -50,7 +50,7 @@ function BoxTable({
               .sort((a, b) => b.pts - a.pts)
               .map((r) => (
                 <tr key={r.userId} className="border-t border-rule">
-                  <td className="py-2 pr-2">
+                  <td className="sticky left-0 z-10 max-w-[8rem] truncate bg-surface py-2 pr-3">
                     <Link href={r.href} className="font-semibold hover:underline">
                       {r.name}
                     </Link>

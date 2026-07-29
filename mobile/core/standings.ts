@@ -145,7 +145,9 @@ export function computeStandings(
       for (let k = 0; k < a.keys.length; k++) {
         if (a.keys[k] !== b.keys[k]) return b.keys[k] - a.keys[k];
       }
-      return a.r.teamId.localeCompare(b.r.teamId); // deterministic fallback
+      // Code-unit compare, not localeCompare — see scheduler.ts. This is the
+      // total-order tiebreaker of last resort and must match across runtimes.
+      return a.r.teamId < b.r.teamId ? -1 : a.r.teamId > b.r.teamId ? 1 : 0;
     });
     for (let k = 0; k < keyed.length - 1; k++) {
       const a = keyed[k];

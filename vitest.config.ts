@@ -8,6 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["lib/**/*.test.ts"],
+    include: ["mobile/core/**/*.test.ts"],
   },
 });

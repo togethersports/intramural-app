@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { IconQueue } from "@/components/icons";
 import { Avatar, Button, TeamBadge } from "@/components/ui";
-import type { DraftPickRow, DraftRow, TeamWithRoster } from "@/lib/types";
+import type { DraftPickRow, DraftRow, TeamWithRoster } from "@core/types";
 import {
   autoPickAction,
   makePickAction,
@@ -217,9 +217,9 @@ export function DraftRoom({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search players…"
-            className="mb-3 h-11 w-full rounded-control border border-rule bg-paper px-3 text-sm placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
+            className="mb-3 h-11 w-full rounded-control border border-rule bg-paper px-3 text-[17px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
           />
-          <ul className="max-h-[26rem] space-y-1 overflow-y-auto">
+          <ul className="scroll-contain max-h-[60vh] space-y-1 overflow-y-auto sm:max-h-[26rem]">
             {filtered.map((p) => (
               <li
                 key={p.user_id}

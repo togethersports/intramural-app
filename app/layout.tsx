@@ -15,18 +15,36 @@ const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
 });
 
+const SITE_URL = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "http://localhost:3000";
+const SITE_TITLE = "Intramural — Run Your League";
+const SITE_DESCRIPTION =
+  "Drafts, lunch-period scheduling, live courtside stats, standings, trades, and playoffs for school intramural leagues.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Intramural — run your school league like the pros",
+    default: SITE_TITLE,
     template: "%s · Intramural",
   },
-  description:
-    "Drafts, lunch-period scheduling, live courtside stats, standings, trades, and playoffs for school intramural leagues.",
+  description: SITE_DESCRIPTION,
   applicationName: "Intramural",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Intramural",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Intramural",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 };
 
@@ -47,7 +65,7 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col pt-safe">{children}</body>
     </html>
   );
 }

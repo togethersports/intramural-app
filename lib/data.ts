@@ -3,7 +3,7 @@
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { LeagueRole } from "@/lib/league-constants";
+import type { LeagueRole } from "@core/league-constants";
 import type {
   AvailabilityRow,
   BracketNodeRow,
@@ -21,7 +21,7 @@ import type {
   TimeSlotRow,
   TradeRow,
   VenueRow,
-} from "@/lib/types";
+} from "@core/types";
 
 export interface LeagueContext {
   id: string;
@@ -440,9 +440,39 @@ export async function getBracketNodes(
   return (data as BracketNodeRow[]) ?? [];
 }
 
+/* ---------------------------------- rules ---------------------------------- */
+
+export interface RuleFileRow {
+  id: string;
+  name: string;
+  storage_path: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+export async function getLeagueRules(leagueId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("league_rules")
+    .select("content")
+    .eq("league_id", leagueId)
+    .maybeSingle();
+  return (data?.content as string) ?? "";
+}
+
+export async function getRuleFiles(leagueId: string): Promise<RuleFileRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("rule_files")
+    .select("id, name, storage_path, size_bytes, created_at")
+    .eq("league_id", leagueId)
+    .order("created_at", { ascending: false });
+  return (data as RuleFileRow[]) ?? [];
+}
+
 /* -------------------------------- standings -------------------------------- */
 
-import { computeStandings } from "@/lib/standings";
+import { computeStandings } from "@core/standings";
 import type { StandingsDisplayRow } from "@/components/standings-table";
 
 export async function getSeasonStandings(seasonId: string): Promise<{
@@ -482,7 +512,8 @@ export interface MyTeamRow {
   league_name: string;
 }
 
-export async function getMyTeams(userId: string): Promise<MyTeamRow[]> {
+// cache(): the dashboard and getMyNextGame both need this — one query, not two.
+export const getMyTeams = cache(async (userId: string): Promise<MyTeamRow[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("team_members")
@@ -516,7 +547,7 @@ export async function getMyTeams(userId: string): Promise<MyTeamRow[]> {
       };
     })
     .filter((r): r is MyTeamRow => r !== null);
-}
+});
 
 export async function getMyNextGame(
   userId: string,

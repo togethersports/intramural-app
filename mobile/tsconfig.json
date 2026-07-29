@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@core/*": ["./core/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  // core/*.test.ts import vitest, which is a root devDependency, not a mobile
+  // one. They are typechecked by `npm run typecheck:core` instead.
+  "exclude": ["core/**/*.test.ts"]
+}

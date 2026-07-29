@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CourtDiagram } from "@/components/court-diagram";
-import { Lockup } from "@/components/mark";
+import { Lockup, Mark } from "@/components/mark";
 import { ButtonLink, Meter } from "@/components/ui";
 import { getUser } from "@/lib/auth";
 
@@ -10,19 +10,42 @@ export default async function LandingPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
       {/* Nav */}
-      <header className="flex items-center justify-between py-6">
-        <Lockup size={38} tone="white-red" />
-        <nav className="flex items-center gap-2">
+      <header className="flex items-center justify-between gap-3 py-6">
+        <Mark size={34} tone="white-red" className="shrink-0 sm:hidden" />
+        <Lockup size={38} tone="white-red" className="hidden sm:inline-flex" />
+        <nav className="flex shrink-0 items-center gap-2">
           {user ? (
-            <ButtonLink href="/dashboard" variant="light">
+            <ButtonLink
+              href="/dashboard"
+              variant="light"
+              className="whitespace-nowrap !px-5"
+            >
               Open dashboard
             </ButtonLink>
           ) : (
             <>
-              <ButtonLink href="/login" variant="canvas">
+              {/* Two pills overflow a 390px header; on phones sign-in
+                  becomes a plain link and only the CTA stays a pill. */}
+              <Link
+                href="/login"
+                className="inline-flex min-h-11 items-center whitespace-nowrap px-2 text-[17px] font-medium text-white sm:hidden"
+              >
                 Sign in
-              </ButtonLink>
-              <ButtonLink href="/signup" variant="light">
+              </Link>
+              <span className="hidden sm:inline-flex">
+                <ButtonLink
+                  href="/login"
+                  variant="canvas"
+                  className="whitespace-nowrap"
+                >
+                  Sign in
+                </ButtonLink>
+              </span>
+              <ButtonLink
+                href="/signup"
+                variant="light"
+                className="whitespace-nowrap !px-5"
+              >
                 Get started
               </ButtonLink>
             </>
@@ -35,9 +58,9 @@ export default async function LandingPage() {
         <div>
           <p className="label !text-white/85">School intramural sports</p>
           <h1 className="mt-5 text-[52px] font-semibold leading-[0.94] tracking-[-0.035em] text-white sm:text-[72px]">
-            Run your league
+            Intramural —
             <br />
-            like the pros.
+            Run Your League
           </h1>
           <p className="mt-6 max-w-[46ch] text-[19px] font-medium leading-[1.5] text-white">
             Captains draft teams. Games fit into lunch and free periods. Stats
@@ -234,6 +257,12 @@ export default async function LandingPage() {
           </Link>
           <Link href="/design" className="hover:text-white/70">
             Brand
+          </Link>
+          <Link href="/privacy" className="hover:text-white/70">
+            Privacy
+          </Link>
+          <Link href="/support" className="hover:text-white/70">
+            Support
           </Link>
         </nav>
         <p className="label !text-white/70">Built for lunch periods everywhere</p>

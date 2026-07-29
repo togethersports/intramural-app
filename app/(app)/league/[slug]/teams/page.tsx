@@ -9,7 +9,7 @@ import {
   getLeague,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/lib/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
 import { CreateTeamForm } from "./team-forms";
 
@@ -118,7 +118,7 @@ export default async function TeamsPage({
                             min={0}
                             max={99}
                             defaultValue={m.jersey_number ?? ""}
-                            className="tabular h-11 w-14 rounded-control border border-rule bg-paper px-2 text-center text-sm"
+                            className="tabular h-11 w-16 rounded-control border border-rule bg-paper px-2 text-center text-[17px]"
                           />
                           <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-ink-body hover:bg-surface">
                             Set
@@ -150,7 +150,7 @@ export default async function TeamsPage({
                       <input type="hidden" name="slug" value={slug} />
                       <select
                         name="user_id"
-                        className="h-11 rounded-control border border-rule bg-paper px-2 text-sm"
+                        className="h-11 rounded-control border border-rule bg-paper px-2 text-[17px]"
                         defaultValue=""
                         required
                       >

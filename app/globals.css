@@ -134,6 +134,49 @@ body {
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Safe areas. viewportFit:"cover" paints under the notch and the home
+     indicator, so anything pinned to an edge has to opt back out. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .bottom-safe {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Nested scrollers must not chain into Safari's rubber-band/pull-to-refresh. */
+  .scroll-contain {
+    overscroll-behavior: contain;
+  }
+
+  /* Horizontal scrollers get a fade on the right so it's visible that
+     there is more table off-screen — iOS shows no scrollbar. */
+  .scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  @media (max-width: 640px) {
+    .scroll-x {
+      mask-image: linear-gradient(
+        to right,
+        #000 0,
+        #000 calc(100% - 1.5rem),
+        transparent 100%
+      );
+    }
+    .scroll-x:has(> :only-child:hover),
+    .scroll-x:active {
+      mask-image: none;
+    }
+  }
 }
 
 @layer base {

@@ -128,6 +128,38 @@ describe("generateSchedule", () => {
     expect(games[0].score).toBe(8);
   });
 
+  it("orders games by a TOTAL order, not by sort stability", () => {
+    // Splittable venue => two games share week+slot+venue, which is exactly
+    // the case a week/slot-only comparator leaves undetermined.
+    const { games } = generateSchedule(
+      baseInput({
+        weeks: 3,
+        slots: [{ id: "s1", dayOfWeek: 1, label: "Lunch A" }],
+        venues: [{ id: "v1", splittable: true }],
+      }),
+    );
+    const key = (g: (typeof games)[number]) =>
+      [g.week, g.slotId, g.venueId, g.home, g.away].join("|");
+    const keys = games.map(key);
+    expect(new Set(keys).size).toBe(keys.length);
+
+    // And the emitted order must match that key order exactly.
+    const sorted = [...keys].sort();
+    expect(keys).toEqual(
+      [...games]
+        .sort(
+          (a, b) =>
+            a.week - b.week ||
+            (a.slotId < b.slotId ? -1 : a.slotId > b.slotId ? 1 : 0) ||
+            (a.venueId < b.venueId ? -1 : a.venueId > b.venueId ? 1 : 0) ||
+            (a.home < b.home ? -1 : a.home > b.home ? 1 : 0) ||
+            (a.away < b.away ? -1 : a.away > b.away ? 1 : 0),
+        )
+        .map(key),
+    );
+    expect(sorted.length).toBe(keys.length);
+  });
+
   it("is deterministic", () => {
     const a = generateSchedule(baseInput());
     const b = generateSchedule(baseInput());

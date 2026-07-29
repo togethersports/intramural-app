@@ -15,8 +15,8 @@ import {
   getSeasonStandings,
   getTeams,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/lib/league-constants";
-import { aggregateLines, perGame } from "@/lib/stats";
+import { isLeagueAdmin } from "@core/league-constants";
+import { aggregateLines, perGame } from "@core/stats";
 import { FeedComposer } from "./feed-composer";
 
 function currentWeek(startsOn: string, numWeeks: number): number {

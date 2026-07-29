@@ -66,18 +66,25 @@ export default async function DashboardPage() {
         });
       }
     }
-    for (const team of myTeams) {
-      const { count } = await supabase
+    // one query for all seasons, not one per team
+    if (myTeams.length > 0) {
+      const { data: myAvailability } = await supabase
         .from("availability")
-        .select("id", { count: "exact", head: true })
-        .eq("season_id", team.season_id)
-        .eq("user_id", user.id);
-      if ((count ?? 0) === 0) {
-        pending.push({
-          label: `Fill out availability for ${team.league_name}`,
-          href: `/league/${team.league_slug}/availability`,
-          icon: <IconCalendar size={18} />,
-        });
+        .select("season_id")
+        .eq("user_id", user.id)
+        .in(
+          "season_id",
+          myTeams.map((t) => t.season_id),
+        );
+      const filled = new Set((myAvailability ?? []).map((a) => a.season_id));
+      for (const team of myTeams) {
+        if (!filled.has(team.season_id)) {
+          pending.push({
+            label: `Fill out availability for ${team.league_name}`,
+            href: `/league/${team.league_slug}/availability`,
+            icon: <IconCalendar size={18} />,
+          });
+        }
       }
     }
   }

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useActionState } from "react";
 import { proposeTradeAction, type ActionState } from "../actions";
 import { Button, Field, FormError, Select } from "@/components/ui";
-import type { TeamWithRoster } from "@/lib/types";
+import type { TeamWithRoster } from "@core/types";
 
 const initial: ActionState = { error: null };
 
@@ -92,7 +92,7 @@ export function TradeForm({
           name="note"
           rows={2}
           placeholder="Why this works for both sides…"
-          className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
+          className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[17px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
         />
       </Field>
 
