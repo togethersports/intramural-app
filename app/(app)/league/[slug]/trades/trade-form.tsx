@@ -92,7 +92,7 @@ export function TradeForm({
           name="note"
           rows={2}
           placeholder="Why this works for both sides…"
-          className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
+          className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[17px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
         />
       </Field>
 

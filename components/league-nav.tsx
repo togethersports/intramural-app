@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
   const pathname = usePathname();
+  const railRef = useRef<HTMLElement>(null);
   const base = `/league/${slug}`;
   const items = [
     { href: base, label: "Overview", exact: true },
@@ -21,10 +23,18 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
     ...(admin ? [{ href: `${base}/console`, label: "Console" }] : []),
   ];
 
+  // 12 tabs overflow ~4x the viewport on a phone; deep-linking to a later tab
+  // would otherwise render a rail that looks static and hides the current page.
+  useEffect(() => {
+    const active = railRef.current?.querySelector('[aria-current="page"]');
+    active?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
+
   return (
     <nav
+      ref={railRef}
       aria-label="League"
-      className="flex gap-1 overflow-x-auto rounded-full bg-surface p-1.5 [scrollbar-width:none]"
+      className="scroll-x flex gap-1 rounded-full bg-surface p-1.5"
     >
       {items.map(({ href, label, exact }) => {
         const active = exact

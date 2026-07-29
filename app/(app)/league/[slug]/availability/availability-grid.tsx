@@ -47,14 +47,14 @@ export function AvailabilityGrid({
             key={slot.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-paper p-3.5"
           >
-            <div>
-              <p className="font-semibold">{slot.label}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{slot.label}</p>
               <p className="text-sm text-ink-body">
                 {DAYS[slot.day_of_week]} · {slot.start_time.slice(0, 5)}–
                 {slot.end_time.slice(0, 5)}
               </p>
             </div>
-            <div className="flex gap-1.5" role="radiogroup" aria-label={slot.label}>
+            <div className="flex shrink-0 gap-1.5" role="radiogroup" aria-label={slot.label}>
               {OPTIONS.map((opt) => (
                 <button
                   key={opt.value}

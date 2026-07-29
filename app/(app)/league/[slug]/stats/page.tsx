@@ -138,7 +138,7 @@ export default async function StatsPage({
         <h3 className="mb-3 text-lg font-semibold tracking-tight">
           All players — season totals
         </h3>
-        <div className="overflow-x-auto">
+        <div className="scroll-x">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-ink-faint">
@@ -156,7 +156,7 @@ export default async function StatsPage({
                 .sort((a, b) => b.totals.pts - a.totals.pts)
                 .map((p) => (
                   <tr key={p.userId} className="border-t border-rule">
-                    <td className="py-2.5 pr-2">
+                    <td className="sticky left-0 z-10 max-w-[9rem] truncate bg-surface py-2.5 pr-3">
                       <Link
                         href={`/league/${slug}/player/${p.userId}`}
                         className="font-semibold hover:underline"
@@ -165,7 +165,7 @@ export default async function StatsPage({
                       </Link>
                     </td>
                     <td className="py-2.5 pr-2">
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-body">
+                      <span className="flex max-w-[7rem] items-center gap-1.5 truncate text-xs font-medium text-ink-body">
                         <span
                           aria-hidden
                           className="size-2.5 rounded-full"

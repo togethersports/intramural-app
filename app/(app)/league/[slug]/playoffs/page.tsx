@@ -81,7 +81,7 @@ function NodeCard({
   };
 
   const inner = (
-    <div className="w-56 space-y-1.5 rounded-panel bg-surface p-2.5">
+    <div className="w-52 shrink-0 space-y-1.5 rounded-panel bg-paper p-2.5 sm:w-56">
       {line(home, game && game.status !== "scheduled" ? game.home_score : undefined)}
       {line(away, game && game.status !== "scheduled" ? game.away_score : undefined)}
       {game ? (
@@ -178,9 +178,9 @@ export default async function PlayoffsPage({
         </section>
       ) : null}
 
-      <section className="card overflow-x-auto p-5 sm:p-6">
+      <section className="card p-5 sm:p-6">
         <h2 className="mb-5 text-lg font-semibold tracking-tight">Bracket</h2>
-        <div className="flex gap-8 pb-2">
+        <div className="scroll-x -mx-1 flex gap-8 px-1 pb-2">
           {rounds.map((round) => (
             <div key={round} className="flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-wide text-ink-faint">

@@ -12,6 +12,17 @@
 
 type MarkTone = "ink" | "white" | "white-red" | "red";
 
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+/** True when the caller is controlling `display` themselves. */
+function hasDisplayClass(className?: string) {
+  return /(^|\s)(hidden|block|flex|inline-flex|inline-block|grid|contents)(\s|$)/.test(
+    className ?? "",
+  );
+}
+
 const STROKE: Record<MarkTone, { line: string; output: string }> = {
   ink: { line: "#17171A", output: "#C9242C" },
   "white-red": { line: "#FFFFFF", output: "#C9242C" },
@@ -77,7 +88,14 @@ export function Lockup({
   const onDark = tone === "white" || tone === "white-red";
   return (
     <span
-      className={`inline-flex items-center ${className ?? ""}`}
+      className={cx(
+        // Tailwind emits `hidden` and `inline-flex` in the same layer, so a
+        // caller passing `hidden sm:inline-flex` cannot beat a hardcoded
+        // default by class order — drop the default when they supply one.
+        hasDisplayClass(className) ? null : "inline-flex",
+        "items-center",
+        className,
+      )}
       style={{ gap: size * 0.28 }}
     >
       <Mark size={size} tone={tone} />

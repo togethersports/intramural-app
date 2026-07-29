@@ -17,11 +17,11 @@ export function StandingsTable({
   full?: boolean;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="scroll-x">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left">
-            <th className="label py-2 pr-2">Team</th>
+            <th className="label sticky left-0 z-10 bg-surface py-2 pr-3">Team</th>
             <th className="tabular px-2 py-2 text-right font-medium">W</th>
             <th className="tabular px-2 py-2 text-right font-medium">L</th>
             {full ? (
@@ -45,7 +45,7 @@ export function StandingsTable({
         <tbody>
           {rows.map((r, i) => (
             <tr key={r.teamId} className="border-t border-rule">
-              <td className="py-2.5 pr-2">
+              <td className="sticky left-0 z-10 bg-surface py-2.5 pr-3">
                 <Link
                   href={`/league/${slug}/team/${r.teamId}`}
                   className="flex items-center gap-2 font-semibold hover:underline"
@@ -76,7 +76,7 @@ export function StandingsTable({
                   <td className="num px-2 py-2.5 text-right text-[15px]">{r.pa}</td>
                   <td
                     className={`tabular px-2 py-2.5 text-right ${
-                      r.diff > 0 ? "text-white" : r.diff < 0 ? "text-accent" : ""
+                      r.diff < 0 ? "text-accent" : "text-ink"
                     }`}
                   >
                     {r.diff > 0 ? `+${r.diff}` : r.diff}

@@ -134,7 +134,7 @@ export default async function SchedulePage({
                               min={1}
                               max={30}
                               defaultValue={g.week}
-                              className="tabular mt-1 block h-11 w-16 rounded-control border border-rule bg-paper px-2 text-sm"
+                              className="tabular mt-1 block h-11 w-20 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             />
                           </label>
                           <label className="text-xs font-medium text-ink-body">
@@ -143,7 +143,7 @@ export default async function SchedulePage({
                               name="scheduled_date"
                               type="date"
                               defaultValue={g.scheduled_date ?? ""}
-                              className="mt-1 block h-11 rounded-control border border-rule bg-paper px-2 text-sm"
+                              className="mt-1 block h-11 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             />
                           </label>
                           <label className="text-xs font-medium text-ink-body">
@@ -151,7 +151,7 @@ export default async function SchedulePage({
                             <select
                               name="time_slot_id"
                               defaultValue={g.time_slot_id ?? ""}
-                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
+                              className="mt-1 block h-11 w-36 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             >
                               <option value="">—</option>
                               {slots.map((s) => (
@@ -166,7 +166,7 @@ export default async function SchedulePage({
                             <select
                               name="venue_id"
                               defaultValue={g.venue_id ?? ""}
-                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
+                              className="mt-1 block h-11 w-36 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             >
                               <option value="">—</option>
                               {venues.map((v) => (
@@ -181,7 +181,7 @@ export default async function SchedulePage({
                             <select
                               name="status"
                               defaultValue={g.status}
-                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
+                              className="mt-1 block h-11 w-36 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             >
                               <option value="scheduled">Scheduled</option>
                               <option value="postponed">Postponed</option>
@@ -200,7 +200,7 @@ export default async function SchedulePage({
                             <select
                               name="user_id"
                               defaultValue={g.scorekeeper_id ?? ""}
-                              className="h-11 rounded-control border border-rule bg-paper px-2 text-xs"
+                              className="h-11 rounded-control border border-rule bg-paper px-2 text-[17px]"
                             >
                               <option value="">No scorekeeper</option>
                               {members.map((m) => (

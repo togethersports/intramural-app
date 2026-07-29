@@ -19,6 +19,14 @@ const nav = [
   { href: "/leagues/new", label: "Start a league", icon: IconPlus },
 ];
 
+// "Join a league" and "Start a league" both truncated to near-synonymous
+// verbs ("Join" / "Start") in the tab bar. Name them distinctly instead.
+const TAB_LABEL: Record<string, string> = {
+  "/dashboard": "Home",
+  "/join": "Join",
+  "/leagues/new": "Create",
+};
+
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -35,7 +43,7 @@ export function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 gap-5 px-4 py-5 sm:px-6">
+    <div className="mx-auto flex w-full max-w-7xl flex-1 gap-5 px-4 py-5 px-safe sm:px-6">
       {/* Desktop icon rail */}
       <aside className="sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-[4.5rem] shrink-0 flex-col items-center rounded-card bg-surface py-4 md:flex">
         <Link
@@ -114,13 +122,15 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 pb-24 md:pb-4">{children}</main>
+        <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4">
+          {children}
+        </main>
       </div>
 
       {/* Mobile bottom tabs */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-4 bottom-4 z-40 flex items-stretch justify-around rounded-full bg-ink/95 px-2 py-1.5 shadow-float backdrop-blur md:hidden"
+        className="bottom-safe fixed inset-x-4 z-20 flex items-stretch justify-around rounded-full bg-ink/95 px-2 py-1.5 shadow-float backdrop-blur md:hidden"
       >
         {nav.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
@@ -137,7 +147,9 @@ export function AppShell({
               }
             >
               <Icon size={20} />
-              <span className="label !text-[10px] !tracking-[0.1em]">{label.split(" ")[0]}</span>
+              <span className="label !text-[11px] !tracking-[0.08em]">
+                {TAB_LABEL[href] ?? label}
+              </span>
             </Link>
           );
         })}

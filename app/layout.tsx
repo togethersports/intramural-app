@@ -65,7 +65,7 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col pt-safe">{children}</body>
     </html>
   );
 }

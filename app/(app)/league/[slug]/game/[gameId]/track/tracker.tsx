@@ -373,7 +373,7 @@ export function Tracker({
             </p>
           ) : null}
         </section>
-        <section className="card max-h-80 overflow-y-auto p-4">
+        <section className="card scroll-contain max-h-80 overflow-y-auto p-4">
           {lines
             .sort((a, b) => b[1].pts - a[1].pts)
             .map(([userId, l]) => {
@@ -413,15 +413,15 @@ export function Tracker({
     <div className="mx-auto max-w-2xl space-y-3 pb-40">
       {/* Score + clock header */}
       <section className="card p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-center">
-            <p className="text-xs font-bold" style={{ color: home.color }}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-[13px] font-bold" style={{ color: home.color }}>
               {home.name}
             </p>
             <p className="num text-4xl">{box.homeScore}</p>
           </div>
-          <div className="text-center">
-            <p className="text-xs font-medium text-ink-faint">Period {period}</p>
+          <div className="shrink-0 text-center">
+            <p className="label !text-[11px]">Period {period}</p>
             <button
               onClick={() => setRunning(!running)}
               className={`num min-h-11 rounded-control px-4 text-3xl ${
@@ -432,32 +432,32 @@ export function Tracker({
               {mmss(clockMs)}
             </button>
             <div className="mt-1 flex justify-center gap-1">
-              <button onClick={() => setClockMs((m) => Math.max(0, m - 60000))} className="min-h-8 rounded px-2 text-xs text-ink-faint">−1m</button>
-              <button onClick={() => setClockMs((m) => m + 60000)} className="min-h-8 rounded px-2 text-xs text-ink-faint">+1m</button>
-              <button onClick={endPeriod} className="min-h-8 rounded bg-rule px-2 text-xs font-semibold">
+              <button onClick={() => setClockMs((m) => Math.max(0, m - 60000))} className="min-h-11 rounded-full px-3 text-[13px] font-medium text-ink-muted">−1m</button>
+              <button onClick={() => setClockMs((m) => m + 60000)} className="min-h-11 rounded-full px-3 text-[13px] font-medium text-ink-muted">+1m</button>
+              <button onClick={endPeriod} className="min-h-11 rounded-full bg-rule px-3 text-[13px] font-semibold">
                 End period
               </button>
             </div>
           </div>
-          <div className="text-center">
-            <p className="text-xs font-bold" style={{ color: away.color }}>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-[13px] font-bold" style={{ color: away.color }}>
               {away.name}
             </p>
             <p className="num text-4xl">{box.awayScore}</p>
           </div>
         </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[13px]">
           <span className={pendingCount > 0 ? "font-semibold text-accent" : "text-ink-faint"}>
             {pendingCount > 0 ? `● ${pendingCount} queued offline` : "● synced"}
           </span>
           <div className="flex gap-2">
-            <button onClick={undoLast} className="min-h-8 rounded-control bg-rule px-3 text-xs font-bold">
+            <button onClick={undoLast} className="min-h-11 rounded-full bg-rule px-4 text-[13px] font-bold">
               UNDO
             </button>
-            <button onClick={() => record("timeout", {})} className="min-h-8 rounded-control bg-rule px-3 text-xs font-bold">
+            <button onClick={() => record("timeout", {})} className="min-h-11 rounded-full bg-rule px-4 text-[13px] font-bold">
               TIMEOUT
             </button>
-            <button onClick={() => setConfirmEnd(true)} className="min-h-8 rounded-control bg-accent px-3 text-xs font-bold text-white">
+            <button onClick={() => setConfirmEnd(true)} className="min-h-11 rounded-full bg-accent px-4 text-[13px] font-bold text-white">
               END GAME
             </button>
           </div>
@@ -564,7 +564,7 @@ export function Tracker({
                   if (court.length > 0)
                     setSubMode({ teamId: side.id, out: court[0] });
                 }}
-                className="w-full min-h-10 rounded-control border border-dashed border-ink/20 text-xs font-semibold text-ink-body"
+                className="min-h-11 w-full rounded-full border border-dashed border-ink/25 text-[13px] font-semibold text-ink-body"
               >
                 SUB
               </button>
@@ -580,7 +580,7 @@ export function Tracker({
                         <button
                           key={u}
                           onClick={() => setSubMode({ teamId: side.id, out: u })}
-                          className={`min-h-8 rounded px-2 text-xs font-semibold ${
+                          className={`min-h-11 rounded-full px-3 text-[13px] font-semibold ${
                             subMode.out === u ? "bg-accent text-white" : "bg-rule"
                           }`}
                         >
