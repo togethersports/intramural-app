@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:db": "node scripts/db-test.mjs",
     "typecheck": "tsc --noEmit",
-    "typecheck:core": "tsc --noEmit -p mobile/core/tsconfig.json"
+    "typecheck:core": "tsc --noEmit -p mobile/core/tsconfig.json",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

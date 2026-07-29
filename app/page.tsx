@@ -258,6 +258,12 @@ export default async function LandingPage() {
           <Link href="/design" className="hover:text-white/70">
             Brand
           </Link>
+          <Link href="/privacy" className="hover:text-white/70">
+            Privacy
+          </Link>
+          <Link href="/support" className="hover:text-white/70">
+            Support
+          </Link>
         </nav>
         <p className="label !text-white/70">Built for lunch periods everywhere</p>
       </footer>

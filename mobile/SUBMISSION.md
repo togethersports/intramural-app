@@ -88,8 +88,8 @@ npx eas submit --platform ios --latest
 |---|---|
 | Category | Sports (secondary: Education) |
 | Age rating | **4+** — no objectionable content. Answer "None" to every content question. |
-| Privacy Policy URL | **Required.** Must be live before review. |
-| Support URL | Required. |
+| Privacy Policy URL | `https://<your-domain>/privacy` — the page exists in this repo; it only needs the web app deployed. |
+| Support URL | `https://<your-domain>/support` — likewise. |
 | Sign in with Apple | **Not required** — the app offers only its own email/password account, no third-party login (Guideline 4.8 applies only if you add Google/Facebook sign-in). |
 
 ### Privacy nutrition labels
@@ -113,17 +113,21 @@ because AsyncStorage writes to UserDefaults to persist the session.
 
 Reviewers cannot sign up for a school league on their own — joining needs a
 six-character code from a commissioner. **Give them a working demo account
-and a join code, or the app will be rejected as unusable.** Paste something
-like:
+and a join code, or the app will be rejected as unusable.**
 
-> Intramural is used by school sports leagues. To see the full app, sign in
-> with the demo account below — it is already a member of a league with a
-> schedule, standings and completed games.
->
-> Email: reviewer@yourschool.org
-> Password: ...
->
-> Join code (if you want to join a second league): ABC123
+`npm run seed:demo` builds one and prints the notes text ready to paste. It
+creates a league with four teams, six games (four already played) and full
+box scores, plus a reviewer account that is a *player* — not a commissioner,
+so that deleting the account works rather than being blocked by the
+still-runs-a-league guard:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY="..." npm run seed:demo
+```
+
+The service-role key is under Project Settings → API. It is an admin key —
+it stays out of git and out of the app. Re-running replaces the previous
+demo league and leaves everything else alone.
 
 ## Review risks, and why this app clears them
 
