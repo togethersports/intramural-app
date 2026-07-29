@@ -44,10 +44,16 @@ export const getLeague = cache(
       .eq("slug", slug)
       .maybeSingle();
     if (!data) return null;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return null;
+    // Must be scoped to me: RLS exposes every member of a league I am in, and
+    // maybeSingle() errors on more than one row, so omitting this 404s the
+    // entire league the moment it has two members.
     const { data: membership } = await supabase
       .from("league_members")
       .select("role")
       .eq("league_id", data.id)
+      .eq("user_id", auth.user.id)
       .eq("status", "active")
       .maybeSingle();
     if (!membership) return null;

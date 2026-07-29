@@ -30,9 +30,15 @@ const GAME_SELECT = `id, season_id, week, home_team_id, away_team_id, venue_id,
   time_slot:time_slots(label), venue:venues(name)`;
 
 export async function getMyLeagues(): Promise<LeagueSummary[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
   const { data } = await supabase
     .from("league_members")
     .select("role, league:leagues(id, name, slug, sport, primary_color)")
+    // Scope to MY memberships. RLS makes every member of a league I belong to
+    // visible — rosters need that — so without this the league comes back once
+    // per member, giving the Me tab duplicate rows with duplicate React keys.
+    .eq("user_id", auth.user.id)
     .eq("status", "active");
   return (data ?? [])
     .map((r) => {

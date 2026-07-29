@@ -24,11 +24,17 @@ export interface MemberRow {
 
 export async function getMyLeagues(): Promise<LeagueSummary[]> {
   const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
   const { data, error } = await supabase
     .from("league_members")
     .select(
       "role, league:leagues(id, name, slug, sport, primary_color, join_code)",
     )
+    // Scope to MY memberships. RLS makes every member of a league I belong to
+    // visible — rosters need that — so without this the league comes back once
+    // per member, and the second person to join duplicates it.
+    .eq("user_id", auth.user.id)
     .eq("status", "active")
     .order("created_at", { ascending: true });
   if (error || !data) return [];
@@ -51,10 +57,16 @@ export async function getLeagueBySlug(
     .eq("slug", slug)
     .maybeSingle();
   if (error || !data) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return null;
+  // Without the user_id filter this matches every member of the league, and
+  // maybeSingle() treats more than one row as an error — so the whole league
+  // 404s as soon as a second person joins.
   const { data: membership } = await supabase
     .from("league_members")
     .select("role")
     .eq("league_id", data.id)
+    .eq("user_id", auth.user.id)
     .eq("status", "active")
     .maybeSingle();
   if (!membership) return null;
