@@ -35,9 +35,9 @@ export default async function LandingPage() {
         <div>
           <p className="label !text-white/85">School intramural sports</p>
           <h1 className="mt-5 text-[52px] font-semibold leading-[0.94] tracking-[-0.035em] text-white sm:text-[72px]">
-            Run your league
+            Intramural —
             <br />
-            like the pros.
+            Run Your League
           </h1>
           <p className="mt-6 max-w-[46ch] text-[19px] font-medium leading-[1.5] text-white">
             Captains draft teams. Games fit into lunch and free periods. Stats
