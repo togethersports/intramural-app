@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="180" height="180">
+  <!-- Full-bleed square, no rounding in the file — iOS applies its own mask. -->
+  <rect width="64" height="64" fill="#17171A"/>
+  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none">
+    <path d="M10 18h22"/>
+    <path d="M10 46h22"/>
+    <path d="M32 18v28"/>
+  </g>
+  <path d="M32 32h22" stroke="#C9242C" stroke-width="6" stroke-linecap="round" fill="none"/>
+</svg>

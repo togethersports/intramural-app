@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+/*
+  Intramural — brand implementation (Brandbook v1.0, July 2026).
+  Token names are semantic; the brand name for each is in the comment.
+  See docs/DESIGN.md for the full mapping and the usage rules.
+*/
+
+@theme {
+  /* ---- Core four ---- */
+  --color-ink: #17171a; /* Night Court   — text, dark panels */
+  --color-accent: #c9242c; /* Whistle Red   — the one action / the decision */
+  --color-canvas: #8fa6bf; /* Court Blue    — the ground everything sits on */
+  --color-surface: #f1efe8; /* Sideline Cream — cards, paper */
+
+  /* ---- Support ---- */
+  --color-bench: #4e7ca8; /* Bench Blue    — slot chips, tags */
+  --color-tint: #f7dcdc; /* Red Tint      — active rows, meter tracks */
+  --color-paper: #ffffff; /* Paper White   — nested rows inside cream */
+
+  /* ---- Ink scale ---- */
+  --color-ink-body: #3a3c41; /* body copy on cream */
+  --color-ink-muted: #5a5c61; /* secondary / captions */
+  --color-ink-faint: #8a8c91; /* mono labels, disabled */
+  --color-rule: #e7e5dd; /* hairlines, card borders */
+  --color-rule-soft: #e2e0d8; /* section rules */
+  --color-blush: #f1a0a4; /* light red — labels on Night Court only */
+
+  /* ---- Radii (brandbook 06) ---- */
+  --radius-card: 1.25rem; /* 20px — cards sit 18–24 */
+  --radius-panel: 1.125rem; /* 18px — nested panels */
+  --radius-row: 0.75rem; /* 12px — rows */
+  --radius-control: 0.875rem; /* 14px — inputs, selects */
+
+  /* ---- Type ---- */
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* Shadow lives on floating overlays only — never on a resting card. */
+  --shadow-float: 0 30px 80px rgb(23 23 26 / 0.18);
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* Cream card — the primary surface. Flat: no shadow at rest. */
+  .card {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-card);
+  }
+
+  /* A card that floats above the page (hero cards, overlays, popovers). */
+  .card-float {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-float);
+  }
+
+  /* Nested row inside a cream card. */
+  .row {
+    background-color: var(--color-paper);
+    border-radius: var(--radius-row);
+  }
+
+  /* Slot / tag chip — Bench Blue (brandbook 06). */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: calc(infinity * 1px);
+    background-color: var(--color-bench);
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  /* Secondary chip on Court Blue: 22% white fill, white text. */
+  .chip-canvas {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: calc(infinity * 1px);
+    background-color: rgb(255 255 255 / 0.22);
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  /* Stat-action chip — Night Court, mono (2PT, REB, AST…). */
+  .chip-stat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(infinity * 1px);
+    background-color: var(--color-ink);
+    padding: 0.625rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: #fff;
+  }
+
+  /*
+    Mono data label — 13px, 0.16em tracking, uppercase, 500.
+    The brand's signature eyebrow: section numbers, field labels, metadata.
+  */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  /* Anything a student would argue about: scores, picks, clock, seeds. */
+  .num {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer base {
+  /* Weights 400/500/600 only — no 700, no italics (brandbook 05). */
+  b,
+  strong {
+    font-weight: 600;
+  }
+  em,
+  i {
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
