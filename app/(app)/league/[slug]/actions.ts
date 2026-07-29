@@ -1035,6 +1035,90 @@ export async function cancelTradeAction(formData: FormData) {
   revalidateLeague(str(formData, "slug"));
 }
 
+/* ---------------------------------- rules ----------------------------------- */
+
+export async function saveRules(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return { error: "Not signed in" };
+  const { error } = await supabase.from("league_rules").upsert(
+    {
+      league_id: str(formData, "league_id"),
+      content: String(formData.get("content") ?? ""),
+      updated_by: userRes.user.id,
+    },
+    { onConflict: "league_id" },
+  );
+  if (error) return { error: error.message };
+  revalidateLeague(str(formData, "slug"));
+  return { error: null, notice: "Rules saved." };
+}
+
+const MAX_RULE_FILE_BYTES = 10 * 1024 * 1024;
+
+export async function uploadRuleFile(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const leagueId = str(formData, "league_id");
+  const slug = str(formData, "slug");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file first." };
+  }
+  if (file.size > MAX_RULE_FILE_BYTES) {
+    return { error: "That file is over 10 MB. Upload a smaller one." };
+  }
+
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return { error: "Not signed in" };
+
+  const safeName = file.name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
+  const storagePath = `${leagueId}/${Date.now()}-${safeName}`;
+  const { error: uploadError } = await supabase.storage
+    .from("rules")
+    .upload(storagePath, file, {
+      contentType: file.type || "application/octet-stream",
+    });
+  if (uploadError) return { error: uploadError.message };
+
+  const { error } = await supabase.from("rule_files").insert({
+    league_id: leagueId,
+    name: safeName,
+    storage_path: storagePath,
+    size_bytes: file.size,
+    uploaded_by: userRes.user.id,
+  });
+  if (error) {
+    // don't leave an orphaned blob behind
+    await supabase.storage.from("rules").remove([storagePath]);
+    return { error: error.message };
+  }
+  revalidateLeague(slug);
+  return { error: null, notice: `Uploaded ${safeName}.` };
+}
+
+export async function deleteRuleFile(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const fileId = str(formData, "file_id");
+  const { data: file } = await supabase
+    .from("rule_files")
+    .select("storage_path")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!file) return;
+  await supabase.storage.from("rules").remove([file.storage_path]);
+  await supabase.from("rule_files").delete().eq("id", fileId);
+  revalidateLeague(str(formData, "slug"));
+}
+
 /* ------------------------------ notifications ------------------------------- */
 
 export async function markAllNotificationsRead() {

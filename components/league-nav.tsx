@@ -16,6 +16,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
     { href: `${base}/draft`, label: "Draft" },
     { href: `${base}/trades`, label: "Trades" },
     { href: `${base}/playoffs`, label: "Playoffs" },
+    { href: `${base}/rules`, label: "Rules" },
     { href: `${base}/members`, label: "Members" },
     ...(admin ? [{ href: `${base}/console`, label: "Console" }] : []),
   ];

@@ -523,6 +523,34 @@ assert(
   "commissioner CAN edit the league",
 );
 
+// Rules: any member reads, only admins write.
+assert(
+  !(await rejects(
+    `insert into league_rules (league_id, content, updated_by) values ($1, $2, $3)`,
+    [league.id, "Games are 4x10 minute periods.", uid(1)],
+  )),
+  "commissioner CAN write the rules",
+);
+await asAuthenticated(5);
+assert(
+  (await visible(`select id from league_rules where league_id = $1`, [league.id])) === 1,
+  "player CAN read the rules",
+);
+assert(
+  await rejects(
+    `update league_rules set content = 'hijacked' where league_id = $1`,
+    [league.id],
+  ),
+  "player cannot edit the rules",
+);
+assert(
+  await rejects(
+    `insert into rule_files (league_id, name, storage_path) values ($1, 'x.pdf', $2)`,
+    [league.id, `${league.id}/x.pdf`],
+  ),
+  "player cannot upload a rule file",
+);
+
 await asOwner();
 
 // ---------------------------------------------------------------- summary
