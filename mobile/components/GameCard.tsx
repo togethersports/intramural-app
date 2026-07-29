@@ -5,7 +5,7 @@ import { Num, TeamBadge } from "./ui";
 import type { GameRow } from "@core/types";
 
 /** Dates come back as plain YYYY-MM-DD; parse as UTC so the day never slips. */
-function formatDate(d: string | null): string {
+export function formatDate(d: string | null): string {
   if (!d) return "TBD";
   const dt = new Date(`${d}T00:00:00Z`);
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

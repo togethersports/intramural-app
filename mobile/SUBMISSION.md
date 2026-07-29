@@ -116,10 +116,12 @@ six-character code from a commissioner. **Give them a working demo account
 and a join code, or the app will be rejected as unusable.**
 
 `npm run seed:demo` builds one and prints the notes text ready to paste. It
-creates a league with four teams, six games (four already played) and full
-box scores, plus a reviewer account that is a *player* — not a commissioner,
-so that deleting the account works rather than being blocked by the
-still-runs-a-league guard:
+creates a mid-season league — six teams, thirty-six players, a round-robin
+schedule with four weeks played and two to come, box scores, a play-by-play,
+availability, rules and an inbox — plus a reviewer account that is a
+*player*, not a commissioner, so that deleting the account works rather than
+being blocked by the still-runs-a-league guard. This is also the league the
+App Store screenshots are taken from:
 
 ```bash
 SUPABASE_SERVICE_ROLE_KEY="..." npm run seed:demo

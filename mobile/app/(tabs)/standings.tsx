@@ -8,6 +8,9 @@ import { computeStandings } from "@core/standings";
 import { aggregateLines, perGame } from "@core/stats";
 import { color, space, type } from "@/theme";
 
+/** Column widths shared by the standings header and its rows. */
+const COL = { wl: 30, diff: 50 } as const;
+
 export default function Standings() {
   const { user } = useAuth();
   const router = useRouter();
@@ -72,11 +75,13 @@ export default function Standings() {
             body={loaded ? "Standings fill in once games go final." : undefined} />
         ) : (
           <View style={{ gap: space(0.5) }}>
-            <View style={{ flexDirection: "row", paddingHorizontal: space(1) }}>
+            {/* Header and rows share COL widths and padding, or the
+                right-aligned numerals drift out from under their labels. */}
+            <View style={{ flexDirection: "row", gap: space(1), paddingHorizontal: space(1.25) }}>
               <Label style={{ flex: 1 }}>Team</Label>
-              <Label style={{ width: 34, textAlign: "right" }}>W</Label>
-              <Label style={{ width: 34, textAlign: "right" }}>L</Label>
-              <Label style={{ width: 54, textAlign: "right" }}>Diff</Label>
+              <Label style={{ width: COL.wl, textAlign: "right" }}>W</Label>
+              <Label style={{ width: COL.wl, textAlign: "right" }}>L</Label>
+              <Label style={{ width: COL.diff, textAlign: "right" }}>Diff</Label>
             </View>
             {rows.map((r, i) => (
               <View key={r.teamId} style={{
@@ -87,9 +92,9 @@ export default function Standings() {
                 <Num size={13} style={{ color: color.inkFaint, width: 16 }}>{i + 1}</Num>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: r.teamColor }} />
                 <Text numberOfLines={1} style={[type.bodyMedium, { flex: 1, color: color.ink }]}>{r.name}</Text>
-                <Num size={15} style={{ width: 30, textAlign: "right" }}>{r.w}</Num>
-                <Num size={15} style={{ width: 30, textAlign: "right" }}>{r.l}</Num>
-                <Num size={15} style={{ width: 50, textAlign: "right", color: r.diff < 0 ? color.accent : color.ink }}>
+                <Num size={15} style={{ width: COL.wl, textAlign: "right" }}>{r.w}</Num>
+                <Num size={15} style={{ width: COL.wl, textAlign: "right" }}>{r.l}</Num>
+                <Num size={15} style={{ width: COL.diff, textAlign: "right", color: r.diff < 0 ? color.accent : color.ink }}>
                   {r.diff > 0 ? `+${r.diff}` : r.diff}
                 </Num>
               </View>

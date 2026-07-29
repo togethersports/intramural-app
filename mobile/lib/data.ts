@@ -39,7 +39,11 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
     // visible — rosters need that — so without this the league comes back once
     // per member, giving the Me tab duplicate rows with duplicate React keys.
     .eq("user_id", auth.user.id)
-    .eq("status", "active");
+    .eq("status", "active")
+    // First-joined first, and STABLE — screens that fall back to "my first
+    // league" (rules) must agree with "my first team" (schedule, standings)
+    // instead of drifting on whatever order the database returns.
+    .order("created_at", { ascending: true });
   return (data ?? [])
     .map((r) => {
       const l = r.league as unknown as Omit<LeagueSummary, "role"> | null;

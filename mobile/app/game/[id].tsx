@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Card, EmptyState, H2, HScroll, Label, Num, TeamBadge } from "@/components/ui";
+import { formatDate } from "@/components/GameCard";
 import { getGame, getGameEvents, getLineups, getTeamsWithRosters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -19,11 +20,17 @@ export default function GameDetail() {
   const [events, setEvents] = useState<{ id: string; period: number; type: string; user_id: string | null; team_id: string | null; related_user_id: string | null; voided: boolean; seq: number }[]>([]);
   const [score, setScore] = useState({ home: 0, away: 0 });
   const [refreshing, setRefreshing] = useState(false);
+  const [missing, setMissing] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     const g = await getGame(id);
-    if (!g) return;
+    if (!g) {
+      // Deleted, or in a league this account can't see — either way, an
+      // endless "Loading…" tells the user nothing.
+      setMissing(true);
+      return;
+    }
     setGame(g);
     const [evs, lus, teams] = await Promise.all([
       getGameEvents(id), getLineups(id), getTeamsWithRosters(g.season_id),
@@ -65,8 +72,20 @@ export default function GameDetail() {
   }, [id, game?.status, load]);
 
   if (!game) {
-    return <ScrollView contentContainerStyle={{ padding: space(2) }}><Card><EmptyState title="Loading…" /></Card></ScrollView>;
+    return (
+      <ScrollView contentContainerStyle={{ padding: space(2) }}>
+        <Card>
+          <EmptyState
+            title={missing ? "Game not found" : "Loading…"}
+            body={missing ? "It may have been removed, or it belongs to a league you're not in." : undefined}
+          />
+        </Card>
+      </ScrollView>
+    );
   }
+
+  // An unplayed game has no score — showing "0 — 0" reads as a result.
+  const played = game.status === "live" || game.status === "final" || game.status === "forfeit";
 
   const rowsFor = (teamId: string) =>
     lines.filter((l) => l.teamId === teamId).sort((a, b) => b.pts - a.pts);
@@ -122,38 +141,53 @@ export default function GameDetail() {
           <View style={{ flex: 1, alignItems: "center", gap: 6 }}>
             <TeamBadge abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.bench} size={40} />
             <Text numberOfLines={1} style={[type.small, { color: color.inkBody }]}>{game.home_team?.name}</Text>
-            <Num size={40}>{score.home}</Num>
+            {played ? <Num size={40}>{score.home}</Num> : null}
           </View>
-          <Text style={[type.h2, { color: color.inkFaint }]}>—</Text>
+          {played ? (
+            <Text style={[type.h2, { color: color.inkFaint }]}>—</Text>
+          ) : (
+            <Label>{formatDate(game.scheduled_date)}</Label>
+          )}
           <View style={{ flex: 1, alignItems: "center", gap: 6 }}>
             <TeamBadge abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.bench} size={40} />
             <Text numberOfLines={1} style={[type.small, { color: color.inkBody }]}>{game.away_team?.name}</Text>
-            <Num size={40}>{score.away}</Num>
+            {played ? <Num size={40}>{score.away}</Num> : null}
           </View>
         </View>
       </Card>
 
-      <Box teamId={game.home_team_id} name={game.home_team?.name ?? "Home"} abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.bench} />
-      <Box teamId={game.away_team_id} name={game.away_team?.name ?? "Away"} abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.bench} />
+      {played ? (
+        <>
+          <Box teamId={game.home_team_id} name={game.home_team?.name ?? "Home"} abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.bench} />
+          <Box teamId={game.away_team_id} name={game.away_team?.name ?? "Away"} abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.bench} />
 
-      <Card style={{ gap: space(1) }}>
-        <H2>Play-by-play</H2>
-        {events.filter((e) => !e.voided).length === 0 ? (
-          <Text style={[type.body, { color: color.inkFaint }]}>Nothing yet.</Text>
-        ) : (
-          [...events].filter((e) => !e.voided).reverse().slice(0, 40).map((e) => (
-            <View key={e.id} style={{ flexDirection: "row", gap: space(1.25), alignItems: "baseline" }}>
-              <Label style={{ width: 28 }}>P{e.period}</Label>
-              <Text style={[type.small, { flex: 1, color: color.inkBody }]}>
-                <Text style={{ fontFamily: type.bodyMedium.fontFamily, color: color.ink }}>
-                  {e.user_id ? (names.get(e.user_id) ?? "") : ""}
-                </Text>
-                {" "}{EVENT_LABELS[e.type] ?? e.type}
-              </Text>
-            </View>
-          ))
-        )}
-      </Card>
+          <Card style={{ gap: space(1) }}>
+            <H2>Play-by-play</H2>
+            {events.filter((e) => !e.voided).length === 0 ? (
+              <Text style={[type.body, { color: color.inkFaint }]}>Nothing yet.</Text>
+            ) : (
+              [...events].filter((e) => !e.voided).reverse().slice(0, 40).map((e) => (
+                <View key={e.id} style={{ flexDirection: "row", gap: space(1.25), alignItems: "baseline" }}>
+                  <Label style={{ width: 28 }}>P{e.period}</Label>
+                  <Text style={[type.small, { flex: 1, color: color.inkBody }]}>
+                    <Text style={{ fontFamily: type.bodyMedium.fontFamily, color: color.ink }}>
+                      {e.user_id ? (names.get(e.user_id) ?? "") : ""}
+                    </Text>
+                    {" "}{EVENT_LABELS[e.type] ?? e.type}
+                  </Text>
+                </View>
+              ))
+            )}
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <EmptyState
+            title="Not played yet"
+            body="The box score and play-by-play appear once the game starts."
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
