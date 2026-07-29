@@ -638,6 +638,40 @@ assert(
   "the games themselves survived",
 );
 
+// ------------------------------------- the shape that broke getLeague()
+/*
+  RLS deliberately shows me every member of a league I belong to — rosters,
+  standings and the members console all need that. The trap is that it makes
+  an unfiltered `select ... from league_members` look correct while a league
+  has exactly one member, then return N rows once it has N. Code that fed
+  that into `.maybeSingle()` 404'd the whole league on the second person to
+  join, and code that mapped over it listed the league once per member.
+
+  These two assertions pin the behaviour so the difference stays visible.
+*/
+await asAuthenticated(1);
+const activeMembers = (
+  await one(
+    `select count(*)::int as c from league_members
+      where league_id = $1 and status = 'active'`,
+    [league.id],
+  )
+).c;
+assert(
+  activeMembers > 1,
+  `an unfiltered league_members read returns every member (${activeMembers}), not just mine`,
+);
+assert(
+  (
+    await one(
+      `select count(*)::int as c from league_members
+        where league_id = $1 and user_id = $2 and status = 'active'`,
+      [league.id, uid(1)],
+    )
+  ).c === 1,
+  "adding user_id narrows it to exactly one row — what maybeSingle() needs",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);
