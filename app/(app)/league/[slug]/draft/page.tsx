@@ -56,7 +56,7 @@ export default async function DraftPage({
             <h2 className="mb-1 text-lg font-semibold tracking-tight">
               Set up the draft
             </h2>
-            <p className="mb-4 text-sm text-ink-soft">
+            <p className="mb-4 text-sm text-ink-body">
               Snake order comes from team creation order. Captains are already
               on their rosters; {eligible.length} players are in the pool.
             </p>

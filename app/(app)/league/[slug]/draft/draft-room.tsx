@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Avatar, Button } from "@/components/ui";
+import { IconQueue } from "@/components/icons";
+import { Avatar, Button, TeamBadge } from "@/components/ui";
 import type { DraftPickRow, DraftRow, TeamWithRoster } from "@/lib/types";
 import {
   autoPickAction,
@@ -142,15 +143,15 @@ export function DraftRoom({
           {draft.status === "live" && secondsLeft !== null ? (
             <div className="relative grid size-16 place-items-center">
               <svg viewBox="0 0 40 40" className="absolute inset-0 -rotate-90">
-                <circle cx="20" cy="20" r="17" fill="none" stroke="var(--color-surface-dim)" strokeWidth="4" />
+                <circle cx="20" cy="20" r="17" fill="none" stroke="var(--color-rule)" strokeWidth="4" />
                 <circle
                   cx="20" cy="20" r="17" fill="none"
-                  stroke={secondsLeft <= 10 ? "var(--color-accent)" : "var(--color-court)"}
+                  stroke={secondsLeft <= 10 ? "var(--color-accent)" : "var(--color-bench)"}
                   strokeWidth="4" strokeLinecap="round"
                   strokeDasharray={`${ringPct * 106.8} 106.8`}
                 />
               </svg>
-              <span className="stat-num text-xl">{secondsLeft}</span>
+              <span className="num text-[22px]">{secondsLeft}</span>
             </div>
           ) : null}
           <div>
@@ -192,14 +193,14 @@ export function DraftRoom({
                 <input type="hidden" name="draft_id" value={draft.id} />
                 <input type="hidden" name="status" value="paused" />
                 <input type="hidden" name="slug" value={slug} />
-                <Button type="submit" variant="soft">Pause</Button>
+                <Button type="submit" variant="quiet">Pause</Button>
               </form>
             ) : null}
             {picks.length > 0 && draft.status !== "setup" ? (
               <form action={undoPickAction}>
                 <input type="hidden" name="draft_id" value={draft.id} />
                 <input type="hidden" name="slug" value={slug} />
-                <Button type="submit" variant="ghost">Undo pick</Button>
+                <Button type="submit" variant="quiet">Undo pick</Button>
               </form>
             ) : null}
           </div>
@@ -216,13 +217,13 @@ export function DraftRoom({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search players…"
-            className="mb-3 h-11 w-full rounded-control border border-ink/10 bg-surface-bright px-3 text-sm placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
+            className="mb-3 h-11 w-full rounded-control border border-rule bg-paper px-3 text-sm placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
           />
           <ul className="max-h-[26rem] space-y-1 overflow-y-auto">
             {filtered.map((p) => (
               <li
                 key={p.user_id}
-                className="flex items-center gap-2 rounded-panel px-2 py-1.5 hover:bg-surface-dim/70"
+                className="flex items-center gap-2 rounded-panel px-2 py-1.5 hover:bg-paper"
               >
                 <Avatar name={p.full_name} size={30} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
@@ -236,11 +237,13 @@ export function DraftRoom({
                     onClick={() => toggleQueue(p.user_id)}
                     disabled={pending}
                     aria-label={queuedIds.has(p.user_id) ? "Remove from queue" : "Add to queue"}
-                    className={`grid size-11 place-items-center rounded-control text-lg ${
-                      queuedIds.has(p.user_id) ? "text-amber" : "text-ink-faint hover:text-ink"
+                    className={`grid size-11 place-items-center rounded-full ${
+                      queuedIds.has(p.user_id)
+                        ? "bg-accent text-white"
+                        : "text-ink-faint hover:bg-rule hover:text-ink"
                     }`}
                   >
-                    ★
+                    <IconQueue size={18} />
                   </button>
                 ) : null}
                 {(myTurn || (isAdmin && draft.status === "live")) && (
@@ -260,8 +263,8 @@ export function DraftRoom({
           </ul>
 
           {myTeamId && queue.length > 0 ? (
-            <div className="mt-4 border-t border-ink/5 pt-3">
-              <h4 className="mb-2 text-sm font-semibold text-ink-soft">
+            <div className="mt-4 border-t border-rule pt-3">
+              <h4 className="mb-2 text-sm font-semibold text-ink-body">
                 My queue (auto-picks in order)
               </h4>
               <ol className="space-y-1">
@@ -271,7 +274,7 @@ export function DraftRoom({
                     <span className="min-w-0 flex-1 truncate font-medium">{q.full_name}</span>
                     <button
                       onClick={() => startTransition(async () => { await queueRemove(q.id, slug); })}
-                      className="min-h-11 px-2 text-xs font-semibold text-accent-deep"
+                      className="min-h-11 px-2 text-xs font-semibold text-accent"
                     >
                       Remove
                     </button>
@@ -292,19 +295,19 @@ export function DraftRoom({
                   team.id === currentTeamId ? "ring-2 ring-accent" : ""
                 }`}
               >
-                <div
-                  className="flex items-center justify-between px-4 py-2.5 text-white"
-                  style={{ backgroundColor: team.color }}
-                >
-                  <span className="text-sm font-semibold">{team.name}</span>
+                <div className="flex items-center justify-between gap-2 border-b border-rule px-4 py-3">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <TeamBadge abbrev={team.abbrev} color={team.color} size={24} />
+                    <span className="truncate text-[17px] font-semibold">
+                      {team.name}
+                    </span>
+                  </span>
                   {team.id === currentTeamId ? (
-                    <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-bold uppercase">
+                    <span className="label rounded-full bg-accent px-2.5 py-1 !text-[10px] !text-white">
                       On the clock
                     </span>
                   ) : (
-                    <span className="text-xs text-white/70">
-                      {team.roster.length} players
-                    </span>
+                    <span className="label">{team.roster.length}</span>
                   )}
                 </div>
                 <ul className="px-4 py-2 text-sm">
@@ -343,7 +346,7 @@ export function DraftRoom({
                       style={{ backgroundColor: teamById.get(p.team_id)?.color ?? "#54749b" }}
                     />
                     <span className="min-w-0 flex-1 truncate font-semibold">{p.full_name}</span>
-                    <span className="truncate text-xs text-ink-soft">
+                    <span className="truncate text-xs text-ink-body">
                       {teamById.get(p.team_id)?.name ?? "?"}
                       {p.auto_picked ? " · auto" : ""}
                     </span>

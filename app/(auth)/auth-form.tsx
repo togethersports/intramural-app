@@ -7,7 +7,13 @@ import { Button, Field, FormError, Input, Select } from "@/components/ui";
 
 const initial: AuthState = { error: null, notice: null };
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({
+  mode,
+  initialError,
+}: {
+  mode: "login" | "signup";
+  initialError?: string;
+}) {
   const [state, formAction, pending] = useActionState(
     mode === "login" ? signIn : signUp,
     initial,
@@ -19,16 +25,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <h1 className="text-2xl font-semibold tracking-tight">
           {mode === "login" ? "Welcome back" : "Create your account"}
         </h1>
-        <p className="text-sm text-ink-soft">
+        <p className="text-sm text-ink-body">
           {mode === "login"
             ? "Sign in to see your league."
             : "Name, email, grade — that's all we collect."}
         </p>
       </div>
 
-      <FormError message={state.error} />
+      <FormError message={state.error ?? initialError} />
       {state.notice ? (
-        <p className="rounded-control bg-sage/20 px-4 py-3 text-sm font-medium text-sage-deep">
+        <p className="rounded-control bg-ink px-4 py-3 text-sm font-medium text-white">
           {state.notice}
         </p>
       ) : null}
@@ -89,7 +95,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             : "Create account"}
       </Button>
 
-      <p className="text-center text-sm text-ink-soft">
+      <p className="text-center text-sm text-ink-body">
         {mode === "login" ? (
           <>
             New here?{" "}

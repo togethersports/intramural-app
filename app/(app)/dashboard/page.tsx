@@ -106,7 +106,7 @@ export default async function DashboardPage() {
               <li key={p.href + p.label}>
                 <Link
                   href={p.href}
-                  className="flex min-h-11 items-center gap-3 rounded-panel px-2 font-semibold hover:bg-surface-dim/60"
+                  className="flex min-h-11 items-center gap-3 rounded-panel px-2 font-semibold hover:bg-paper"
                 >
                   <span className="text-accent">{p.icon}</span>
                   {p.label}
@@ -145,8 +145,8 @@ export default async function DashboardPage() {
             My last stat line
           </h2>
           {lastLine?.game ? (
-            <div className="rounded-panel bg-surface-dim/60 p-4">
-              <p className="mb-3 text-xs font-medium text-ink-soft">
+            <div className="rounded-panel bg-paper p-4">
+              <p className="mb-3 text-xs font-medium text-ink-body">
                 {lastLine.game.home_team?.name} {lastLine.game.home_score} —{" "}
                 {lastLine.game.away_score} {lastLine.game.away_team?.name}
               </p>
@@ -164,7 +164,7 @@ export default async function DashboardPage() {
                   ],
                 ].map(([v, label]) => (
                   <div key={label as string}>
-                    <p className="stat-num text-3xl">{v}</p>
+                    <p className="num text-3xl">{v}</p>
                     <p className="text-xs font-medium text-ink-faint">{label}</p>
                   </div>
                 ))}
@@ -193,7 +193,7 @@ export default async function DashboardPage() {
                 <ButtonLink href="/leagues/new" variant="primary">
                   Start a league
                 </ButtonLink>
-                <ButtonLink href="/join" variant="soft">
+                <ButtonLink href="/join" variant="quiet">
                   I have a code
                 </ButtonLink>
               </div>
@@ -207,7 +207,7 @@ export default async function DashboardPage() {
                 <li key={l.id}>
                   <Link
                     href={`/league/${l.slug}`}
-                    className="group flex min-h-11 items-center gap-4 rounded-panel bg-surface-dim/60 p-4 transition-colors hover:bg-surface-dim"
+                    className="group flex min-h-11 items-center gap-4 rounded-panel bg-paper p-4 transition-colors hover:bg-surface"
                   >
                     <span
                       aria-hidden
@@ -221,7 +221,7 @@ export default async function DashboardPage() {
                         <span className="truncate font-semibold">{l.name}</span>
                         <RoleBadge role={l.role} />
                       </span>
-                      <span className="text-sm text-ink-soft">
+                      <span className="text-sm text-ink-body">
                         {sportLabel(l.sport)}
                         {team ? ` · ${team.team_name}` : ""}
                       </span>

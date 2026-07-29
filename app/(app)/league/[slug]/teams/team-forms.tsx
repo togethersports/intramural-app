@@ -43,7 +43,7 @@ export function CreateTeamForm({
           ))}
         </Select>
       </Field>
-      <Button type="submit" disabled={pending} variant="soft">
+      <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Creating…" : "Add team"}
       </Button>
     </form>

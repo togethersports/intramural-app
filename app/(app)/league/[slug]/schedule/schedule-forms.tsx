@@ -42,17 +42,17 @@ export function GenerateScheduleForm({
       </form>
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-sage/20 px-4 py-2.5 text-sm font-medium text-sage-deep">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
           {state.notice}
         </p>
       ) : null}
       {state.conflicts && state.conflicts.length > 0 ? (
-        <div className="rounded-panel bg-accent-wash p-4">
-          <p className="mb-2 text-sm font-bold text-accent-deep">
+        <div className="rounded-panel bg-tint p-4">
+          <p className="mb-2 text-sm font-bold text-accent">
             Conflict report — {state.conflicts.length} matchup
             {state.conflicts.length > 1 ? "s" : ""} could not be placed
           </p>
-          <ul className="space-y-1 text-sm text-accent-deep">
+          <ul className="space-y-1 text-sm text-accent">
             {state.conflicts.map((c, i) => (
               <li key={i}>
                 <span className="font-semibold">{c.matchup}:</span> {c.reason}
@@ -122,7 +122,7 @@ export function AddGameForm({
           ))}
         </Select>
       </Field>
-      <Button type="submit" disabled={pending} variant="soft">
+      <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Adding…" : "Add game"}
       </Button>
     </form>

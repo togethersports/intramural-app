@@ -20,8 +20,8 @@ export function StandingsTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs font-medium text-ink-faint">
-            <th className="py-2 pr-2 font-medium">Team</th>
+          <tr className="text-left">
+            <th className="label py-2 pr-2">Team</th>
             <th className="tabular px-2 py-2 text-right font-medium">W</th>
             <th className="tabular px-2 py-2 text-right font-medium">L</th>
             {full ? (
@@ -44,13 +44,13 @@ export function StandingsTable({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.teamId} className="border-t border-ink/5">
+            <tr key={r.teamId} className="border-t border-rule">
               <td className="py-2.5 pr-2">
                 <Link
                   href={`/league/${slug}/team/${r.teamId}`}
                   className="flex items-center gap-2 font-semibold hover:underline"
                 >
-                  <span className="w-4 text-right text-xs text-ink-faint">
+                  <span className="num w-4 text-right text-[13px] text-ink-faint">
                     {i + 1}
                   </span>
                   <span
@@ -61,22 +61,22 @@ export function StandingsTable({
                   <span className="truncate">{r.name}</span>
                 </Link>
               </td>
-              <td className="tabular px-2 py-2.5 text-right">{r.w}</td>
-              <td className="tabular px-2 py-2.5 text-right">{r.l}</td>
-              {full ? <td className="tabular px-2 py-2.5 text-right">{r.t}</td> : null}
-              <td className="tabular px-2 py-2.5 text-right">
+              <td className="num px-2 py-2.5 text-right text-[15px]">{r.w}</td>
+              <td className="num px-2 py-2.5 text-right text-[15px]">{r.l}</td>
+              {full ? <td className="num px-2 py-2.5 text-right text-[15px]">{r.t}</td> : null}
+              <td className="num px-2 py-2.5 text-right text-[15px]">
                 {r.pct.toFixed(3).replace(/^0/, "")}
               </td>
               {full ? (
                 <>
-                  <td className="tabular px-2 py-2.5 text-right">
+                  <td className="num px-2 py-2.5 text-right text-[15px]">
                     {r.gb === 0 ? "—" : r.gb}
                   </td>
-                  <td className="tabular px-2 py-2.5 text-right">{r.pf}</td>
-                  <td className="tabular px-2 py-2.5 text-right">{r.pa}</td>
+                  <td className="num px-2 py-2.5 text-right text-[15px]">{r.pf}</td>
+                  <td className="num px-2 py-2.5 text-right text-[15px]">{r.pa}</td>
                   <td
                     className={`tabular px-2 py-2.5 text-right ${
-                      r.diff > 0 ? "text-sage-deep" : r.diff < 0 ? "text-accent-deep" : ""
+                      r.diff > 0 ? "text-white" : r.diff < 0 ? "text-accent" : ""
                     }`}
                   >
                     {r.diff > 0 ? `+${r.diff}` : r.diff}

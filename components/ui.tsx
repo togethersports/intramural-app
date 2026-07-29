@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
-import { IconBall } from "./icons";
+import { Lockup } from "./mark";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-/* ---------------------------------- Logo ---------------------------------- */
+export { Mark, Lockup } from "./mark";
 
+/** Wordmark lockup, kept for call sites that predate the brand refresh. */
 export function Logo({
   className,
   dark = false,
@@ -15,40 +16,27 @@ export function Logo({
   className?: string;
   dark?: boolean;
 }) {
-  return (
-    <span className={cx("inline-flex items-center gap-2.5", className)}>
-      <span
-        className={cx(
-          "grid size-9 place-items-center rounded-[12px]",
-          dark ? "bg-ink text-surface" : "bg-surface text-ink",
-        )}
-      >
-        <IconBall size={22} />
-      </span>
-      <span className="text-lg font-semibold tracking-tight">Intramural</span>
-    </span>
-  );
+  return <Lockup size={38} tone={dark ? "white-red" : "ink"} className={className} />;
 }
 
-/* --------------------------------- Button --------------------------------- */
+/* --------------------------------- Button ---------------------------------
+   999px radius, 14/24 padding. One red button per view — `accent` is the
+   league-defining action on a screen, everything else is ink or quiet.
+   On Court Blue, secondary buttons are 22% white fill with white text. */
 
-type ButtonVariant = "primary" | "accent" | "soft" | "ghost" | "canvas" | "light";
+type ButtonVariant = "accent" | "primary" | "light" | "quiet" | "canvas";
 
 const buttonStyles: Record<ButtonVariant, string> = {
-  primary:
-    "bg-ink text-surface-bright hover:bg-black active:scale-[0.98] shadow-card",
-  accent:
-    "bg-accent text-white hover:bg-accent-deep active:scale-[0.98] shadow-card",
-  soft: "bg-surface-dim text-ink hover:bg-[#e0e1da] active:scale-[0.98]",
-  ghost: "text-ink-soft hover:bg-surface-dim hover:text-ink",
+  accent: "bg-accent text-white hover:bg-[#AC1F26] active:scale-[0.98]",
+  primary: "bg-ink text-white hover:bg-black active:scale-[0.98]",
+  light: "bg-paper text-ink hover:bg-surface active:scale-[0.98]",
+  quiet: "bg-paper text-ink font-medium hover:bg-surface active:scale-[0.98]",
   canvas:
-    "border border-white/30 bg-white/15 text-white backdrop-blur-md hover:bg-white/25 active:scale-[0.98]",
-  light:
-    "bg-surface text-ink hover:bg-surface-bright active:scale-[0.98] shadow-card",
+    "bg-white/22 text-white backdrop-blur-sm hover:bg-white/32 active:scale-[0.98]",
 };
 
 const buttonBase =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-control px-5 text-[15px] font-medium transition-all outline-offset-2 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[17px] font-semibold leading-none transition-colors outline-offset-2 disabled:pointer-events-none disabled:opacity-40";
 
 export function Button({
   variant = "primary",
@@ -76,7 +64,7 @@ export function ButtonLink({
   );
 }
 
-/* ---------------------------------- Forms ---------------------------------- */
+/* ---------------------------------- Forms --------------------------------- */
 
 export function Field({
   label,
@@ -91,36 +79,46 @@ export function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label
-        htmlFor={htmlFor}
-        className="block text-[13px] font-medium text-ink-soft"
-      >
+      <label htmlFor={htmlFor} className="label block">
         {label}
       </label>
       {children}
-      {hint ? <p className="text-xs text-ink-faint">{hint}</p> : null}
+      {hint ? <p className="text-sm text-ink-muted">{hint}</p> : null}
     </div>
   );
 }
 
 const inputBase =
-  "w-full min-h-11 rounded-control border border-ink/10 bg-surface-bright px-4 text-[15px] text-ink placeholder:text-ink-faint focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/10";
+  "w-full min-h-11 rounded-control border border-rule bg-paper px-4 text-[17px] text-ink placeholder:text-ink-faint focus:border-ink/40 focus:outline-none focus:ring-2 focus:ring-ink/10";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cx(inputBase, className)} {...props} />;
 }
 
 export function Select({ className, ...props }: ComponentProps<"select">) {
-  return <select className={cx(inputBase, "appearance-none", className)} {...props} />;
+  return (
+    <select className={cx(inputBase, "appearance-none", className)} {...props} />
+  );
 }
 
+/** Errors name the fix (brandbook 07) — pass a sentence that says what to do. */
 export function FormError({ message }: { message?: string | null }) {
   if (!message) return null;
   return (
     <p
       role="alert"
-      className="rounded-control bg-accent-wash px-4 py-3 text-sm font-medium text-accent-deep"
+      className="rounded-row bg-tint px-4 py-3 text-[17px] font-medium text-accent"
     >
+      {message}
+    </p>
+  );
+}
+
+/** Confirmation / neutral notice. No green in the palette — ink does it. */
+export function FormNotice({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return (
+    <p className="rounded-row bg-ink px-4 py-3 text-[17px] font-medium text-white">
       {message}
     </p>
   );
@@ -129,19 +127,20 @@ export function FormError({ message }: { message?: string | null }) {
 /* ---------------------------------- Badge ---------------------------------- */
 
 const roleTone: Record<string, string> = {
-  commissioner: "bg-ink text-surface",
-  admin: "bg-court text-white",
+  commissioner: "bg-ink text-white",
+  admin: "bg-bench text-white",
   captain: "bg-accent text-white",
-  player: "bg-surface-dim text-ink-soft",
-  spectator: "bg-surface-dim text-ink-faint",
+  player: "bg-rule text-ink-body",
+  spectator: "bg-rule text-ink-muted",
 };
 
 export function RoleBadge({ role }: { role: string }) {
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize",
+        "label inline-flex items-center rounded-full px-2.5 py-1 !text-[11px]",
         roleTone[role] ?? roleTone.player,
+        role === "player" || role === "spectator" ? "" : "!text-white",
       )}
     >
       {role}
@@ -149,9 +148,9 @@ export function RoleBadge({ role }: { role: string }) {
   );
 }
 
-/* --------------------------------- Avatar ---------------------------------- */
-
-const avatarPalette = ["#54749b", "#c8232c", "#6d8c5e", "#dfa04f", "#3f5a7c"];
+/* --------------------------------- Avatar ----------------------------------
+   Initials on Night Court. Never tinted by team colour — team colour lives in
+   team badges and bracket rows only (brandbook 04). */
 
 export function Avatar({
   name,
@@ -168,19 +167,42 @@ export function Avatar({
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
     .join("");
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) % 997;
-  const bg = avatarPalette[hash % avatarPalette.length];
   return (
     <span
       className={cx(
-        "grid shrink-0 place-items-center rounded-full font-semibold text-white",
+        "grid shrink-0 place-items-center rounded-full bg-ink font-medium text-white",
         className,
       )}
-      style={{ width: size, height: size, backgroundColor: bg, fontSize: size * 0.38 }}
+      style={{ width: size, height: size, fontSize: size * 0.36 }}
       aria-hidden
     >
-      {initials || "?"}
+      {initials || "—"}
+    </span>
+  );
+}
+
+/** Team identity chip — one of the two places team colour is allowed. */
+export function TeamBadge({
+  abbrev,
+  color,
+  size = 28,
+}: {
+  abbrev: string;
+  color: string;
+  size?: number;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="grid shrink-0 place-items-center rounded-[8px] font-semibold text-white"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: color,
+        fontSize: size * 0.36,
+      }}
+    >
+      {abbrev.slice(0, 3).toUpperCase()}
     </span>
   );
 }
@@ -190,7 +212,6 @@ export function Avatar({
 export function StatTile({
   label,
   value,
-  icon,
   children,
   className,
 }: {
@@ -201,16 +222,11 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <div className={cx("card flex flex-col gap-1 p-5", className)}>
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-sm font-medium text-ink-soft">{label}</span>
-        {icon ? (
-          <span className="grid size-8 place-items-center rounded-full bg-surface-dim text-ink-soft">
-            {icon}
-          </span>
-        ) : null}
+    <div className={cx("card flex flex-col gap-1 p-6", className)}>
+      <span className="label">{label}</span>
+      <div className="num text-[40px] leading-none tracking-tight text-ink">
+        {value}
       </div>
-      <div className="stat-num text-4xl text-ink">{value}</div>
       {children}
     </div>
   );
@@ -234,12 +250,9 @@ export function Meter({
       aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={max}
-      className={cx("h-2 w-full overflow-hidden rounded-full bg-accent-wash", className)}
+      className={cx("h-2 w-full overflow-hidden rounded-full bg-tint", className)}
     >
-      <div
-        className="h-full rounded-full bg-accent"
-        style={{ width: `${pct}%` }}
-      />
+      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -247,7 +260,6 @@ export function Meter({
 /* -------------------------------- Empty state ------------------------------- */
 
 export function EmptyState({
-  icon,
   title,
   body,
   action,
@@ -258,18 +270,22 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-panel bg-surface-dim/60 px-6 py-10 text-center">
-      {icon ? <div className="text-ink-faint">{icon}</div> : null}
+    <div className="flex flex-col items-start gap-3 rounded-panel bg-paper px-6 py-8">
       <div>
-        <p className="font-semibold text-ink">{title}</p>
-        {body ? <p className="mt-1 text-sm text-ink-soft">{body}</p> : null}
+        <p className="text-[19px] font-semibold">{title}</p>
+        {body ? (
+          <p className="mt-1 max-w-[62ch] text-[17px] leading-relaxed text-ink-body">
+            {body}
+          </p>
+        ) : null}
       </div>
       {action}
     </div>
   );
 }
 
-/* ------------------------------- Page header -------------------------------- */
+/* ------------------------------- Page header -------------------------------
+   On Court Blue: white at 500 or heavier, never Night Court body copy. */
 
 export function PageHeader({
   title,
@@ -283,10 +299,12 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">
+        <h1 className="text-[36px] font-semibold leading-[1.05] tracking-[-0.025em] text-white">
           {title}
         </h1>
-        {subtitle ? <p className="mt-1 text-white/70">{subtitle}</p> : null}
+        {subtitle ? (
+          <p className="mt-1 text-[17px] font-medium text-white">{subtitle}</p>
+        ) : null}
       </div>
       {actions ? <div className="flex gap-2">{actions}</div> : null}
     </div>

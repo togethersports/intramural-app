@@ -337,7 +337,7 @@ export function Tracker({
                   className={`min-h-11 rounded-control px-3 text-sm font-semibold ${
                     starters[side.id].has(m.user_id)
                       ? "bg-ink text-surface"
-                      : "bg-surface-dim text-ink-soft"
+                      : "bg-rule text-ink-body"
                   }`}
                 >
                   {m.full_name}
@@ -360,15 +360,15 @@ export function Tracker({
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <section className="card p-5 text-center">
-          <p className="text-sm font-medium text-ink-soft">Confirm final</p>
-          <p className="stat-num text-4xl">
+          <p className="text-sm font-medium text-ink-body">Confirm final</p>
+          <p className="num text-4xl">
             {box.homeScore} — {box.awayScore}
           </p>
-          <p className="text-sm text-ink-soft">
+          <p className="text-sm text-ink-body">
             {home.name} vs {away.name}
           </p>
           {pendingCount > 0 ? (
-            <p className="mt-2 text-xs font-semibold text-amber">
+            <p className="mt-2 text-xs font-semibold text-accent">
               {pendingCount} events still syncing — they&apos;ll be included.
             </p>
           ) : null}
@@ -381,9 +381,9 @@ export function Tracker({
                 [...home.roster, ...away.roster].find((r) => r.user_id === userId)
                   ?.full_name ?? "—";
               return (
-                <p key={userId} className="flex justify-between border-t border-ink/5 py-1.5 text-sm first:border-0">
+                <p key={userId} className="flex justify-between border-t border-rule py-1.5 text-sm first:border-0">
                   <span className="font-semibold">{name}</span>
-                  <span className="tabular text-ink-soft">
+                  <span className="tabular text-ink-body">
                     {l.pts} pts · {l.reb} reb · {l.ast} ast ·{" "}
                     {l.plus_minus > 0 ? `+${l.plus_minus}` : l.plus_minus}
                   </span>
@@ -392,7 +392,7 @@ export function Tracker({
             })}
         </section>
         <div className="flex gap-2">
-          <Button onClick={() => setConfirmEnd(false)} variant="soft" className="flex-1">
+          <Button onClick={() => setConfirmEnd(false)} variant="quiet" className="flex-1">
             Back
           </Button>
           <Button onClick={finish} disabled={finalizing} variant="accent" className="flex-1">
@@ -418,14 +418,14 @@ export function Tracker({
             <p className="text-xs font-bold" style={{ color: home.color }}>
               {home.name}
             </p>
-            <p className="stat-num text-4xl">{box.homeScore}</p>
+            <p className="num text-4xl">{box.homeScore}</p>
           </div>
           <div className="text-center">
             <p className="text-xs font-medium text-ink-faint">Period {period}</p>
             <button
               onClick={() => setRunning(!running)}
-              className={`stat-num min-h-11 rounded-control px-4 text-3xl ${
-                running ? "bg-accent-wash text-accent-deep" : "bg-surface-dim"
+              className={`num min-h-11 rounded-control px-4 text-3xl ${
+                running ? "bg-tint text-accent" : "bg-rule"
               }`}
               aria-label={running ? "Stop clock" : "Start clock"}
             >
@@ -434,7 +434,7 @@ export function Tracker({
             <div className="mt-1 flex justify-center gap-1">
               <button onClick={() => setClockMs((m) => Math.max(0, m - 60000))} className="min-h-8 rounded px-2 text-xs text-ink-faint">−1m</button>
               <button onClick={() => setClockMs((m) => m + 60000)} className="min-h-8 rounded px-2 text-xs text-ink-faint">+1m</button>
-              <button onClick={endPeriod} className="min-h-8 rounded bg-surface-dim px-2 text-xs font-semibold">
+              <button onClick={endPeriod} className="min-h-8 rounded bg-rule px-2 text-xs font-semibold">
                 End period
               </button>
             </div>
@@ -443,18 +443,18 @@ export function Tracker({
             <p className="text-xs font-bold" style={{ color: away.color }}>
               {away.name}
             </p>
-            <p className="stat-num text-4xl">{box.awayScore}</p>
+            <p className="num text-4xl">{box.awayScore}</p>
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between text-xs">
-          <span className={pendingCount > 0 ? "font-semibold text-amber" : "text-ink-faint"}>
+          <span className={pendingCount > 0 ? "font-semibold text-accent" : "text-ink-faint"}>
             {pendingCount > 0 ? `● ${pendingCount} queued offline` : "● synced"}
           </span>
           <div className="flex gap-2">
-            <button onClick={undoLast} className="min-h-8 rounded-control bg-surface-dim px-3 text-xs font-bold">
+            <button onClick={undoLast} className="min-h-8 rounded-control bg-rule px-3 text-xs font-bold">
               UNDO
             </button>
-            <button onClick={() => record("timeout", {})} className="min-h-8 rounded-control bg-surface-dim px-3 text-xs font-bold">
+            <button onClick={() => record("timeout", {})} className="min-h-8 rounded-control bg-rule px-3 text-xs font-bold">
               TIMEOUT
             </button>
             <button onClick={() => setConfirmEnd(true)} className="min-h-8 rounded-control bg-accent px-3 text-xs font-bold text-white">
@@ -466,7 +466,7 @@ export function Tracker({
 
       {/* Assist prompt */}
       {assistPrompt ? (
-        <section className="card border-2 border-amber p-3">
+        <section className="card border-2 border-accent p-3">
           <p className="mb-2 text-sm font-semibold">Assist on that bucket?</p>
           <div className="flex flex-wrap gap-1.5">
             {[...(onCourt[assistPrompt.teamId] ?? [])]
@@ -479,7 +479,7 @@ export function Tracker({
                   <button
                     key={u}
                     onClick={() => addAssist(u)}
-                    className="min-h-11 rounded-control bg-surface-dim px-3 text-sm font-semibold"
+                    className="min-h-11 rounded-control bg-rule px-3 text-sm font-semibold"
                   >
                     {name}
                   </button>
@@ -497,7 +497,7 @@ export function Tracker({
 
       {/* Sub prompt */}
       {subMode ? (
-        <section className="card border-2 border-court p-3">
+        <section className="card border-2 border-bench p-3">
           <p className="mb-2 text-sm font-semibold">Who&apos;s coming in?</p>
           <div className="flex flex-wrap gap-1.5">
             {(subMode.teamId === home.id ? home : away).roster
@@ -506,7 +506,7 @@ export function Tracker({
                 <button
                   key={r.user_id}
                   onClick={() => doSub(r.user_id)}
-                  className="min-h-11 rounded-control bg-surface-dim px-3 text-sm font-semibold"
+                  className="min-h-11 rounded-control bg-rule px-3 text-sm font-semibold"
                 >
                   {r.full_name}
                 </button>
@@ -545,7 +545,7 @@ export function Tracker({
                         setSelected(isSel ? null : { teamId: side.id, userId: r.user_id })
                       }
                       className={`flex min-h-12 w-full items-center justify-between rounded-control px-3 text-left ${
-                        isSel ? "bg-ink text-surface" : "bg-surface-dim/70 hover:bg-surface-dim"
+                        isSel ? "bg-ink text-surface" : "bg-paper hover:bg-surface"
                       }`}
                     >
                       <span className="min-w-0 truncate text-sm font-bold">
@@ -564,7 +564,7 @@ export function Tracker({
                   if (court.length > 0)
                     setSubMode({ teamId: side.id, out: court[0] });
                 }}
-                className="w-full min-h-10 rounded-control border border-dashed border-ink/20 text-xs font-semibold text-ink-soft"
+                className="w-full min-h-10 rounded-control border border-dashed border-ink/20 text-xs font-semibold text-ink-body"
               >
                 SUB
               </button>
@@ -581,7 +581,7 @@ export function Tracker({
                           key={u}
                           onClick={() => setSubMode({ teamId: side.id, out: u })}
                           className={`min-h-8 rounded px-2 text-xs font-semibold ${
-                            subMode.out === u ? "bg-accent text-white" : "bg-surface-dim"
+                            subMode.out === u ? "bg-accent text-white" : "bg-rule"
                           }`}
                         >
                           {name}
@@ -598,7 +598,7 @@ export function Tracker({
 
       {/* Recent events */}
       <section className="card p-3">
-        <ul className="space-y-1 text-xs text-ink-soft">
+        <ul className="space-y-1 text-xs text-ink-body">
           {recentEvents.map((e) => {
             const name =
               [...home.roster, ...away.roster].find((r) => r.user_id === e.user_id)
@@ -616,9 +616,9 @@ export function Tracker({
       </section>
 
       {/* Event pad — fixed thumb zone */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-surface/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-surface/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto max-w-2xl">
-          <p className="mb-2 text-center text-xs font-medium text-ink-soft">
+          <p className="mb-2 text-center text-xs font-medium text-ink-body">
             {selected
               ? `Recording for ${
                   [...home.roster, ...away.roster].find((r) => r.user_id === selected.userId)?.full_name

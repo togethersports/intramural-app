@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TeamBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
@@ -17,19 +18,19 @@ import { LiveRefresher } from "./live-refresher";
 
 function BoxTable({
   title,
+  abbrev,
   color,
   rows,
 }: {
   title: string;
+  abbrev: string;
   color: string;
   rows: (StatLine & { name: string; userId: string; href: string })[];
 }) {
   return (
     <section className="card overflow-hidden">
-      <h3
-        className="px-5 py-3 text-sm font-bold text-white"
-        style={{ backgroundColor: color }}
-      >
+      <h3 className="flex items-center gap-2.5 border-b border-rule px-5 py-4 text-[19px] font-semibold tracking-tight">
+        <TeamBadge abbrev={abbrev} color={color} size={28} />
         {title}
       </h3>
       <div className="overflow-x-auto p-4">
@@ -48,7 +49,7 @@ function BoxTable({
             {rows
               .sort((a, b) => b.pts - a.pts)
               .map((r) => (
-                <tr key={r.userId} className="border-t border-ink/5">
+                <tr key={r.userId} className="border-t border-rule">
                   <td className="py-2 pr-2">
                     <Link href={r.href} className="font-semibold hover:underline">
                       {r.name}
@@ -148,7 +149,7 @@ export default async function GamePage({
 
       {/* Score header */}
       <section className="card p-6">
-        <div className="mb-2 flex items-center justify-between text-xs font-medium text-ink-soft">
+        <div className="mb-2 flex items-center justify-between text-xs font-medium text-ink-body">
           <span>
             Week {game.week}
             {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
@@ -187,7 +188,7 @@ export default async function GamePage({
                   {side.team?.name ?? "?"}
                 </span>
               </Link>
-              <span className="stat-num text-5xl">{side.score}</span>
+              <span className="num text-5xl">{side.score}</span>
               {i === 0 ? <span className="text-ink-faint">—</span> : null}
             </div>
           ))}
@@ -208,12 +209,14 @@ export default async function GamePage({
         <div className="grid gap-5 lg:grid-cols-2">
           <BoxTable
             title={game.home_team?.name ?? "Home"}
-            color={game.home_team?.color ?? "#54749b"}
+            abbrev={game.home_team?.abbrev ?? "?"}
+            color={game.home_team?.color ?? "#4E7CA8"}
             rows={toRows(game.home_team_id)}
           />
           <BoxTable
             title={game.away_team?.name ?? "Away"}
-            color={game.away_team?.color ?? "#54749b"}
+            abbrev={game.away_team?.abbrev ?? "?"}
+            color={game.away_team?.color ?? "#4E7CA8"}
             rows={toRows(game.away_team_id)}
           />
         </div>
@@ -233,7 +236,7 @@ export default async function GamePage({
             {visibleEvents.slice(0, 60).map((e) => (
               <li
                 key={e.id}
-                className="flex items-baseline gap-3 rounded-panel px-2 py-1.5 text-sm odd:bg-surface-dim/40"
+                className="flex items-baseline gap-3 rounded-panel px-2 py-1.5 text-sm odd:bg-paper"
               >
                 <span className="tabular w-8 shrink-0 text-xs text-ink-faint">
                   P{e.period}

@@ -40,7 +40,7 @@ export default async function PlayerPage({
           <h2 className="text-2xl font-semibold tracking-tight">
             {profile.full_name || "Unnamed player"}
           </h2>
-          <p className="text-sm text-ink-soft">
+          <p className="text-sm text-ink-body">
             {myTeam ? myTeam.name : "Free agent"}
             {profile.grade ? ` · Grade ${profile.grade}` : ""}
           </p>
@@ -53,7 +53,7 @@ export default async function PlayerPage({
               [perGame(totals.ast, totals.games).toFixed(1), "APG"],
             ].map(([v, label]) => (
               <div key={label}>
-                <p className="stat-num text-3xl">{v}</p>
+                <p className="num text-3xl">{v}</p>
                 <p className="text-xs font-medium text-ink-faint">{label}</p>
               </div>
             ))}
@@ -101,7 +101,7 @@ export default async function PlayerPage({
                     ? r.game.home_team?.name
                     : r.game.away_team?.name;
                   return (
-                    <tr key={r.game_id} className="border-t border-ink/5">
+                    <tr key={r.game_id} className="border-t border-rule">
                       <td className="py-2.5 pr-2 font-medium">
                         Wk {r.game.week} · {opponentIsHome ? "@" : "vs"}{" "}
                         {opponent ?? "?"}

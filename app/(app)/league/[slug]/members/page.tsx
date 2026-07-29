@@ -40,10 +40,10 @@ export default async function MembersPage({
       {admin ? (
         <section className="card flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
-            <p className="text-sm font-medium text-ink-soft">
+            <p className="text-sm font-medium text-ink-body">
               Invite with this code
             </p>
-            <p className="stat-num font-mono text-3xl tracking-[0.3em]">
+            <p className="num font-mono text-3xl tracking-[0.3em]">
               {league.join_code}
             </p>
           </div>
@@ -58,7 +58,7 @@ export default async function MembersPage({
         </section>
       ) : null}
 
-      <section className="card divide-y divide-ink/5 p-2 sm:p-3">
+      <section className="card divide-y divide-rule p-2 sm:p-3">
         {members.map((m) => (
           <div
             key={m.id}
@@ -67,7 +67,7 @@ export default async function MembersPage({
             <Avatar name={m.full_name} size={40} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{m.full_name}</p>
-              <p className="text-sm text-ink-soft">
+              <p className="text-sm text-ink-body">
                 {m.grade ? `Grade ${m.grade}` : "Grade —"}
               </p>
             </div>

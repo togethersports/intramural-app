@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TeamBadge } from "@/components/ui";
 import type { GameRow } from "@/lib/types";
 
 function TeamLine({
@@ -18,20 +19,14 @@ function TeamLine({
 }) {
   return (
     <div className="flex items-center gap-2.5">
+      <TeamBadge abbrev={abbrev} color={color} size={28} />
       <span
-        aria-hidden
-        className="grid size-7 shrink-0 place-items-center rounded-[8px] text-[10px] font-bold text-white"
-        style={{ backgroundColor: color }}
+        className={`min-w-0 flex-1 truncate text-[17px] ${won ? "font-semibold" : "font-medium"}`}
       >
-        {abbrev.slice(0, 3)}
-      </span>
-      <span className={`min-w-0 flex-1 truncate text-sm ${won ? "font-bold" : "font-medium"}`}>
         {name}
       </span>
       {showScore ? (
-        <span className={`tabular text-base ${won ? "font-bold" : "font-medium text-ink-soft"}`}>
-          {score}
-        </span>
+        <span className={`num text-[19px] ${won ? "" : "text-ink-muted"}`}>{score}</span>
       ) : null}
     </div>
   );
@@ -51,16 +46,16 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
   return (
     <Link
       href={`/league/${slug}/game/${game.id}`}
-      className="block rounded-panel bg-surface-dim/60 p-4 transition-colors hover:bg-surface-dim"
+      className="row block p-4 transition-colors hover:bg-surface"
     >
-      <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium text-ink-soft">
-        <span className="truncate">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <span className="label truncate">
           {dateStr}
           {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
           {game.venue?.name ? ` · ${game.venue.name}` : ""}
         </span>
         {game.status === "live" ? (
-          <span className="inline-flex items-center gap-1.5 font-bold text-accent">
+          <span className="label inline-flex items-center gap-1.5 !text-accent">
             <span className="relative flex size-2">
               <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative size-2 rounded-full bg-accent" />
@@ -68,13 +63,13 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
             LIVE
           </span>
         ) : final ? (
-          <span className="font-bold text-ink">
-            {game.status === "forfeit" ? "FORFEIT" : "FINAL"}
+          <span className="label !text-ink">
+            {game.status === "forfeit" ? "Forfeit" : "Final"}
           </span>
         ) : game.status === "postponed" ? (
-          <span className="font-bold text-amber">PPD</span>
+          <span className="label !text-accent">Postponed</span>
         ) : game.is_playoff ? (
-          <span className="font-bold text-court">PLAYOFF</span>
+          <span className="label !text-bench">Playoff</span>
         ) : null}
       </div>
       <div className="space-y-1.5">

@@ -5,8 +5,13 @@ import { AuthForm } from "../auth-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await getUser();
   if (user) redirect("/dashboard");
-  return <AuthForm mode="login" />;
+  const { error } = await searchParams;
+  return <AuthForm mode="login" initialError={error} />;
 }

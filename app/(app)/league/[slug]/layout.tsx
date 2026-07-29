@@ -21,7 +21,7 @@ export default async function LeagueLayout({
         <div className="flex items-center gap-3">
           <span
             aria-hidden
-            className="grid size-11 shrink-0 place-items-center rounded-[14px] text-lg font-bold text-white shadow-card"
+            className="grid size-11 shrink-0 place-items-center rounded-[14px] text-lg font-bold text-white"
             style={{ backgroundColor: league.primary_color }}
           >
             {league.name.slice(0, 1).toUpperCase()}

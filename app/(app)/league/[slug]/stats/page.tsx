@@ -122,7 +122,7 @@ export default async function StatsPage({
                           className="mt-1 h-1.5"
                         />
                       </span>
-                      <span className="stat-num text-lg">
+                      <span className="num text-lg">
                         {cat.fmt(cat.value(p))}
                       </span>
                     </Link>
@@ -155,7 +155,7 @@ export default async function StatsPage({
               {[...players]
                 .sort((a, b) => b.totals.pts - a.totals.pts)
                 .map((p) => (
-                  <tr key={p.userId} className="border-t border-ink/5">
+                  <tr key={p.userId} className="border-t border-rule">
                     <td className="py-2.5 pr-2">
                       <Link
                         href={`/league/${slug}/player/${p.userId}`}
@@ -165,7 +165,7 @@ export default async function StatsPage({
                       </Link>
                     </td>
                     <td className="py-2.5 pr-2">
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-body">
                         <span
                           aria-hidden
                           className="size-2.5 rounded-full"

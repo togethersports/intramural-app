@@ -23,7 +23,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
   return (
     <nav
       aria-label="League"
-      className="flex gap-1 overflow-x-auto rounded-full bg-surface p-1.5 shadow-card [scrollbar-width:none]"
+      className="flex gap-1 overflow-x-auto rounded-full bg-surface p-1.5 [scrollbar-width:none]"
     >
       {items.map(({ href, label, exact }) => {
         const active = exact
@@ -37,7 +37,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
             className={
               active
                 ? "min-h-11 shrink-0 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface"
-                : "min-h-11 shrink-0 rounded-full px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-dim hover:text-ink"
+                : "min-h-11 shrink-0 rounded-full px-4 py-2.5 text-[15px] font-medium text-ink-body transition-colors hover:bg-rule hover:text-ink"
             }
           >
             {label}

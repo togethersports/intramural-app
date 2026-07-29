@@ -33,7 +33,7 @@ export function LeagueSettingsForm({
     <form action={formAction} className="space-y-3">
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-sage/20 px-4 py-2.5 text-sm font-medium text-sage-deep">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
           {state.notice}
         </p>
       ) : null}
@@ -167,7 +167,7 @@ export function AddTimeSlotForm({
           <option value="after_school">After school</option>
         </Select>
       </Field>
-      <Button type="submit" disabled={pending} variant="soft">
+      <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Adding…" : "Add slot"}
       </Button>
     </form>
@@ -190,11 +190,11 @@ export function AddVenueForm({
       <Field label="Venue name" htmlFor="v-name">
         <Input id="v-name" name="name" placeholder="Main Gym" required className="w-48" />
       </Field>
-      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink-soft">
+      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink-body">
         <input type="checkbox" name="splittable" className="size-4 accent-ink" />
         Splittable (two half-court games)
       </label>
-      <Button type="submit" disabled={pending} variant="soft">
+      <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Adding…" : "Add venue"}
       </Button>
     </form>

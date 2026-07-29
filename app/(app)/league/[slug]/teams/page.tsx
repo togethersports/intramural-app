@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconUsers } from "@/components/icons";
-import { Avatar, EmptyState } from "@/components/ui";
+import { Avatar, EmptyState, TeamBadge } from "@/components/ui";
 import {
   getActiveSeason,
   getFreeAgents,
@@ -75,24 +75,19 @@ export default async function TeamsPage({
         <div className="grid gap-5 lg:grid-cols-2">
           {teams.map((team) => (
             <section key={team.id} className="card overflow-hidden">
-              <div
-                className="flex items-center justify-between gap-3 px-5 py-4"
-                style={{ backgroundColor: team.color }}
-              >
+              <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-4">
                 <Link
                   href={`/league/${slug}/team/${team.id}`}
-                  className="flex items-center gap-3 text-white"
+                  className="flex items-center gap-3"
                 >
-                  <span className="grid size-9 place-items-center rounded-[10px] bg-white/20 text-xs font-bold backdrop-blur">
-                    {team.abbrev}
-                  </span>
-                  <span className="text-lg font-semibold tracking-tight hover:underline">
+                  <TeamBadge abbrev={team.abbrev} color={team.color} size={36} />
+                  <span className="text-[19px] font-semibold tracking-tight hover:underline">
                     {team.name}
                   </span>
                 </Link>
-                <span className="chip">{team.roster.length} players</span>
+                <span className="label">{team.roster.length} players</span>
               </div>
-              <ul className="divide-y divide-ink/5 px-3 py-2">
+              <ul className="divide-y divide-rule px-3 py-2">
                 {team.roster.length === 0 ? (
                   <li className="px-2 py-3 text-sm text-ink-faint">
                     Empty roster — fill it in the draft.
@@ -123,14 +118,14 @@ export default async function TeamsPage({
                             min={0}
                             max={99}
                             defaultValue={m.jersey_number ?? ""}
-                            className="tabular h-11 w-14 rounded-control border border-ink/10 bg-surface-bright px-2 text-center text-sm"
+                            className="tabular h-11 w-14 rounded-control border border-rule bg-paper px-2 text-center text-sm"
                           />
-                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-ink-soft hover:bg-surface-dim">
+                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-ink-body hover:bg-surface">
                             Set
                           </button>
                         </form>
                       ) : (
-                        <span className="tabular text-sm text-ink-soft">
+                        <span className="tabular text-sm text-ink-body">
                           {m.jersey_number != null ? `#${m.jersey_number}` : ""}
                         </span>
                       )}
@@ -138,7 +133,7 @@ export default async function TeamsPage({
                         <form action={removeFromTeam}>
                           <input type="hidden" name="member_id" value={m.id} />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent-deep hover:bg-accent-wash">
+                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent hover:bg-tint">
                             Cut
                           </button>
                         </form>
@@ -148,14 +143,14 @@ export default async function TeamsPage({
                 )}
               </ul>
               {admin ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/5 px-5 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-5 py-3">
                   {freeAgents.length > 0 ? (
                     <form action={addPlayerToTeam} className="flex items-center gap-2">
                       <input type="hidden" name="team_id" value={team.id} />
                       <input type="hidden" name="slug" value={slug} />
                       <select
                         name="user_id"
-                        className="h-11 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                        className="h-11 rounded-control border border-rule bg-paper px-2 text-sm"
                         defaultValue=""
                         required
                       >
@@ -168,7 +163,7 @@ export default async function TeamsPage({
                           </option>
                         ))}
                       </select>
-                      <button className="min-h-11 rounded-control bg-surface-dim px-3 text-sm font-medium hover:bg-[#e0e1da]">
+                      <button className="min-h-11 rounded-control bg-rule px-3 text-sm font-medium hover:bg-surface">
                         Add
                       </button>
                     </form>
@@ -178,7 +173,7 @@ export default async function TeamsPage({
                   <form action={deleteTeam}>
                     <input type="hidden" name="team_id" value={team.id} />
                     <input type="hidden" name="slug" value={slug} />
-                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-deep hover:bg-accent-wash">
+                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent hover:bg-tint">
                       Delete team
                     </button>
                   </form>
@@ -198,7 +193,7 @@ export default async function TeamsPage({
             {freeAgents.map((f) => (
               <span
                 key={f.user_id}
-                className="inline-flex items-center gap-2 rounded-full bg-surface-dim px-3 py-1.5 text-sm font-medium"
+                className="inline-flex items-center gap-2 rounded-full bg-rule px-3 py-1.5 text-sm font-medium"
               >
                 <Avatar name={f.full_name} size={22} />
                 {f.full_name}

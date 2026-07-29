@@ -4,9 +4,11 @@
   create → join → season → teams → draft → availability → game events →
   finalize-ish writes → trade. Fails loudly on any SQL error.
 
+  Then drops to the `authenticated` role — exactly how Supabase serves a
+  signed-in request — and asserts that RLS actually enforces the access
+  rules, rather than merely parsing.
+
   Run with: npm run test:db
-  Note: runs as superuser, so RLS policies are validated for syntax, not
-  enforcement.
 */
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync, readdirSync } from "node:fs";
@@ -40,8 +42,41 @@ function assert(cond, label) {
 }
 
 const uid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+
+/** Impersonate a user the way Supabase does: a JWT claim carrying `sub`. */
 async function actAs(n) {
-  await db.query(`select set_config('app.uid', $1, false)`, [uid(n)]);
+  await db.query(`select set_config('request.jwt.claims', $1, false)`, [
+    JSON.stringify({ sub: uid(n), role: "authenticated" }),
+  ]);
+}
+
+/** Run the next statements under RLS as the `authenticated` role. */
+async function asAuthenticated(n) {
+  await db.query(`reset role`);
+  await actAs(n);
+  await db.query(`set role authenticated`);
+}
+
+async function asOwner() {
+  await db.query(`reset role`);
+}
+
+/** Row count visible to the current role — RLS filters this. */
+async function visible(sql, params = []) {
+  const res = await db.query(sql, params);
+  return res.rows.length;
+}
+
+/** True when a statement was rejected, by RLS or by a raised exception. */
+async function rejects(sql, params = []) {
+  try {
+    const res = await db.query(sql, params);
+    // An UPDATE/DELETE that RLS filters to zero rows is also "blocked".
+    if (/^\s*(update|delete)/i.test(sql)) return (res.affectedRows ?? 0) === 0;
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 // ---------------------------------------------------------- supabase stubs
@@ -57,7 +92,7 @@ await exec(
     raw_user_meta_data jsonb not null default '{}'::jsonb
   );
   create function auth.uid() returns uuid language sql stable as
-    $$ select nullif(current_setting('app.uid', true), '')::uuid $$;
+    $$ select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid $$;
 `,
 );
 
@@ -330,6 +365,165 @@ assert(
   (await one(`select count(*)::int as c from posts where kind = 'auto' and league_id = $1`, [league.id])).c >= 1,
   "auto feed post about the trade",
 );
+
+
+/* ------------------------------------------------------------------------
+   RLS ENFORCEMENT
+
+   Everything above ran as the table owner, which bypasses row-level
+   security. These checks re-run as the `authenticated` role with a JWT
+   claim, which is exactly how Supabase serves a signed-in request, so the
+   policies are genuinely exercised.
+------------------------------------------------------------------------ */
+
+console.log("\n— RLS enforcement (role: authenticated) —");
+
+// An outsider: signed in, but not a member of this league.
+await asOwner();
+await db.query(
+  `insert into auth.users (id, email, raw_user_meta_data)
+   values ($1, 'outsider@other.org', jsonb_build_object('full_name', 'Outside Person'))`,
+  [uid(99)],
+);
+
+await asAuthenticated(99);
+assert(
+  (await visible(`select id from leagues where id = $1`, [league.id])) === 0,
+  "non-member cannot see the league",
+);
+assert(
+  (await visible(`select id from games where season_id = $1`, [season.id])) === 0,
+  "non-member cannot see the schedule",
+);
+assert(
+  (await visible(`select id from profiles where id = $1`, [uid(4)])) === 0,
+  "non-member cannot read a player's profile",
+);
+assert(
+  await rejects(`select join_league_with_code($1)`, ["ZZZZZZ"]),
+  "a bad join code is refused",
+);
+
+// A rank-and-file player in the league.
+await asAuthenticated(5);
+assert(
+  (await visible(`select id from leagues where id = $1`, [league.id])) === 1,
+  "member CAN see the league",
+);
+assert(
+  (await visible(`select id from profiles where id = $1`, [uid(4)])) === 1,
+  "member can read a league-mate's profile",
+);
+assert(
+  await rejects(`update leagues set name = 'Hijacked' where id = $1`, [league.id]),
+  "player cannot rename the league",
+);
+assert(
+  await rejects(
+    `update league_members set role = 'commissioner' where user_id = $1 and league_id = $2`,
+    [uid(5), league.id],
+  ),
+  "player cannot promote themselves to commissioner",
+);
+assert(
+  await rejects(
+    `insert into seasons (league_id, name, starts_on, ends_on) values ($1, 'Rogue', '2026-01-05', '2026-02-05')`,
+    [league.id],
+  ),
+  "player cannot create a season",
+);
+assert(
+  await rejects(
+    `insert into time_slots (league_id, label, day_of_week, start_time, end_time)
+     values ($1, 'Rogue slot', 2, '10:00', '10:30')`,
+    [league.id],
+  ),
+  "player cannot add a time slot",
+);
+
+// Own-row writes a player SHOULD be able to make.
+assert(
+  !(await rejects(
+    `insert into availability (user_id, season_id, time_slot_id, status)
+     values ($1, $2, $3, 'yes')
+     on conflict (user_id, season_id, time_slot_id) do update set status = 'yes'`,
+    [uid(5), season.id, slotA.id],
+  )),
+  "player CAN set their own availability",
+);
+assert(
+  await rejects(
+    `insert into availability (user_id, season_id, time_slot_id, status)
+     values ($1, $2, $3, 'no')`,
+    [uid(6), season.id, slotB.id],
+  ),
+  "player cannot set someone else's availability",
+);
+
+// game_events: writable only by the assigned scorekeeper, only while live.
+await asOwner();
+const live = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, status, scorekeeper_id)
+   values ($1, 2, $2, $3, 'live', $4) returning *`,
+  [season.id, teamA.id, teamB.id, uid(2)],
+);
+
+await asAuthenticated(5); // not the scorekeeper
+assert(
+  await rejects(
+    `insert into game_events (game_id, seq, period, type, user_id, team_id, created_by, client_uuid)
+     values ($1, 1, 1, 'fg2_made', $2, $3, $4, gen_random_uuid())`,
+    [live.id, uid(5), teamA.id, uid(5)],
+  ),
+  "non-scorekeeper cannot write game events",
+);
+
+await asAuthenticated(2); // the assigned scorekeeper
+assert(
+  !(await rejects(
+    `insert into game_events (game_id, seq, period, type, user_id, team_id, created_by, client_uuid)
+     values ($1, 1, 1, 'fg2_made', $2, $3, $4, gen_random_uuid())`,
+    [live.id, uid(4), teamA.id, uid(2)],
+  )),
+  "assigned scorekeeper CAN write game events",
+);
+
+await asOwner();
+await db.query(`update games set status = 'final' where id = $1`, [live.id]);
+await asAuthenticated(2);
+assert(
+  await rejects(
+    `insert into game_events (game_id, seq, period, type, user_id, team_id, created_by, client_uuid)
+     values ($1, 2, 1, 'fg2_made', $2, $3, $4, gen_random_uuid())`,
+    [live.id, uid(4), teamA.id, uid(2)],
+  ),
+  "scorekeeper cannot write events after the game is final",
+);
+
+// Trades are captain-only.
+await asAuthenticated(5);
+assert(
+  await rejects(`select propose_trade($1, $2, $3, $4, $5, '')`, [
+    season.id, teamA.id, teamB.id, `{${uid(4)}}`, `{${uid(7)}}`,
+  ]),
+  "a non-captain cannot propose a trade",
+);
+
+// Notifications are private to their recipient.
+await asAuthenticated(5);
+assert(
+  (await visible(`select id from notifications where user_id = $1`, [uid(3)])) === 0,
+  "a player cannot read another player's notifications",
+);
+
+// Commissioner retains authority.
+await asAuthenticated(1);
+assert(
+  !(await rejects(`update leagues set name = 'Test Hoops' where id = $1`, [league.id])),
+  "commissioner CAN edit the league",
+);
+
+await asOwner();
 
 // ---------------------------------------------------------------- summary
 if (failures > 0) {

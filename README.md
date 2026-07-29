@@ -5,8 +5,10 @@ games are scheduled into lunch and free periods, stats are tracked live from
 the sideline, and playoffs settle it. Basketball first; the data model
 supports other sports.
 
-The full product brief lives in [`docs/BRIEF.md`](docs/BRIEF.md); the design
-language in [`docs/DESIGN.md`](docs/DESIGN.md) (living reference at `/design`).
+The full product brief lives in [`docs/BRIEF.md`](docs/BRIEF.md). The brand
+is [`docs/BRANDBOOK.html`](docs/BRANDBOOK.html) (v1.0) and
+[`docs/DESIGN.md`](docs/DESIGN.md) maps it onto the code — living reference
+at `/design`.
 
 ## Status
 
@@ -46,7 +48,11 @@ game-reminder cron, public no-login league pages.
 - `npm run test:db` — applies every migration to an in-memory Postgres
   (PGlite) and replays a full season scenario: signup → league → draft
   (queues, auto-pick, undo) → availability → live game events (idempotency)
-  → finalize → trade flow
+  → finalize → trade flow. It then drops to the `authenticated` role, the
+  way Supabase serves a signed-in request, and asserts that **RLS actually
+  enforces** access — non-members blocked, no self-promotion to
+  commissioner, game events writable only by the assigned scorekeeper and
+  only while the game is live.
 
 ## Stack
 

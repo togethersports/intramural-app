@@ -33,7 +33,7 @@ export function TradeForm({
     <form action={formAction} className="space-y-4">
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-sage/20 px-4 py-2.5 text-sm font-medium text-sage-deep">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
           {state.notice}
         </p>
       ) : null}
@@ -58,7 +58,7 @@ export function TradeForm({
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <fieldset className="rounded-panel bg-surface-dim/50 p-4">
+        <fieldset className="rounded-panel bg-paper p-4">
           <legend className="px-1 text-sm font-semibold">
             You send ({myTeam.name})
           </legend>
@@ -71,7 +71,7 @@ export function TradeForm({
               </label>
             ))}
         </fieldset>
-        <fieldset className="rounded-panel bg-surface-dim/50 p-4">
+        <fieldset className="rounded-panel bg-paper p-4">
           <legend className="px-1 text-sm font-semibold">
             You receive ({toTeam?.name ?? "—"})
           </legend>
@@ -92,7 +92,7 @@ export function TradeForm({
           name="note"
           rows={2}
           placeholder="Why this works for both sides…"
-          className="w-full rounded-control border border-ink/10 bg-surface-bright px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
+          className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none"
         />
       </Field>
 

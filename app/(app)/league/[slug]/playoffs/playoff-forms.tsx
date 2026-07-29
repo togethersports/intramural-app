@@ -24,7 +24,7 @@ export function GenerateBracketForm({
     <form action={formAction} className="flex flex-wrap items-end gap-3">
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="w-full rounded-control bg-sage/20 px-4 py-2.5 text-sm font-medium text-sage-deep">
+        <p className="w-full rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
           {state.notice}
         </p>
       ) : null}

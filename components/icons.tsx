@@ -174,3 +174,16 @@ export function IconBall(props: IconProps) {
     </svg>
   );
 }
+
+/** Draft queue marker — replaces the star glyph (no emoji/dingbats). */
+export function IconQueue(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6.5h11" />
+      <path d="M4 12h11" />
+      <path d="M4 17.5h7" />
+      <path d="M17.5 15v6" />
+      <path d="M20.5 18h-6" />
+    </svg>
+  );
+}

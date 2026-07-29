@@ -74,7 +74,7 @@ function TiebreakNotes({
   const nameFor = (id: string) =>
     rows.find((r) => r.teamId === id)?.name ?? id.slice(0, 8);
   return (
-    <ul className="space-y-1.5 text-sm text-ink-soft">
+    <ul className="space-y-1.5 text-sm text-ink-body">
       {notes.map((n, i) => {
         // notes reference team ids — swap in names
         let text = n;

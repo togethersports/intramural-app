@@ -62,7 +62,7 @@ function NodeCard({
     return (
       <div
         className={`flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm ${
-          winner ? "bg-ink text-surface font-bold" : "bg-surface-dim/70 font-medium"
+          winner ? "bg-ink text-surface font-bold" : "bg-paper font-medium"
         }`}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -81,7 +81,7 @@ function NodeCard({
   };
 
   const inner = (
-    <div className="w-56 space-y-1.5 rounded-panel bg-surface p-2.5 shadow-card">
+    <div className="w-56 space-y-1.5 rounded-panel bg-surface p-2.5">
       {line(home, game && game.status !== "scheduled" ? game.home_score : undefined)}
       {line(away, game && game.status !== "scheduled" ? game.away_score : undefined)}
       {game ? (
@@ -168,7 +168,7 @@ export default async function PlayoffsPage({
     <div className="space-y-5">
       {champion ? (
         <section className="card flex items-center justify-center gap-4 bg-ink p-8 text-center">
-          <IconTrophy size={40} className="text-amber" />
+          <IconTrophy size={40} className="text-accent" />
           <div>
             <p className="text-sm font-medium text-surface/60">Champions</p>
             <p className="text-3xl font-semibold tracking-tight text-surface">

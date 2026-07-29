@@ -830,7 +830,7 @@ async function advanceBracketAfterFinal(
     await supabase.rpc("post_auto", {
       p_league: season.league_id,
       p_season: seasonId,
-      p_body: `🏆 ${champ?.name ?? "Champions"} win the championship!`,
+      p_body: `${champ?.name ?? "Champions"} win the championship.`,
       p_meta: { champion_team_id: winner },
     });
     await supabase

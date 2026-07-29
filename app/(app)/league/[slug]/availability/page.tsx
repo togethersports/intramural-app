@@ -63,12 +63,12 @@ export default async function AvailabilityPage({
   }
 
   const heatColor = (count: number, rosterSize: number) => {
-    if (rosterSize === 0) return "bg-surface-dim text-ink-faint";
-    if (count >= 5) return "bg-sage text-white";
-    if (count >= 4) return "bg-sage/60 text-ink";
-    if (count >= 3) return "bg-amber/50 text-ink";
-    if (count > 0) return "bg-accent-wash text-accent-deep";
-    return "bg-surface-dim text-ink-faint";
+    if (rosterSize === 0) return "bg-rule text-ink-faint";
+    if (count >= 5) return "bg-ink text-white";
+    if (count >= 4) return "bg-bench text-white";
+    if (count >= 3) return "bg-bench/50 text-ink";
+    if (count > 0) return "bg-tint text-accent";
+    return "bg-rule text-ink-faint";
   };
 
   return (
@@ -77,7 +77,7 @@ export default async function AvailabilityPage({
         <h2 className="mb-1 text-lg font-semibold tracking-tight">
           My weekly availability
         </h2>
-        <p className="mb-4 text-sm text-ink-soft">
+        <p className="mb-4 text-sm text-ink-body">
           Tap once per slot — the scheduler uses this to place games when your
           team can actually play.
         </p>
@@ -91,7 +91,7 @@ export default async function AvailabilityPage({
               <h2 className="text-lg font-semibold tracking-tight">
                 Team heatmap
               </h2>
-              <p className="text-sm text-ink-soft">
+              <p className="text-sm text-ink-body">
                 Players available per team per slot (yes + ½ maybe).
               </p>
             </div>
@@ -99,7 +99,7 @@ export default async function AvailabilityPage({
               <input type="hidden" name="season_id" value={season.id} />
               <input type="hidden" name="league_id" value={league.id} />
               <input type="hidden" name="slug" value={slug} />
-              <Button type="submit" variant="soft">
+              <Button type="submit" variant="quiet">
                 Nudge non-submitters
               </Button>
             </form>
@@ -118,7 +118,7 @@ export default async function AvailabilityPage({
               </thead>
               <tbody>
                 {teams.map((team) => (
-                  <tr key={team.id} className="border-t border-ink/5">
+                  <tr key={team.id} className="border-t border-rule">
                     <td className="py-2 pr-3">
                       <span className="flex items-center gap-2 font-semibold">
                         <span

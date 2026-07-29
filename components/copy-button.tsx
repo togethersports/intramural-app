@@ -33,7 +33,7 @@ export function CopyButton({
     <button
       type="button"
       onClick={copy}
-      className="inline-flex min-h-11 items-center gap-2 rounded-control bg-surface-dim px-4 text-sm font-medium text-ink transition-colors hover:bg-[#e0e1da]"
+      className="inline-flex min-h-11 items-center gap-2 rounded-control bg-rule px-4 text-sm font-medium text-ink transition-colors hover:bg-surface"
     >
       <IconCopy size={16} />
       {copied ? "Copied!" : label}

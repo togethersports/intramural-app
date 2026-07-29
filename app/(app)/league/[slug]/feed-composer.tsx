@@ -34,7 +34,7 @@ export function FeedComposer({
         placeholder={
           admin ? "Post an announcement to the league…" : "Post to your team…"
         }
-        className="w-full rounded-control border border-ink/10 bg-surface-bright px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/10"
+        className="w-full rounded-control border border-rule bg-paper px-4 py-3 text-[15px] placeholder:text-ink-faint focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-ink/10"
       />
       <div className="flex items-center justify-between gap-3">
         {!admin && captainTeam ? (

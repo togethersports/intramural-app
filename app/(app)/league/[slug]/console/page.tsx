@@ -67,7 +67,7 @@ export default async function ConsolePage({
 
       <section className="card p-5 sm:p-6">
         <h2 className="mb-1 text-lg font-semibold tracking-tight">Seasons</h2>
-        <p className="mb-4 text-sm text-ink-soft">
+        <p className="mb-4 text-sm text-ink-body">
           The newest season is the active one everywhere in the app.
         </p>
         {seasons.length > 0 ? (
@@ -75,7 +75,7 @@ export default async function ConsolePage({
             {seasons.map((s) => (
               <li
                 key={s.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-surface-dim/60 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-paper px-4 py-3"
               >
                 <div>
                   <p className="font-semibold">
@@ -86,7 +86,7 @@ export default async function ConsolePage({
                       </span>
                     ) : null}
                   </p>
-                  <p className="text-sm text-ink-soft">
+                  <p className="text-sm text-ink-body">
                     {s.starts_on} · {s.num_weeks} weeks ·{" "}
                     <span className="capitalize">{s.status}</span>
                   </p>
@@ -97,7 +97,7 @@ export default async function ConsolePage({
                       <input type="hidden" name="season_id" value={s.id} />
                       <input type="hidden" name="status" value={t.to} />
                       <input type="hidden" name="slug" value={slug} />
-                      <button className="min-h-11 rounded-control bg-surface px-4 text-sm font-medium hover:bg-surface-bright">
+                      <button className="min-h-11 rounded-control bg-surface px-4 text-sm font-medium hover:bg-paper">
                         {t.label}
                       </button>
                     </form>
@@ -112,7 +112,7 @@ export default async function ConsolePage({
 
       <section className="card p-5 sm:p-6">
         <h2 className="mb-1 text-lg font-semibold tracking-tight">Time slots</h2>
-        <p className="mb-4 text-sm text-ink-soft">
+        <p className="mb-4 text-sm text-ink-body">
           Named school periods that games are scheduled into — the scheduler
           only uses these.
         </p>
@@ -121,11 +121,11 @@ export default async function ConsolePage({
             {slots.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between gap-3 rounded-panel bg-surface-dim/60 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-panel bg-paper px-4 py-3"
               >
                 <div>
                   <p className="font-semibold">{s.label}</p>
-                  <p className="text-sm text-ink-soft">
+                  <p className="text-sm text-ink-body">
                     {DAYS[s.day_of_week]} · {s.start_time.slice(0, 5)}–
                     {s.end_time.slice(0, 5)} · {KIND_LABEL[s.kind]}
                   </p>
@@ -133,7 +133,7 @@ export default async function ConsolePage({
                 <form action={deleteTimeSlot}>
                   <input type="hidden" name="slot_id" value={s.id} />
                   <input type="hidden" name="slug" value={slug} />
-                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-deep hover:bg-accent-wash">
+                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent hover:bg-tint">
                     Remove
                   </button>
                 </form>
@@ -141,7 +141,7 @@ export default async function ConsolePage({
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm font-medium text-amber">
+          <p className="mb-4 text-sm font-medium text-accent">
             No slots yet — the scheduler needs at least one.
           </p>
         )}
@@ -150,7 +150,7 @@ export default async function ConsolePage({
 
       <section className="card p-5 sm:p-6">
         <h2 className="mb-1 text-lg font-semibold tracking-tight">Venues</h2>
-        <p className="mb-4 text-sm text-ink-soft">
+        <p className="mb-4 text-sm text-ink-body">
           One game per venue per slot, or two when splittable.
         </p>
         {venues.length > 0 ? (
@@ -158,12 +158,12 @@ export default async function ConsolePage({
             {venues.map((v) => (
               <li
                 key={v.id}
-                className="flex items-center justify-between gap-3 rounded-panel bg-surface-dim/60 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-panel bg-paper px-4 py-3"
               >
                 <p className="font-semibold">
                   {v.name}
                   {v.splittable ? (
-                    <span className="ml-2 text-xs font-medium text-ink-soft">
+                    <span className="ml-2 text-xs font-medium text-ink-body">
                       splittable
                     </span>
                   ) : null}
@@ -171,7 +171,7 @@ export default async function ConsolePage({
                 <form action={deleteVenue}>
                   <input type="hidden" name="venue_id" value={v.id} />
                   <input type="hidden" name="slug" value={slug} />
-                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-deep hover:bg-accent-wash">
+                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent hover:bg-tint">
                     Remove
                   </button>
                 </form>
@@ -179,7 +179,7 @@ export default async function ConsolePage({
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm font-medium text-amber">
+          <p className="mb-4 text-sm font-medium text-accent">
             No venues yet — add your gym.
           </p>
         )}

@@ -6,8 +6,8 @@ import type { TimeSlotRow } from "@/lib/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const OPTIONS = [
-  { value: "yes", label: "In", active: "bg-sage text-white" },
-  { value: "maybe", label: "Maybe", active: "bg-amber text-white" },
+  { value: "yes", label: "In", active: "bg-ink text-white" },
+  { value: "maybe", label: "Maybe", active: "bg-bench text-white" },
   { value: "no", label: "Out", active: "bg-accent text-white" },
 ] as const;
 
@@ -45,11 +45,11 @@ export function AvailabilityGrid({
         return (
           <li
             key={slot.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-surface-dim/60 p-3.5"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-paper p-3.5"
           >
             <div>
               <p className="font-semibold">{slot.label}</p>
-              <p className="text-sm text-ink-soft">
+              <p className="text-sm text-ink-body">
                 {DAYS[slot.day_of_week]} · {slot.start_time.slice(0, 5)}–
                 {slot.end_time.slice(0, 5)}
               </p>
@@ -64,7 +64,7 @@ export function AvailabilityGrid({
                   className={`min-h-11 min-w-[4.25rem] rounded-control px-3 text-sm font-semibold transition-colors ${
                     current === opt.value
                       ? opt.active
-                      : "bg-surface text-ink-soft hover:bg-surface-bright"
+                      : "bg-surface text-ink-body hover:bg-paper"
                   }`}
                 >
                   {opt.label}

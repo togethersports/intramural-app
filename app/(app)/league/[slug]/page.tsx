@@ -52,7 +52,7 @@ export default async function LeagueOverviewPage({
             admin ? (
               <Link
                 href={`/league/${slug}/console`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-ink px-5 text-[15px] font-medium text-surface-bright"
+                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-ink px-5 text-[15px] font-medium text-paper"
               >
                 Open console <IconArrowRight size={16} />
               </Link>
@@ -106,7 +106,7 @@ export default async function LeagueOverviewPage({
             </h2>
             <Link
               href={`/league/${slug}/schedule`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
             >
               Full schedule <IconArrowRight size={16} />
             </Link>
@@ -153,9 +153,9 @@ export default async function LeagueOverviewPage({
           ) : (
             <ul className="space-y-3">
               {posts.map((p) => (
-                <li key={p.id} className="flex gap-3 rounded-panel bg-surface-dim/60 p-3.5">
+                <li key={p.id} className="flex gap-3 rounded-panel bg-paper p-3.5">
                   {p.kind === "auto" ? (
-                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-deep">
+                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-accent">
                       <IconBall size={16} />
                     </span>
                   ) : (
@@ -189,7 +189,7 @@ export default async function LeagueOverviewPage({
             <h2 className="text-lg font-semibold tracking-tight">Standings</h2>
             <Link
               href={`/league/${slug}/standings`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
             >
               Full <IconArrowRight size={16} />
             </Link>
@@ -207,7 +207,7 @@ export default async function LeagueOverviewPage({
             <h2 className="text-lg font-semibold tracking-tight">Top scorers</h2>
             <Link
               href={`/league/${slug}/stats`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-soft hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
             >
               Stats <IconArrowRight size={16} />
             </Link>
@@ -231,7 +231,7 @@ export default async function LeagueOverviewPage({
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       {l.name}
                     </span>
-                    <span className="stat-num text-lg">{l.ppg.toFixed(1)}</span>
+                    <span className="num text-lg">{l.ppg.toFixed(1)}</span>
                     <span className="text-xs text-ink-faint">PPG</span>
                   </Link>
                 </li>
@@ -247,25 +247,25 @@ export default async function LeagueOverviewPage({
           </h2>
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between">
-              <dt className="text-ink-soft">Week</dt>
+              <dt className="text-ink-body">Week</dt>
               <dd className="tabular font-semibold">
                 {week} of {season.num_weeks}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-soft">Teams</dt>
+              <dt className="text-ink-body">Teams</dt>
               <dd className="tabular font-semibold">{teams.length}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-soft">Status</dt>
+              <dt className="text-ink-body">Status</dt>
               <dd className="font-semibold capitalize">{season.status}</dd>
             </div>
           </dl>
           {admin ? (
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-panel bg-surface-dim/70 p-3">
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-panel bg-paper p-3">
               <div>
-                <p className="text-xs font-medium text-ink-soft">Join code</p>
-                <p className="stat-num font-mono text-xl tracking-[0.25em]">
+                <p className="text-xs font-medium text-ink-body">Join code</p>
+                <p className="num font-mono text-xl tracking-[0.25em]">
                   {league.join_code}
                 </p>
               </div>

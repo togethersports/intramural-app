@@ -374,13 +374,17 @@ begin
     'Your trade has been approved and executed.');
   perform notify_team(v.to_team_id, 'trade', 'Trade executed',
     'Your trade has been approved and executed.');
+  -- Voice: name the teams and the players, no decoration (brandbook 07).
   perform post_auto(league_of_season(v.season_id), v.season_id,
-    'TRADE: ' || (select string_agg(p.full_name, ', ')
+    'TRADE: ' || (select name from teams where id = v.from_team_id)
+      || ' send ' || (select string_agg(p.full_name, ', ')
                   from trade_items it join profiles p on p.id = it.user_id
                   where it.trade_id = p_trade and it.from_team_id = v.from_team_id)
-      || ' ⇄ ' || (select string_agg(p.full_name, ', ')
+      || ' to ' || (select name from teams where id = v.to_team_id)
+      || ' for ' || (select string_agg(p.full_name, ', ')
                   from trade_items it join profiles p on p.id = it.user_id
-                  where it.trade_id = p_trade and it.from_team_id = v.to_team_id),
+                  where it.trade_id = p_trade and it.from_team_id = v.to_team_id)
+      || '.',
     jsonb_build_object('trade_id', p_trade));
 
   insert into audit_log (league_id, actor_id, action, target_type, target_id)

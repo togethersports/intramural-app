@@ -34,7 +34,7 @@ export function MemberControls({
           onChange={() =>
             startTransition(() => formRef.current?.requestSubmit())
           }
-          className="min-h-11 rounded-control border border-ink/10 bg-surface-bright px-3 text-sm font-medium capitalize focus:border-ink/30 focus:outline-none"
+          className="min-h-11 rounded-control border border-rule bg-paper px-3 text-sm font-medium capitalize focus:border-ink/30 focus:outline-none"
         >
           {roles.map((r) => (
             <option key={r} value={r}>
@@ -49,7 +49,7 @@ export function MemberControls({
           <input type="hidden" name="slug" value={slug} />
           <button
             type="submit"
-            className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-deep transition-colors hover:bg-accent-wash"
+            className="min-h-11 rounded-control px-3 text-sm font-medium text-accent transition-colors hover:bg-tint"
           >
             Remove
           </button>

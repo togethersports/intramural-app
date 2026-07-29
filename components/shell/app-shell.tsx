@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/(auth)/actions";
 import {
-  IconBall,
   IconBell,
   IconGrid,
   IconLogout,
   IconPlus,
   IconTicket,
 } from "@/components/icons";
+import { Mark } from "@/components/mark";
 import { Avatar } from "@/components/ui";
 
 const nav = [
@@ -37,13 +37,13 @@ export function AppShell({
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 gap-5 px-4 py-5 sm:px-6">
       {/* Desktop icon rail */}
-      <aside className="sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-[4.5rem] shrink-0 flex-col items-center rounded-card bg-surface py-4 shadow-card md:flex">
+      <aside className="sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-[4.5rem] shrink-0 flex-col items-center rounded-card bg-surface py-4 md:flex">
         <Link
           href="/dashboard"
           aria-label="Intramural home"
-          className="grid size-11 place-items-center rounded-[14px] bg-ink text-surface"
+          className="grid size-11 place-items-center rounded-[12px] bg-ink"
         >
-          <IconBall size={24} />
+          <Mark size={26} tone="white-red" />
         </Link>
         <nav className="mt-6 flex flex-col gap-2" aria-label="Main">
           {nav.map(({ href, label, icon: Icon }) => {
@@ -57,8 +57,8 @@ export function AppShell({
                 aria-current={active ? "page" : undefined}
                 className={
                   active
-                    ? "grid size-11 place-items-center rounded-control bg-ink text-surface"
-                    : "grid size-11 place-items-center rounded-control text-ink-faint transition-colors hover:bg-surface-dim hover:text-ink"
+                    ? "grid size-11 place-items-center rounded-full bg-ink text-white"
+                    : "grid size-11 place-items-center rounded-full text-ink-faint transition-colors hover:bg-rule hover:text-ink"
                 }
               >
                 <Icon size={21} />
@@ -71,7 +71,7 @@ export function AppShell({
             type="submit"
             aria-label="Sign out"
             title="Sign out"
-            className="grid size-11 place-items-center rounded-control text-ink-faint transition-colors hover:bg-surface-dim hover:text-ink"
+            className="grid size-11 place-items-center rounded-full text-ink-faint transition-colors hover:bg-rule hover:text-ink"
           >
             <IconLogout size={21} />
           </button>
@@ -83,19 +83,19 @@ export function AppShell({
         <header className="flex items-center justify-between gap-3">
           <Link
             href="/dashboard"
-            className="grid size-11 place-items-center rounded-[14px] bg-surface text-ink shadow-card md:hidden"
+            className="grid size-11 place-items-center rounded-[12px] bg-ink md:hidden"
             aria-label="Intramural home"
           >
-            <IconBall size={24} />
+            <Mark size={26} tone="white-red" />
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <Link
               href="/inbox"
               aria-label={`Inbox${unread > 0 ? `, ${unread} unread` : ""}`}
-              className={`relative grid size-11 place-items-center rounded-full shadow-card ${
+              className={`relative grid size-11 place-items-center rounded-full ${
                 pathname === "/inbox"
-                  ? "bg-ink text-surface"
-                  : "bg-surface text-ink-soft hover:text-ink"
+                  ? "bg-ink text-white"
+                  : "bg-surface text-ink-body hover:text-ink"
               }`}
             >
               <IconBell size={20} />
@@ -105,7 +105,7 @@ export function AppShell({
                 </span>
               ) : null}
             </Link>
-            <div className="flex items-center gap-2 rounded-full bg-surface py-1.5 pl-1.5 pr-4 shadow-card">
+            <div className="flex items-center gap-2 rounded-full bg-surface py-1.5 pl-1.5 pr-4">
               <Avatar name={name} size={34} />
               <span className="max-w-40 truncate text-sm font-semibold">
                 {name}
@@ -132,12 +132,12 @@ export function AppShell({
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full bg-surface text-ink"
-                  : "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-surface/70"
+                  ? "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full bg-white text-ink"
+                  : "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-white/70"
               }
             >
               <Icon size={20} />
-              <span className="text-[10px] font-semibold">{label.split(" ")[0]}</span>
+              <span className="label !text-[10px] !tracking-[0.1em]">{label.split(" ")[0]}</span>
             </Link>
           );
         })}

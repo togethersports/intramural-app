@@ -24,10 +24,15 @@ Phase 1 is the draft room.
 
 ## Design
 
-**Read `docs/DESIGN.md` before building UI.** Tokens live in
-`app/globals.css` (`@theme`); shared primitives in `components/ui.tsx`;
-living styleguide at `/design`. In short: off-white cards (`.card`, 28px
-radius) on the steel-blue canvas, crimson is the only saturated color,
-Instrument Sans with tabular numerals for stats, translucent `.chip` pills
-on canvas, ≥44px touch targets, 4.5:1 contrast. Commissioner surfaces are
-desktop-dense; player surfaces are mobile-first.
+**The brand is `docs/BRANDBOOK.html` (v1.0); `docs/DESIGN.md` maps it onto
+the code. Read DESIGN.md before building UI.** Tokens in `app/globals.css`
+(`@theme`), primitives in `components/ui.tsx`, the mark in
+`components/mark.tsx`, living reference at `/design`.
+
+In short: cream cards on the Court Blue ground, **flat — shadow only on
+floating overlays**; Outfit for anything human, JetBrains Mono (`.num`,
+`.label`) for anything counted; pill buttons with **one red button per
+view**; no green, no amber, **no emoji ever**; team colours only in
+`TeamBadge` and bracket rows, never in chrome; errors name the fix; ≥44px
+touch targets. Commissioner surfaces are desktop-dense; player surfaces are
+mobile-first.

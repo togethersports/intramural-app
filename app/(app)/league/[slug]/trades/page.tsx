@@ -21,12 +21,12 @@ import { TradeForm } from "./trade-form";
 export const metadata: Metadata = { title: "Trades" };
 
 const STATUS_TONE: Record<TradeRow["status"], string> = {
-  proposed: "bg-amber/20 text-amber",
-  accepted: "bg-court/15 text-court",
-  executed: "bg-sage/20 text-sage-deep",
-  declined: "bg-surface-dim text-ink-faint",
-  cancelled: "bg-surface-dim text-ink-faint",
-  vetoed: "bg-accent-wash text-accent-deep",
+  proposed: "bg-tint text-accent",
+  accepted: "bg-bench text-white",
+  executed: "bg-ink text-white",
+  declined: "bg-rule text-ink-faint",
+  cancelled: "bg-rule text-ink-faint",
+  vetoed: "bg-tint text-accent",
 };
 
 export default async function TradesPage({
@@ -63,7 +63,7 @@ export default async function TradesPage({
     const fromPlayers = t.items.filter((i) => i.from_team_id === t.from_team_id);
     const toPlayers = t.items.filter((i) => i.from_team_id === t.to_team_id);
     return (
-      <p className="text-sm text-ink-soft">
+      <p className="text-sm text-ink-body">
         <span className="font-semibold text-ink">{teamName.get(t.from_team_id)}</span>{" "}
         send {fromPlayers.map((p) => p.full_name).join(", ") || "—"} ·{" "}
         <span className="font-semibold text-ink">{teamName.get(t.to_team_id)}</span>{" "}
@@ -96,7 +96,7 @@ export default async function TradesPage({
                 teams.find((tm) => tm.id === t.to_team_id)?.captain_id === user.id;
               const iProposed = t.proposed_by === user.id;
               return (
-                <li key={t.id} className="rounded-panel bg-surface-dim/60 p-4">
+                <li key={t.id} className="rounded-panel bg-paper p-4">
                   <div className="mb-1.5 flex items-center justify-between gap-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS_TONE[t.status]}`}
@@ -121,7 +121,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="accept" value="true" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-sage px-4 text-sm font-semibold text-white">
+                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-white">
                             Accept
                           </button>
                         </form>
@@ -149,7 +149,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="approve" value="false" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-accent-wash px-4 text-sm font-semibold text-accent-deep">
+                          <button className="min-h-11 rounded-control bg-tint px-4 text-sm font-semibold text-accent">
                             Veto
                           </button>
                         </form>
@@ -159,7 +159,7 @@ export default async function TradesPage({
                       <form action={cancelTradeAction}>
                         <input type="hidden" name="trade_id" value={t.id} />
                         <input type="hidden" name="slug" value={slug} />
-                        <button className="min-h-11 rounded-control px-4 text-sm font-medium text-ink-faint hover:bg-surface-dim">
+                        <button className="min-h-11 rounded-control px-4 text-sm font-medium text-ink-faint hover:bg-surface">
                           Withdraw
                         </button>
                       </form>
@@ -181,7 +181,7 @@ export default async function TradesPage({
         ) : (
           <ul className="space-y-2.5">
             {history.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-2 border-t border-ink/5 pt-2.5 first:border-0 first:pt-0">
+              <li key={t.id} className="flex flex-wrap items-center gap-2 border-t border-rule pt-2.5 first:border-0 first:pt-0">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS_TONE[t.status]}`}>
                   {t.status}
                 </span>

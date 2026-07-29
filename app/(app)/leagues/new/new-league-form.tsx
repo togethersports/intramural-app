@@ -43,7 +43,7 @@ export function NewLeagueForm() {
       </Field>
 
       <fieldset>
-        <legend className="mb-1.5 block text-[13px] font-medium text-ink-soft">
+        <legend className="mb-1.5 block text-[13px] font-medium text-ink-body">
           League color
         </legend>
         <div className="flex flex-wrap gap-2.5">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
-import { Avatar, StatTile } from "@/components/ui";
+import { Avatar, StatTile, TeamBadge } from "@/components/ui";
 import {
   getActiveSeason,
   getGames,
@@ -47,24 +47,33 @@ export default async function TeamPage({
 
   return (
     <div className="space-y-5">
-      <section
-        className="card flex flex-wrap items-center justify-between gap-4 p-6"
-        style={{ backgroundColor: team.color }}
-      >
-        <div className="text-white">
-          <p className="text-sm font-medium text-white/70">{team.abbrev}</p>
-          <h2 className="text-3xl font-semibold tracking-tight">{team.name}</h2>
+      <section className="card flex flex-wrap items-center justify-between gap-4 p-7">
+        <div className="flex items-center gap-4">
+          <TeamBadge abbrev={team.abbrev} color={team.color} size={52} />
+          <div>
+            <p className="label">{team.abbrev}</p>
+            <h2 className="text-[36px] font-semibold leading-[1.05] tracking-[-0.025em]">
+              {team.name}
+            </h2>
+          </div>
         </div>
         {row ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <span className="chip">
-              {row.w}–{row.l}
-              {row.t > 0 ? `–${row.t}` : ""}
+              <span className="num">
+                {row.w}&#8211;{row.l}
+                {row.t > 0 ? `\u2013${row.t}` : ""}
+              </span>
             </span>
-            <span className="chip">#{rank} seed</span>
             <span className="chip">
-              {row.diff > 0 ? "+" : ""}
-              {row.diff} diff
+              Seed <span className="num ml-1">{rank}</span>
+            </span>
+            <span className="chip">
+              <span className="num">
+                {row.diff > 0 ? "+" : ""}
+                {row.diff}
+              </span>
+              <span className="ml-1">diff</span>
             </span>
           </div>
         ) : null}
@@ -95,7 +104,7 @@ export default async function TeamPage({
                 const lines = byPlayer.get(m.user_id) ?? [];
                 const totals = aggregateLines(lines);
                 return (
-                  <tr key={m.id} className="border-t border-ink/5">
+                  <tr key={m.id} className="border-t border-rule">
                     <td className="py-2.5">
                       <Link
                         href={`/league/${slug}/player/${m.user_id}`}

@@ -74,8 +74,8 @@ export default async function SchedulePage({
             />
           </div>
           {teams.length >= 2 ? (
-            <div className="border-t border-ink/5 pt-4">
-              <h3 className="mb-3 text-sm font-semibold text-ink-soft">
+            <div className="border-t border-rule pt-4">
+              <h3 className="mb-3 text-sm font-semibold text-ink-body">
                 Or add a game manually
               </h3>
               <AddGameForm
@@ -115,8 +115,8 @@ export default async function SchedulePage({
                 <div key={g.id} className="space-y-2">
                   <GameCard game={g} slug={slug} />
                   {admin && g.status !== "final" ? (
-                    <details className="rounded-panel bg-surface-dim/40 px-3 py-2">
-                      <summary className="min-h-11 cursor-pointer py-2 text-xs font-semibold text-ink-soft">
+                    <details className="rounded-panel bg-paper px-3 py-2">
+                      <summary className="min-h-11 cursor-pointer py-2 text-xs font-semibold text-ink-body">
                         Manage game
                       </summary>
                       <div className="space-y-3 pb-2 pt-1">
@@ -126,7 +126,7 @@ export default async function SchedulePage({
                         >
                           <input type="hidden" name="game_id" value={g.id} />
                           <input type="hidden" name="slug" value={slug} />
-                          <label className="text-xs font-medium text-ink-soft">
+                          <label className="text-xs font-medium text-ink-body">
                             Week
                             <input
                               name="week"
@@ -134,24 +134,24 @@ export default async function SchedulePage({
                               min={1}
                               max={30}
                               defaultValue={g.week}
-                              className="tabular mt-1 block h-11 w-16 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                              className="tabular mt-1 block h-11 w-16 rounded-control border border-rule bg-paper px-2 text-sm"
                             />
                           </label>
-                          <label className="text-xs font-medium text-ink-soft">
+                          <label className="text-xs font-medium text-ink-body">
                             Date
                             <input
                               name="scheduled_date"
                               type="date"
                               defaultValue={g.scheduled_date ?? ""}
-                              className="mt-1 block h-11 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                              className="mt-1 block h-11 rounded-control border border-rule bg-paper px-2 text-sm"
                             />
                           </label>
-                          <label className="text-xs font-medium text-ink-soft">
+                          <label className="text-xs font-medium text-ink-body">
                             Slot
                             <select
                               name="time_slot_id"
                               defaultValue={g.time_slot_id ?? ""}
-                              className="mt-1 block h-11 w-28 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
                             >
                               <option value="">—</option>
                               {slots.map((s) => (
@@ -161,12 +161,12 @@ export default async function SchedulePage({
                               ))}
                             </select>
                           </label>
-                          <label className="text-xs font-medium text-ink-soft">
+                          <label className="text-xs font-medium text-ink-body">
                             Venue
                             <select
                               name="venue_id"
                               defaultValue={g.venue_id ?? ""}
-                              className="mt-1 block h-11 w-28 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
                             >
                               <option value="">—</option>
                               {venues.map((v) => (
@@ -176,12 +176,12 @@ export default async function SchedulePage({
                               ))}
                             </select>
                           </label>
-                          <label className="text-xs font-medium text-ink-soft">
+                          <label className="text-xs font-medium text-ink-body">
                             Status
                             <select
                               name="status"
                               defaultValue={g.status}
-                              className="mt-1 block h-11 w-28 rounded-control border border-ink/10 bg-surface-bright px-2 text-sm"
+                              className="mt-1 block h-11 w-28 rounded-control border border-rule bg-paper px-2 text-sm"
                             >
                               <option value="scheduled">Scheduled</option>
                               <option value="postponed">Postponed</option>
@@ -200,7 +200,7 @@ export default async function SchedulePage({
                             <select
                               name="user_id"
                               defaultValue={g.scorekeeper_id ?? ""}
-                              className="h-11 rounded-control border border-ink/10 bg-surface-bright px-2 text-xs"
+                              className="h-11 rounded-control border border-rule bg-paper px-2 text-xs"
                             >
                               <option value="">No scorekeeper</option>
                               {members.map((m) => (
@@ -209,14 +209,14 @@ export default async function SchedulePage({
                                 </option>
                               ))}
                             </select>
-                            <button className="min-h-11 rounded-control bg-surface-dim px-3 text-xs font-semibold">
+                            <button className="min-h-11 rounded-control bg-rule px-3 text-xs font-semibold">
                               Assign scorekeeper
                             </button>
                           </form>
                           <form action={deleteGame}>
                             <input type="hidden" name="game_id" value={g.id} />
                             <input type="hidden" name="slug" value={slug} />
-                            <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-deep hover:bg-accent-wash">
+                            <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent hover:bg-tint">
                               Delete
                             </button>
                           </form>
