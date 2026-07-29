@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { color, font } from "@/theme";
 
@@ -43,6 +44,7 @@ const IconUser = ({ c }: { c: ColorValue }) => (
 );
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -54,7 +56,10 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: color.ink,
           borderTopWidth: 0,
-          height: 88,
+          // 58 of content plus whatever the device actually reserves for the
+          // home indicator — a hardcoded 88 leaves a dead slab on devices
+          // without one (SE, iPad) and would clip if the inset ever grew.
+          height: 58 + insets.bottom,
           paddingTop: 8,
         },
         tabBarActiveTintColor: color.white,

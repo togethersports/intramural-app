@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { Card, EmptyState, H2, Label } from "@/components/ui";
+import { Card, EmptyState, Label } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams } from "@/lib/data";

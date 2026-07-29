@@ -1,13 +1,19 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { Card, EmptyState, ErrorNote, H2, Label } from "@/components/ui";
+import { Card, EmptyState, ErrorNote, H2 } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { getMyAvailability, getMyTeams, getTimeSlots, setAvailability } from "@/lib/data";
 import { color, radius, space, type, HIT } from "@/theme";
 import type { TimeSlotRow } from "@core/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "15:15:00" → "3:15" — a US school app has no business in 24-hour time. */
+function clock(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}`;
+}
 type Status = "yes" | "maybe" | "no";
 const OPTIONS: { value: Status; label: string; bg: string; fg: string }[] = [
   { value: "yes", label: "In", bg: color.ink, fg: color.white },
@@ -77,7 +83,7 @@ export default function Availability() {
               <View>
                 <Text style={[type.bodyMedium, { color: color.ink }]}>{slot.label}</Text>
                 <Text style={[type.small, { color: color.inkMuted }]}>
-                  {DAYS[slot.day_of_week]} · {slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}
+                  {DAYS[slot.day_of_week]} · {clock(slot.start_time)}–{clock(slot.end_time)}
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: space(0.75) }}>

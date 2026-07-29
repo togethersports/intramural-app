@@ -41,15 +41,15 @@ function RootNavigator() {
         headerTintColor: color.white,
         headerTitleStyle: { fontFamily: "Outfit_600SemiBold", fontSize: 18 },
         headerShadowVisible: false,
+        // The previous screen is the "(tabs)" group, and iOS would print that
+        // route name as the back label without an explicit title.
+        headerBackTitle: "Back",
         contentStyle: { backgroundColor: color.canvas },
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="game/[id]"
-        options={{ title: "Game", headerBackTitle: "Back" }}
-      />
+      <Stack.Screen name="game/[id]" options={{ title: "Game" }} />
       <Stack.Screen name="league/rules" options={{ title: "Rules" }} />
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />

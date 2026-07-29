@@ -3,7 +3,13 @@ import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Card, EmptyState, H2, Label, Row } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getLeagueRules, getMyLeagues, getRuleFiles, signedRuleUrl } from "@/lib/data";
+import {
+  getLeagueRules,
+  getMyLeagues,
+  getMyTeams,
+  getRuleFiles,
+  signedRuleUrl,
+} from "@/lib/data";
 import { color, space, type } from "@/theme";
 
 function bytes(n: number) {
@@ -20,11 +26,16 @@ export default function Rules() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const leagues = await getMyLeagues();
-    if (leagues.length === 0) { setLoaded(true); return; }
+    // Resolve the league the same way Schedule and Standings do — through my
+    // first TEAM — so all three screens describe the same league. Fall back
+    // to first membership for someone who has joined but not been drafted.
+    const teams = await getMyTeams(user.id);
+    let leagueId = teams[0]?.league_id ?? null;
+    if (!leagueId) leagueId = (await getMyLeagues())[0]?.id ?? null;
+    if (!leagueId) { setLoaded(true); return; }
     const [c, f] = await Promise.all([
-      getLeagueRules(leagues[0].id),
-      getRuleFiles(leagues[0].id),
+      getLeagueRules(leagueId),
+      getRuleFiles(leagueId),
     ]);
     setContent(c);
     setFiles(f as never);
