@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useActionState } from "react";
 import { proposeTradeAction, type ActionState } from "../actions";
 import { Button, Field, FormError, Select } from "@/components/ui";
-import type { TeamWithRoster } from "@/packages/core/types";
+import type { TeamWithRoster } from "@core/types";
 
 const initial: ActionState = { error: null };
 

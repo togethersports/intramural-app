@@ -9,8 +9,8 @@ import {
   getTeamsWithRosters,
   getTrades,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
-import type { TradeRow } from "@/packages/core/types";
+import { isLeagueAdmin } from "@core/league-constants";
+import type { TradeRow } from "@core/types";
 import {
   cancelTradeAction,
   resolveTradeAction,

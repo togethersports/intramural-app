@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/ui";
 import { getLeague, getLeagueRules, getRuleFiles } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { createClient } from "@/lib/supabase/server";
 import { deleteRuleFile } from "../actions";
 import { RuleFileUpload, RulesEditor } from "./rules-forms";

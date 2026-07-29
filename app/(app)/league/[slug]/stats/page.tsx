@@ -15,7 +15,7 @@ import {
   pct,
   perGame,
   type SeasonTotals,
-} from "@/packages/core/stats";
+} from "@core/stats";
 
 export const metadata: Metadata = { title: "Stats" };
 

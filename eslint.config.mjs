@@ -7,7 +7,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // The Expo app has its own toolchain; core/ is plain TS shared with the
+    // web app, so it stays linted here.
     "mobile/**",
+    "!mobile/core/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

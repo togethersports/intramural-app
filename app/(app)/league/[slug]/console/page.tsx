@@ -7,7 +7,7 @@ import {
   getTimeSlots,
   getVenues,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { deleteTimeSlot, deleteVenue, setSeasonStatus } from "../actions";
 import {
   AddTimeSlotForm,

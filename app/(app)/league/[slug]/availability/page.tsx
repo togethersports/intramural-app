@@ -11,7 +11,7 @@ import {
   getTeamsWithRosters,
   getTimeSlots,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { nudgeAvailability } from "../actions";
 import { AvailabilityGrid } from "./availability-grid";
 

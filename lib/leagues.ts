@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import type { LeagueRole } from "@/packages/core/league-constants";
+import type { LeagueRole } from "@core/league-constants";
 
-export { isLeagueAdmin, sportLabel } from "@/packages/core/league-constants";
+export { isLeagueAdmin, sportLabel } from "@core/league-constants";
 export type { LeagueRole };
 
 export interface LeagueSummary {

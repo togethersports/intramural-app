@@ -3,7 +3,7 @@
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { LeagueRole } from "@/packages/core/league-constants";
+import type { LeagueRole } from "@core/league-constants";
 import type {
   AvailabilityRow,
   BracketNodeRow,
@@ -21,7 +21,7 @@ import type {
   TimeSlotRow,
   TradeRow,
   VenueRow,
-} from "@/packages/core/types";
+} from "@core/types";
 
 export interface LeagueContext {
   id: string;
@@ -472,7 +472,7 @@ export async function getRuleFiles(leagueId: string): Promise<RuleFileRow[]> {
 
 /* -------------------------------- standings -------------------------------- */
 
-import { computeStandings } from "@/packages/core/standings";
+import { computeStandings } from "@core/standings";
 import type { StandingsDisplayRow } from "@/components/standings-table";
 
 export async function getSeasonStandings(seasonId: string): Promise<{

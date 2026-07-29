@@ -9,11 +9,11 @@ import {
   getLineups,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
-import { EVENT_LABELS } from "@/packages/core/game-constants";
-import { computeBoxScore, type StatLine } from "@/packages/core/stats";
+import { isLeagueAdmin } from "@core/league-constants";
+import { EVENT_LABELS } from "@core/game-constants";
+import { computeBoxScore, type StatLine } from "@core/stats";
 import { createClient } from "@/lib/supabase/server";
-import type { PlayerGameStatRow } from "@/packages/core/types";
+import type { PlayerGameStatRow } from "@core/types";
 import { LiveRefresher } from "./live-refresher";
 
 function BoxTable({

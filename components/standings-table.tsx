@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { TeamStanding } from "@/packages/core/standings";
+import type { TeamStanding } from "@core/standings";
 
 export interface StandingsDisplayRow extends TeamStanding {
   name: string;

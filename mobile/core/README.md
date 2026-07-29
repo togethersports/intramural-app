@@ -1,4 +1,4 @@
-# packages/core
+# mobile/core
 
 Pure domain logic, shared by the Next.js web app and the Expo iOS app.
 
@@ -14,18 +14,33 @@ package computes, it does not fetch.
 - `bracket.ts` — single-elimination seeding and advancement
 - `game-constants.ts`, `league-constants.ts`, `types.ts`
 
+## Why it lives inside `mobile/`
+
+This is shared code, so `packages/core/` would be the natural home. It sits
+here for one hard constraint: **EAS Build uploads only the Expo project
+directory.** A sibling `packages/` is simply not present on the build
+machine, and the JS bundle fails with `Unable to resolve module @core/...`
+after a ten-minute cloud build. Metro's `watchFolders` makes that work
+locally, which is exactly what makes the failure a surprise.
+
+The alternative is declaring npm workspaces so EAS uploads the repo root,
+but that puts React Native into the web app's install graph — every Vercel
+deploy would fetch the whole native toolchain to build a Next.js site.
+
+So the Expo project is self-contained, and the web app reaches in. Nothing
+here is mobile-specific; the web commissioner console is the heaviest
+consumer of `scheduler.ts`.
+
 ## How each side imports it
+
+Both use the same specifier, `@core/*`:
+
+- **Web** — `tsconfig.json` maps `@core/* -> ./mobile/core/*`
+- **Mobile** — `mobile/tsconfig.json` maps `@core/* -> ./core/*`
 
 There is deliberately no npm package name and no workspace — the web app
 pins React 19.2.4 and the mobile app 19.2.8, and a hoisted root
 `node_modules` would force one of them onto the other's copy.
-
-- **Web** — `@/packages/core/stats`, riding the existing `@/* -> ./*` alias.
-- **Mobile** — `@core/stats`, via `mobile/tsconfig.json` paths plus Metro
-  `watchFolders`.
-
-The cost of that is real: the same file has two specifiers, so a rename has
-to update both. It buys complete independence of the two dependency trees.
 
 Tests run under vitest from the repo root (`npm test`), and
 `npm run typecheck:core` enforces the no-DOM rule (the root tsconfig

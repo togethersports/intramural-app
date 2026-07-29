@@ -10,9 +10,9 @@ import {
   getLeague,
   getTeams,
 } from "@/lib/data";
-import { roundName } from "@/packages/core/bracket";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
-import type { BracketNodeRow, GameRow, TeamRow } from "@/packages/core/types";
+import { roundName } from "@core/bracket";
+import { isLeagueAdmin } from "@core/league-constants";
+import type { BracketNodeRow, GameRow, TeamRow } from "@core/types";
 import { GenerateBracketForm } from "./playoff-forms";
 
 export const metadata: Metadata = { title: "Playoffs" };

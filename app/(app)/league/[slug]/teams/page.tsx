@@ -9,7 +9,7 @@ import {
   getLeague,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/packages/core/league-constants";
+import { isLeagueAdmin } from "@core/league-constants";
 import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
 import { CreateTeamForm } from "./team-forms";
 

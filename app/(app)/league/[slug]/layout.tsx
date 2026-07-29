@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { LeagueNav } from "@/components/league-nav";
 import { getActiveSeason, getLeague } from "@/lib/data";
-import { isLeagueAdmin, sportLabel } from "@/packages/core/league-constants";
+import { isLeagueAdmin, sportLabel } from "@core/league-constants";
 
 export default async function LeagueLayout({
   children,

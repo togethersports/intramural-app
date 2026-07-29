@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getGame, getGameEvents, getLineups, getSeasonAvailability, getTeams, getTeamsWithRosters } from "@/lib/data";
-import { computeBoxScore } from "@/packages/core/stats";
-import { generateSchedule, slotDateFor } from "@/packages/core/scheduler";
-import { computeStandings } from "@/packages/core/standings";
-import { buildBracket } from "@/packages/core/bracket";
+import { computeBoxScore } from "@core/stats";
+import { generateSchedule, slotDateFor } from "@core/scheduler";
+import { computeStandings } from "@core/standings";
+import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export type ActionState = { error: string | null; notice?: string | null };
