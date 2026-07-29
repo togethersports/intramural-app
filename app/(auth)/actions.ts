@@ -16,6 +16,21 @@ const UNREACHABLE =
   "Couldn't reach the sign-in service. Check your connection and try again.";
 
 /**
+ * Supabase's own text for these codes is accurate but doesn't say what to
+ * do about it ("Email rate limit exceeded"), which breaks the "errors name
+ * the fix" rule. Swap in a message that does, keyed on the stable error
+ * code rather than the message text.
+ */
+const FRIENDLY_CODES: Record<string, string> = {
+  over_email_send_rate_limit:
+    "Too many sign-up emails were sent in the last hour. Wait a bit and try again — or if this keeps happening, the commissioner needs to add a real email provider in Supabase (Authentication → Settings → SMTP). The default sender is capped at a couple of emails an hour.",
+  over_sms_send_rate_limit:
+    "Too many verification texts were sent recently. Wait a few minutes and try again.",
+  over_request_rate_limit:
+    "Too many attempts in a short time. Wait a minute and try again.",
+};
+
+/**
  * `AuthApiError` means Supabase itself answered with a real, user-facing
  * message ("Invalid login credentials", "User already registered"). Anything
  * else — a dropped connection, a proxy/CDN error page the client tried to
@@ -24,7 +39,9 @@ const UNREACHABLE =
  * instead.
  */
 function authErrorMessage(error: unknown): string {
-  if (error instanceof AuthApiError) return error.message;
+  if (error instanceof AuthApiError) {
+    return FRIENDLY_CODES[error.code ?? ""] ?? error.message;
+  }
   return UNREACHABLE;
 }
 
