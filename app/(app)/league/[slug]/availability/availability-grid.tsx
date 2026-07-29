@@ -2,7 +2,7 @@
 
 import { useOptimistic, useTransition } from "react";
 import { setAvailability } from "../actions";
-import type { TimeSlotRow } from "@/lib/types";
+import type { TimeSlotRow } from "@/packages/core/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const OPTIONS = [

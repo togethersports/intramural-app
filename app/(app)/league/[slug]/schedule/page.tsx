@@ -14,7 +14,7 @@ import {
   getVenues,
 } from "@/lib/data";
 import { getLeagueMembers } from "@/lib/leagues";
-import { isLeagueAdmin } from "@/lib/league-constants";
+import { isLeagueAdmin } from "@/packages/core/league-constants";
 import { deleteGame, rescheduleGame, setScorekeeper } from "../actions";
 import { AddGameForm, GenerateScheduleForm } from "./schedule-forms";
 

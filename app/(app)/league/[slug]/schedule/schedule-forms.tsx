@@ -7,7 +7,7 @@ import {
   type ActionState,
 } from "../actions";
 import { Button, Field, FormError, Input, Select } from "@/components/ui";
-import type { TeamRow, TimeSlotRow, VenueRow } from "@/lib/types";
+import type { TeamRow, TimeSlotRow, VenueRow } from "@/packages/core/types";
 
 const initialGen: ActionState & {
   conflicts?: { matchup: string; reason: string }[];

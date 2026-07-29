@@ -8,7 +8,7 @@ import {
   getLineups,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@/lib/league-constants";
+import { isLeagueAdmin } from "@/packages/core/league-constants";
 import { Tracker } from "./tracker";
 
 export const metadata: Metadata = { title: "Live tracker" };

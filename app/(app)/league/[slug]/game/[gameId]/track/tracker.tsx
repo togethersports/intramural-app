@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { EVENT_LABELS, PLAYER_EVENTS } from "@/lib/game-constants";
-import { computeBoxScore, type GameEventInput } from "@/lib/stats";
-import type { GameRow, LineupRow, RosterEntry } from "@/lib/types";
+import { EVENT_LABELS, PLAYER_EVENTS } from "@/packages/core/game-constants";
+import { computeBoxScore, type GameEventInput } from "@/packages/core/stats";
+import type { GameRow, LineupRow, RosterEntry } from "@/packages/core/types";
 import {
   finalizeGame,
   recordEvent,

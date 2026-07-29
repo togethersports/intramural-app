@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:db": "node scripts/db-test.mjs"
+    "test:db": "node scripts/db-test.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:core": "tsc --noEmit -p packages/core/tsconfig.json"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

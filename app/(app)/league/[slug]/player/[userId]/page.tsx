@@ -7,7 +7,7 @@ import {
   getTeamsWithRosters,
 } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
-import { aggregateLines, formatPct, pct, perGame, tsPct } from "@/lib/stats";
+import { aggregateLines, formatPct, pct, perGame, tsPct } from "@/packages/core/stats";
 
 export default async function PlayerPage({
   params,

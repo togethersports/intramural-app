@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { IconQueue } from "@/components/icons";
 import { Avatar, Button, TeamBadge } from "@/components/ui";
-import type { DraftPickRow, DraftRow, TeamWithRoster } from "@/lib/types";
+import type { DraftPickRow, DraftRow, TeamWithRoster } from "@/packages/core/types";
 import {
   autoPickAction,
   makePickAction,

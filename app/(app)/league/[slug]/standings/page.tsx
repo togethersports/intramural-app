@@ -4,7 +4,7 @@ import { IconTrophy } from "@/components/icons";
 import { StandingsTable } from "@/components/standings-table";
 import { EmptyState } from "@/components/ui";
 import { getActiveSeason, getLeague, getSeasonStandings } from "@/lib/data";
-import { DEFAULT_TIEBREAKERS, TIEBREAKER_LABELS } from "@/lib/standings";
+import { DEFAULT_TIEBREAKERS, TIEBREAKER_LABELS } from "@/packages/core/standings";
 
 export const metadata: Metadata = { title: "Standings" };
 

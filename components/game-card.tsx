@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TeamBadge } from "@/components/ui";
-import type { GameRow } from "@/lib/types";
+import type { GameRow } from "@/packages/core/types";
 
 function TeamLine({
   name,

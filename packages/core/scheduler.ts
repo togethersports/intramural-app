@@ -263,7 +263,22 @@ export function generateSchedule(input: SchedulerInput): ScheduleResult {
     }
   }
 
-  games.sort((a, b) => a.week - b.week || a.slotId.localeCompare(b.slotId));
+  // Code-unit compare, not localeCompare: collation differs between Hermes
+  // (Apple Foundation on iOS) and Node (ICU), and this is a determinism
+  // guarantee, not a human-facing sort.
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  // A splittable venue holds two games in the SAME week, slot and venue, so
+  // week+slot alone is not a total order — it would leave those two to sort
+  // stability. Carry on through venue and the teams so the order is fully
+  // determined by the data.
+  games.sort(
+    (a, b) =>
+      a.week - b.week ||
+      cmp(a.slotId, b.slotId) ||
+      cmp(a.venueId, b.venueId) ||
+      cmp(a.home, b.home) ||
+      cmp(a.away, b.away),
+  );
   return { games, conflicts };
 }
 

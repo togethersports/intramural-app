@@ -10,7 +10,7 @@ import {
   getSeasonStandings,
   getTeamsWithRosters,
 } from "@/lib/data";
-import { aggregateLines, perGame } from "@/lib/stats";
+import { aggregateLines, perGame } from "@/packages/core/stats";
 
 export default async function TeamPage({
   params,
