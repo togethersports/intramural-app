@@ -89,11 +89,11 @@ struct MainView: View {
         }
       } else if let team = team {
         TabView {
-          HomeView(team: team, games: games)
-          ScheduleView(games: games)
-          StandingsView(teams: teams, games: games, myTeamId: team.teamId)
+          NavigationStack { HomeView(team: team, games: games) }
+          NavigationStack { ScheduleView(games: games) }
+          NavigationStack { StandingsView(teams: teams, games: games, myTeamId: team.teamId) }
           AvailabilityView(team: team)
-          SettingsView(team: team, reload: { Task { await load() } })
+          NavigationStack { SettingsView(team: team, reload: { Task { await load() } }) }
         }
       } else {
         VStack(spacing: 8) {
@@ -278,12 +278,17 @@ struct AvailabilityView: View {
               await choose(slot: slot, status: status)
             }
           } label: {
-            VStack(alignment: .leading, spacing: 2) {
-              Text(slot.label).font(.footnote)
-              Text("\(DAYS[slot.dayOfWeek]) · \(clock(slot.startTime))–\(clock(slot.endTime))")
-                .font(.footnote).foregroundColor(Brand.faint)
+            // .badge() doesn't exist on watchOS — trailing text instead.
+            HStack {
+              VStack(alignment: .leading, spacing: 2) {
+                Text(slot.label).font(.footnote)
+                Text("\(DAYS[slot.dayOfWeek]) · \(clock(slot.startTime))–\(clock(slot.endTime))")
+                  .font(.footnote).foregroundColor(Brand.faint)
+              }
+              Spacer(minLength: 4)
+              Text(badgeText(picked[slot.id]))
+                .font(.footnote).foregroundColor(Brand.bench)
             }
-            .badge(badgeText(picked[slot.id]))
           }
         }
       }
