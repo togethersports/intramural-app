@@ -2,6 +2,7 @@
   "expo": {
     "name": "Intramural",
     "slug": "intramural",
+    "owner": "harryhonig",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "intramural",
@@ -16,7 +17,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.intramural.ios",
-      "buildNumber": "1",
       "config": { "usesNonExemptEncryption": false },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -72,7 +72,10 @@
     ],
     "experiments": { "typedRoutes": true },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "42a8ef45-50a1-49c9-9b17-9f3ac87bdc55"
+      }
     }
   }
 }
