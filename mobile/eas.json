@@ -23,6 +23,14 @@
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_C0EqnKDL_FV2wY6_A154yw_SAf529YR"
       }
     },
+    "simulator-watch": {
+      "extends": "simulator",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qayvyjgzfkafrhtchjub.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_C0EqnKDL_FV2wY6_A154yw_SAf529YR",
+        "WITH_WATCH": "1"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "ios": { "resourceClass": "m-medium" },
