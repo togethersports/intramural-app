@@ -257,6 +257,31 @@ body {
     transform: none;
   }
 }
+/* Ambient: the court circles breathe, slowly. */
+@keyframes lp-breathe {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.035);
+    opacity: 0.75;
+  }
+}
+/* Ambient: the headline's red full stops dribble once in a while. */
+@keyframes lp-dribble {
+  0%,
+  9%,
+  100% {
+    transform: none;
+  }
+  3% {
+    transform: translateY(-0.07em);
+  }
+  6% {
+    transform: translateY(0.015em);
+  }
+}
 
 @layer utilities {
   /* Load-time entrance, staggered via --lp-delay. */
@@ -276,8 +301,31 @@ body {
     animation: lp-sweep 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
   .lp-court {
-    animation: lp-court 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-    animation-delay: var(--lp-delay, 0s);
+    animation:
+      lp-court 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both,
+      lp-breathe 14s ease-in-out infinite alternate;
+    animation-delay: var(--lp-delay, 0s), 2.6s;
+  }
+  .lp-dot {
+    display: inline-block;
+    animation: lp-dribble 7s ease-in-out infinite;
+  }
+  /* Nav links get a hairline that slides in from the left on hover. */
+  .lp-link {
+    position: relative;
+  }
+  .lp-link::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 -5px 0;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .lp-link:hover::after {
+    transform: none;
   }
   .lp-ticker {
     animation: lp-ticker 36s linear infinite;
@@ -320,6 +368,7 @@ body {
   .lp-court,
   .lp-ticker,
   .lp-blip,
+  .lp-dot,
   .lp-reveal,
   .lp-bar {
     animation: none !important;
@@ -328,6 +377,9 @@ body {
   .lp-lift:hover {
     transition: none;
     transform: none;
+  }
+  .lp-link::after {
+    transition: none;
   }
 }
 

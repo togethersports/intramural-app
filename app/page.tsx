@@ -13,19 +13,19 @@ const delay = (s: number) => ({ "--lp-delay": `${s}s` }) as React.CSSProperties;
 
 const TICKER = [
   "Warriors 42 · Hawks 38 — Final",
-  "Cohen 31 PTS · 9 REB",
-  "Trade accepted: Levy to Titans",
+  "Carter 31 PTS · 9 REB",
+  "Trade accepted: Brooks to Titans",
   "Free 6 · Gym 2 moved to half-court",
   "Suns clinch the 2 seed",
   "Playoffs seed Friday",
 ];
 
 const PICKS = [
-  ["1.01", "J. Cohen", "Warriors"],
-  ["1.02", "M. Levy", "Titans"],
-  ["1.03", "S. Katz", "Hawks"],
-  ["1.04", "R. Adler", "Suns"],
-  ["1.05", "D. Stern", "Bolts"],
+  ["1.01", "J. Carter", "Warriors"],
+  ["1.02", "M. Brooks", "Titans"],
+  ["1.03", "S. Reed", "Hawks"],
+  ["1.04", "R. Hayes", "Suns"],
+  ["1.05", "D. Miller", "Bolts"],
 ];
 
 export default async function LandingPage() {
@@ -44,13 +44,13 @@ export default async function LandingPage() {
           </Link>
           <nav className="flex shrink-0 items-center gap-2 md:gap-6">
             <div className="label hidden items-center gap-6 !text-white/85 md:flex">
-              <a href="#season" className="hover:text-white">
+              <a href="#season" className="lp-link hover:text-white">
                 Season
               </a>
-              <a href="#board" className="hover:text-white">
+              <a href="#board" className="lp-link hover:text-white">
                 Draft
               </a>
-              <a href="#start" className="hover:text-white">
+              <a href="#start" className="lp-link hover:text-white">
                 Start
               </a>
             </div>
@@ -93,7 +93,7 @@ export default async function LandingPage() {
       </header>
 
       {/* Hero — the court is the canvas */}
-      <section className="relative px-4 pt-14 sm:px-6 sm:pt-20">
+      <section className="relative px-4 pt-12 sm:px-6 sm:pt-16">
         {/* Court lines: center line, circle, and the two keys */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
           <div className="lp-sweep absolute inset-y-0 left-1/2 w-px bg-white/30" />
@@ -125,15 +125,15 @@ export default async function LandingPage() {
             <span className="hidden h-px w-[clamp(28px,12vw,170px)] bg-white/45 sm:block" />
           </p>
 
-          <h1 className="mt-7 text-center text-[clamp(56px,12.5vw,188px)] font-semibold leading-[0.85] tracking-[-0.045em] text-white">
+          <h1 className="mt-6 text-center text-[clamp(52px,11vw,150px)] font-semibold leading-[0.85] tracking-[-0.045em] text-white">
             <span className="lp-rise block" style={delay(0.15)}>
-              Run<span className="text-accent">.</span>
+              Run<span className="lp-dot text-accent">.</span>
             </span>
             <span className="lp-rise block" style={delay(0.27)}>
-              Your<span className="text-accent">.</span>
+              Your<span className="lp-dot text-accent" style={{ animationDelay: "3.2s" }}>.</span>
             </span>
             <span className="lp-rise block" style={delay(0.39)}>
-              League<span className="text-accent">.</span>
+              League<span className="lp-dot text-accent" style={{ animationDelay: "3.4s" }}>.</span>
             </span>
           </h1>
 
@@ -159,7 +159,7 @@ export default async function LandingPage() {
 
           {/* Docked scoreboard — floats up over the fold */}
           <div
-            className="lp-dock relative mx-auto mt-14 grid max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
+            className="lp-dock relative mx-auto mt-16 grid sm:mt-24 max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
             style={delay(0.8)}
           >
             <div className="bg-surface p-5 sm:p-6">
@@ -233,8 +233,8 @@ export default async function LandingPage() {
               </p>
               <div className="mt-auto space-y-2">
                 {[
-                  ["1.01", "J. Cohen", "Warriors", false],
-                  ["1.02", "M. Levy", "Titans", false],
+                  ["1.01", "J. Carter", "Warriors", false],
+                  ["1.02", "M. Brooks", "Titans", false],
                   ["1.03", "On the clock…", "Hawks", true],
                 ].map(([no, player, team, live]) => (
                   <div
@@ -313,9 +313,9 @@ export default async function LandingPage() {
               </p>
               <div className="mt-auto space-y-3">
                 {[
-                  ["Cohen", 78],
-                  ["Levy", 64],
-                  ["Katz", 51],
+                  ["Carter", 78],
+                  ["Brooks", 64],
+                  ["Reed", 51],
                 ].map(([name, v]) => (
                   <div key={name as string} className="flex items-center gap-4">
                     <span className="num w-14 text-[14px]">{name}</span>
@@ -343,7 +343,7 @@ export default async function LandingPage() {
               </p>
               <div className="mt-auto space-y-2.5">
                 <p className="rounded-row bg-paper px-4 py-3 text-[15px] leading-relaxed">
-                  Warriors send Cohen to Hawks for Levy and Katz.
+                  Warriors send Carter to Hawks for Brooks and Reed.
                 </p>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5">
                   <span className="rounded-row bg-paper px-3.5 py-2.5 text-[15px] font-medium">

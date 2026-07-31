@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 
 const PICK_SECONDS = 134;
-const ON_CLOCK = ["Maya Levy", "Ari Katz", "Dov Stern", "Noa Berg"];
+const ON_CLOCK = ["Maya Brooks", "Alex Reed", "Jordan Hayes", "Sam Carter"];
 
 function useCountdown() {
   const [t, setT] = useState(PICK_SECONDS);

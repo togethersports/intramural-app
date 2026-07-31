@@ -55,7 +55,7 @@ export default function SignIn() {
             <ErrorNote message="The backend isn't configured in this build. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY." />
           ) : null}
           <ErrorNote message={error} />
-          <Field label="School email">
+          <Field label="Email">
             <Input
               value={email}
               onChangeText={setEmail}

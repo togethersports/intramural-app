@@ -62,7 +62,7 @@ export function AuthForm({
         </>
       ) : null}
 
-      <Field label="School email" htmlFor="email">
+      <Field label="Email" htmlFor="email">
         <Input
           id="email"
           name="email"
