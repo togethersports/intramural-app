@@ -152,8 +152,10 @@ function drawCourt(): HTMLCanvasElement {
  */
 function drawBack(): { canvas: HTMLCanvasElement; render: () => void } {
   const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 1536;
+  // 2x the front sheet's resolution: the enlarged mark and wordmark have to
+  // stay crisp when the back rotates square to the camera.
+  c.width = 2048;
+  c.height = 3072;
   const g = c.getContext("2d")!;
 
   const render = () => {
@@ -161,11 +163,11 @@ function drawBack(): { canvas: HTMLCanvasElement; render: () => void } {
     g.fillStyle = WOOD;
     g.fillRect(0, 0, c.width, c.height);
 
-    // The Bracket, centered, big. Grid unit = mark box / 64.
-    const box = 420;
+    // The Bracket, centered, ~64% of the back face width.
+    const box = Math.round(c.width * 0.64);
     const u = box / 64;
     const ox = (c.width - box) / 2;
-    const oy = 460;
+    const oy = 780;
     g.lineCap = "round";
     g.lineWidth = 6 * u;
     g.strokeStyle = CREAM;
@@ -189,8 +191,8 @@ function drawBack(): { canvas: HTMLCanvasElement; render: () => void } {
     const family = getComputedStyle(document.body).fontFamily || "sans-serif";
     g.fillStyle = CREAM;
     g.textAlign = "center";
-    g.font = `600 118px ${family}`;
-    g.fillText("Intramural", c.width / 2, oy + box + 240);
+    g.font = `600 332px ${family}`;
+    g.fillText("Intramural", c.width / 2, oy + box + 560);
   };
 
   render();
@@ -243,12 +245,15 @@ function Marker({
   );
 }
 
+/** ~17% bigger board; the camera steps back so a full wobble never clips. */
+const BOARD_SCALE = 1.17;
+
 function Clipboard({
   reduced,
   progress,
 }: {
   reduced: boolean;
-  progress: React.RefObject<number>;
+  progress: React.RefObject<{ p: number; e: number }>;
 }) {
   const group = useRef<THREE.Group>(null);
 
@@ -344,18 +349,21 @@ function Clipboard({
     }
     // Everything from elapsed time + sine — no counters, never jittery.
     const t = clock.elapsedTime;
-    // Scroll-away: as the section leaves the viewport the board tips back,
-    // picks up spin, lifts, and recedes — like it was let go.
-    const p = Math.min(1, Math.max(0, progress.current ?? 0));
-    g.rotation.y = (t * Math.PI * 2) / 14 + p * 1.4;
-    g.rotation.x = 0.25 * Math.sin(t * 0.61) - p * 1.05;
-    g.rotation.z = 0.15 * Math.sin(t * 0.43 + 1.3) + p * 0.25;
-    g.position.y = 0.3 * Math.sin((t * Math.PI * 2) / 5) + p * 1.7;
-    g.position.z = -p * 2.2;
+    // p spans the whole pin: the board stays centered and tumbling through
+    // the dwell, with one full scroll-coupled revolution guaranteed on top
+    // of the time-based spin. e is the pre-eased exit (0 until ~68%): the
+    // board tips back, lifts, and recedes — like it was let go.
+    const p = Math.min(1, Math.max(0, progress.current?.p ?? 0));
+    const e = Math.min(1, Math.max(0, progress.current?.e ?? 0));
+    g.rotation.y = (t * Math.PI * 2) / 14 + p * Math.PI * 2;
+    g.rotation.x = 0.25 * Math.sin(t * 0.61) - e * 1.05;
+    g.rotation.z = 0.15 * Math.sin(t * 0.43 + 1.3) + e * 0.25;
+    g.position.y = 0.22 * Math.sin((t * Math.PI * 2) / 5) + e * 2.1;
+    g.position.z = -e * 2.6;
   });
 
   return (
-    <group ref={group}>
+    <group ref={group} scale={BOARD_SCALE}>
       <mesh
         geometry={boardGeo}
         material={[materials.cap, materials.side]}
@@ -388,7 +396,7 @@ export default function CourtHeroScene({
 }: {
   active: boolean;
   reduced: boolean;
-  progress: React.RefObject<number>;
+  progress: React.RefObject<{ p: number; e: number }>;
 }) {
   return (
     <Canvas
@@ -397,7 +405,7 @@ export default function CourtHeroScene({
       frameloop={reduced ? "demand" : active ? "always" : "never"}
       shadows
       dpr={[1, 2]}
-      camera={{ position: [0.5, 0.1, 7.4], fov: 32 }}
+      camera={{ position: [0.5, 0.1, 8.1], fov: 32 }}
       gl={{ antialias: true, alpha: true }}
       style={{ pointerEvents: "none" }}
     >
