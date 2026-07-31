@@ -100,7 +100,7 @@ export default async function LandingPage() {
       <section className="relative px-4 sm:px-6">
         <div className="relative mx-auto w-full max-w-7xl">
           <p
-            className="lp-rise mx-auto mt-10 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
+            className="lp-rise mx-auto mt-6 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
             style={delay(0.1)}
           >
             Captains draft teams. Games fit into lunch and free periods. Stats

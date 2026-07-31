@@ -144,6 +144,59 @@ function drawCourt(): HTMLCanvasElement {
   return c;
 }
 
+/**
+ * The back of the board: The Bracket and the wordmark on wood, like a
+ * league-issued piece of kit. The mark follows the brandbook construction —
+ * 64-unit grid, seeds in at y18/y46, connector, output at y32 in Whistle
+ * Red, stroke 6, round caps.
+ */
+function drawBack(): { canvas: HTMLCanvasElement; render: () => void } {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 1536;
+  const g = c.getContext("2d")!;
+
+  const render = () => {
+    g.clearRect(0, 0, c.width, c.height);
+    g.fillStyle = WOOD;
+    g.fillRect(0, 0, c.width, c.height);
+
+    // The Bracket, centered, big. Grid unit = mark box / 64.
+    const box = 420;
+    const u = box / 64;
+    const ox = (c.width - box) / 2;
+    const oy = 460;
+    g.lineCap = "round";
+    g.lineWidth = 6 * u;
+    g.strokeStyle = CREAM;
+    for (const [x1, y1, x2, y2] of [
+      [10, 18, 32, 18],
+      [10, 46, 32, 46],
+      [32, 18, 32, 46],
+    ]) {
+      g.beginPath();
+      g.moveTo(ox + x1 * u, oy + y1 * u);
+      g.lineTo(ox + x2 * u, oy + y2 * u);
+      g.stroke();
+    }
+    g.strokeStyle = RED;
+    g.beginPath();
+    g.moveTo(ox + 32 * u, oy + 32 * u);
+    g.lineTo(ox + 54 * u, oy + 32 * u);
+    g.stroke();
+
+    // Wordmark beneath — Outfit once the webfont is ready, else the fallback.
+    const family = getComputedStyle(document.body).fontFamily || "sans-serif";
+    g.fillStyle = CREAM;
+    g.textAlign = "center";
+    g.font = `600 118px ${family}`;
+    g.fillText("Intramural", c.width / 2, oy + box + 240);
+  };
+
+  render();
+  return { canvas: c, render };
+}
+
 /** Remap a ShapeGeometry's UVs to its own bounding box (0..1). */
 function normalizeUVs(geo: THREE.BufferGeometry) {
   geo.computeBoundingBox();
@@ -190,10 +243,16 @@ function Marker({
   );
 }
 
-function Clipboard({ reduced }: { reduced: boolean }) {
+function Clipboard({
+  reduced,
+  progress,
+}: {
+  reduced: boolean;
+  progress: React.RefObject<number>;
+}) {
   const group = useRef<THREE.Group>(null);
 
-  const { boardGeo, sheetGeo, courtTex } = useMemo(() => {
+  const { boardGeo, sheetGeo, backGeo, courtTex, backTex } = useMemo(() => {
     const shape = roundedRect(BOARD_W, BOARD_H, 0.16);
     shape.holes.push(handleHole(HANDLE.cx, HANDLE.cy, HANDLE.w, HANDLE.r));
 
@@ -215,11 +274,32 @@ function Clipboard({ reduced }: { reduced: boolean }) {
     const sheetGeo = new THREE.ShapeGeometry(inset, 28);
     normalizeUVs(sheetGeo);
 
+    // Back sheet: same inset, hole mirrored in x — the mesh is rotated π
+    // around Y, which maps it back onto the physical cutout.
+    const backShape = roundedRect(BOARD_W - 0.24, BOARD_H - 0.24, 0.12);
+    backShape.holes.push(
+      handleHole(-HANDLE.cx, HANDLE.cy, HANDLE.w + 0.07, HANDLE.r + 0.035),
+    );
+    const backGeo = new THREE.ShapeGeometry(backShape, 28);
+    normalizeUVs(backGeo);
+
     const courtTex = new THREE.CanvasTexture(drawCourt());
     courtTex.colorSpace = THREE.SRGBColorSpace;
     courtTex.anisotropy = 8;
 
-    return { boardGeo, sheetGeo, courtTex };
+    const back = drawBack();
+    const backTex = new THREE.CanvasTexture(back.canvas);
+    backTex.colorSpace = THREE.SRGBColorSpace;
+    backTex.anisotropy = 8;
+    // Redraw once webfonts land so the wordmark is really Outfit.
+    document.fonts?.ready
+      ?.then(() => {
+        back.render();
+        backTex.needsUpdate = true;
+      })
+      .catch(() => {});
+
+    return { boardGeo, sheetGeo, backGeo, courtTex, backTex };
   }, []);
 
   const materials = useMemo(() => {
@@ -232,19 +312,26 @@ function Clipboard({ reduced }: { reduced: boolean }) {
       map: courtTex,
       roughness: 0.88,
     });
-    return { cap, side, sheet };
-  }, [courtTex]);
+    const back = new THREE.MeshStandardMaterial({
+      map: backTex,
+      roughness: 0.82,
+    });
+    return { cap, side, sheet, back };
+  }, [courtTex, backTex]);
 
   useEffect(() => {
     return () => {
       boardGeo.dispose();
       sheetGeo.dispose();
+      backGeo.dispose();
       courtTex.dispose();
+      backTex.dispose();
       materials.cap.dispose();
       materials.side.dispose();
       materials.sheet.dispose();
+      materials.back.dispose();
     };
-  }, [boardGeo, sheetGeo, courtTex, materials]);
+  }, [boardGeo, sheetGeo, backGeo, courtTex, backTex, materials]);
 
   useFrame(({ clock }) => {
     const g = group.current;
@@ -257,10 +344,14 @@ function Clipboard({ reduced }: { reduced: boolean }) {
     }
     // Everything from elapsed time + sine — no counters, never jittery.
     const t = clock.elapsedTime;
-    g.rotation.y = (t * Math.PI * 2) / 14; // one revolution / 14s
-    g.rotation.x = 0.25 * Math.sin(t * 0.61);
-    g.rotation.z = 0.15 * Math.sin(t * 0.43 + 1.3);
-    g.position.y = 0.3 * Math.sin((t * Math.PI * 2) / 5);
+    // Scroll-away: as the section leaves the viewport the board tips back,
+    // picks up spin, lifts, and recedes — like it was let go.
+    const p = Math.min(1, Math.max(0, progress.current ?? 0));
+    g.rotation.y = (t * Math.PI * 2) / 14 + p * 1.4;
+    g.rotation.x = 0.25 * Math.sin(t * 0.61) - p * 1.05;
+    g.rotation.z = 0.15 * Math.sin(t * 0.43 + 1.3) + p * 0.25;
+    g.position.y = 0.3 * Math.sin((t * Math.PI * 2) / 5) + p * 1.7;
+    g.position.z = -p * 2.2;
   });
 
   return (
@@ -277,6 +368,13 @@ function Clipboard({ reduced }: { reduced: boolean }) {
         position={[0, 0, BOARD_T / 2 + 0.02]}
         receiveShadow
       />
+      <mesh
+        geometry={backGeo}
+        material={materials.back}
+        position={[0, 0, -(BOARD_T / 2 + 0.02)]}
+        rotation={[0, Math.PI, 0]}
+        receiveShadow
+      />
       <Marker y={0.55} cap={INK} />
       <Marker y={-0.35} cap={RED} />
     </group>
@@ -286,13 +384,17 @@ function Clipboard({ reduced }: { reduced: boolean }) {
 export default function CourtHeroScene({
   active,
   reduced,
+  progress,
 }: {
   active: boolean;
   reduced: boolean;
+  progress: React.RefObject<number>;
 }) {
   return (
     <Canvas
-      frameloop={active ? "always" : "never"}
+      // Reduced motion shows a static pose — "demand" renders it once instead
+      // of burning a 60fps loop on a still image.
+      frameloop={reduced ? "demand" : active ? "always" : "never"}
       shadows
       dpr={[1, 2]}
       camera={{ position: [0.5, 0.1, 7.4], fov: 32 }}
@@ -308,7 +410,7 @@ export default function CourtHeroScene({
         shadow-mapSize-height={1024}
       />
       <directionalLight position={[4, 0.5, 3]} intensity={0.5} />
-      <Clipboard reduced={reduced} />
+      <Clipboard reduced={reduced} progress={progress} />
     </Canvas>
   );
 }

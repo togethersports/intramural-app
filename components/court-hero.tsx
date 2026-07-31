@@ -35,6 +35,7 @@ function subscribeMotion(cb: () => void) {
 
 export default function CourtHero() {
   const ref = useRef<HTMLElement>(null);
+  const progress = useRef(0); // 0 in view → 1 scrolled away; read per-frame
   const [seen, setSeen] = useState(false); // mount the scene once, lazily
   const [active, setActive] = useState(false); // run the frameloop only in view
   const reduced = useSyncExternalStore(
@@ -57,16 +58,50 @@ export default function CourtHero() {
     return () => io.disconnect();
   }, []);
 
+  // Scroll-away progress: drives the clipboard's exit in the WebGL scene
+  // (via the ref, no re-renders) and the marquee/label parallax via a CSS
+  // variable. rAF-coalesced; passive listener; inert under reduced motion.
+  useEffect(() => {
+    if (reduced) return;
+    const el = ref.current;
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const r = el.getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, -r.top / (r.height * 0.85)));
+      progress.current = p;
+      el.style.setProperty("--ch-p", p.toFixed(4));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
   return (
     <section
       ref={ref}
-      aria-label="Run your league"
-      className="relative h-[72vh] max-h-[860px] min-h-[520px] w-full overflow-hidden"
+      // No aria-label: the page's sr-only h1 already names this content, and
+      // a second accessible name on the region would just duplicate it.
+      className="relative h-[68vh] max-h-[820px] min-h-[500px] w-full overflow-hidden"
     >
-      {/* Giant headline marquee, behind the clipboard */}
+      {/* Giant headline marquee, behind the clipboard. The wrapper rides the
+          scroll-away variable: it sinks and fades as the section leaves. */}
       <div
         aria-hidden
         className="absolute inset-0 z-0 flex items-center overflow-hidden"
+        style={{
+          transform: "translateY(calc(var(--ch-p, 0) * 22%))",
+          opacity: "calc(1 - var(--ch-p, 0) * 0.9)",
+        }}
       >
         <div className="ch-scroll flex w-max">
           {[0, 1].map((i) => (
@@ -80,7 +115,13 @@ export default function CourtHero() {
 
       {/* The clipboard */}
       <div className="absolute inset-0 z-10">
-        {seen ? <CourtHeroScene active={active} reduced={reduced} /> : null}
+        {seen ? (
+          <CourtHeroScene
+            active={active}
+            reduced={reduced}
+            progress={progress}
+          />
+        ) : null}
       </div>
 
       {/* Film grain wash */}
@@ -90,12 +131,18 @@ export default function CourtHero() {
         style={{ backgroundImage: GRAIN }}
       />
 
-      {/* Corner labels */}
-      <div className="label pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-between p-5 !text-[11px] !text-white/80 sm:p-7">
+      {/* Corner labels — fade out first on scroll-away */}
+      <div
+        className="label pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-between p-5 !text-[11px] !text-white/80 sm:p-7"
+        style={{ opacity: "calc(1 - var(--ch-p, 0) * 1.6)" }}
+      >
         <span>School intramural sports</span>
         <span className="hidden sm:block">06 systems · one league</span>
       </div>
-      <div className="label pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-between p-5 !text-[11px] !text-white/60 sm:p-7">
+      <div
+        className="label pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-between p-5 !text-[11px] !text-white/60 sm:p-7"
+        style={{ opacity: "calc(1 - var(--ch-p, 0) * 1.6)" }}
+      >
         <span>Fig. A — coaching board</span>
         <span className="hidden sm:block">Zero gravity · 14s / rev</span>
       </div>
