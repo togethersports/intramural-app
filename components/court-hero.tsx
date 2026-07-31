@@ -59,8 +59,8 @@ export default function CourtHero({
   // p: 0..1 across the whole pin. e: eased exit progress (0 through the
   // dwell, 0..1 over the final stretch). Read per-frame by the scene.
   const progress = useRef<HeroProgress>({ p: 0, e: 0 });
-  const [seen, setSeen] = useState(false); // mount the scene once, lazily
-  const [active, setActive] = useState(false); // run the frameloop only in view
+  const [ready, setReady] = useState(false); // GL context up → fade canvas in
+  const [active, setActive] = useState(true); // frameloop pauses offscreen
   const reduced = useSyncExternalStore(
     subscribeMotion,
     () => window.matchMedia(MOTION_QUERY).matches,
@@ -71,10 +71,7 @@ export default function CourtHero({
     const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setSeen(true);
-        setActive(entry.isIntersecting);
-      },
+      ([entry]) => setActive(entry.isIntersecting),
       { rootMargin: "160px 0px" },
     );
     io.observe(el);
@@ -156,14 +153,16 @@ export default function CourtHero({
 
         {/* The clipboard — its own region above the CTA band, so the board
             cannot overlap the buttons at any rotation angle */}
-        <div className="absolute inset-x-0 top-0 z-10 h-[76%]">
-          {seen ? (
-            <CourtHeroScene
-              active={active}
-              reduced={reduced}
-              progress={progress}
-            />
-          ) : null}
+        <div
+          className="absolute inset-x-0 top-0 z-10 h-[76%] transition-opacity duration-500"
+          style={{ opacity: ready ? 1 : 0 }}
+        >
+          <CourtHeroScene
+            active={active}
+            reduced={reduced}
+            progress={progress}
+            onReady={() => setReady(true)}
+          />
         </div>
 
         {/* Tagline + CTAs: fixed on screen for the whole pin. They rise in
@@ -220,7 +219,7 @@ export default function CourtHero({
         }
         .ch-word {
           padding-right: 0.6em;
-          font-size: clamp(110px, 30vh, 300px);
+          font-size: clamp(64px, 30vh, 300px);
           font-weight: 600;
           letter-spacing: -0.04em;
           line-height: 1;
@@ -246,6 +245,9 @@ export default function CourtHero({
         @keyframes ch-cta {
           from { opacity: 0; transform: translateY(24px); }
           to { opacity: 1; transform: none; }
+        }
+        @media (max-width: 640px) {
+          .ch-word { font-size: 19vw; -webkit-text-stroke-width: 1.2px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .ch-scroll, .ch-stretch { animation: none; }

@@ -394,13 +394,16 @@ export default function CourtHeroScene({
   active,
   reduced,
   progress,
+  onReady,
 }: {
   active: boolean;
   reduced: boolean;
   progress: React.RefObject<{ p: number; e: number }>;
+  onReady?: () => void;
 }) {
   return (
     <Canvas
+      onCreated={() => onReady?.()}
       // Reduced motion shows a static pose — "demand" renders it once instead
       // of burning a 60fps loop on a still image.
       frameloop={reduced ? "demand" : active ? "always" : "never"}
