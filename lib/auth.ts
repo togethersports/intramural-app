@@ -20,6 +20,28 @@ export const getUser = cache(async () => {
   return data.user ?? null;
 });
 
+/**
+ * The signed-in user's display name. Deduped per request: the app shell
+ * needs it for the sidebar and the dashboard needs it for the greeting, and
+ * without cache() that was the same row fetched twice on every load.
+ */
+export const getMyName = cache(async (): Promise<string> => {
+  const user = await getUser();
+  if (!user) return "Player";
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  return (
+    data?.full_name ||
+    (user.user_metadata?.full_name as string | undefined) ||
+    user.email ||
+    "Player"
+  );
+});
+
 /** Gate for authenticated pages. Redirects to /setup when the backend
  *  isn't configured, or to /login when there's no session. */
 export async function requireUser() {

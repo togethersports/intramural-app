@@ -87,7 +87,7 @@ export default function SignUp() {
               maxLength={2}
             />
           </Field>
-          <Field label="School email">
+          <Field label="Email">
             <Input
               value={email}
               onChangeText={setEmail}
