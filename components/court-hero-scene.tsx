@@ -245,8 +245,9 @@ function Marker({
   );
 }
 
-/** ~17% bigger board; the camera steps back so a full wobble never clips. */
-const BOARD_SCALE = 1.17;
+/** Board scale: sized so a full wobble clears its canvas region top and
+    bottom (the CTAs live in a separate layer below — no overlap possible). */
+const BOARD_SCALE = 1.0;
 
 function Clipboard({
   reduced,
@@ -358,7 +359,7 @@ function Clipboard({
     g.rotation.y = (t * Math.PI * 2) / 14 + p * Math.PI * 2;
     g.rotation.x = 0.25 * Math.sin(t * 0.61) - e * 1.05;
     g.rotation.z = 0.15 * Math.sin(t * 0.43 + 1.3) + e * 0.25;
-    g.position.y = 0.22 * Math.sin((t * Math.PI * 2) / 5) + e * 2.1;
+    g.position.y = 0.2 * Math.sin((t * Math.PI * 2) / 5) + e * 2.3;
     g.position.z = -e * 2.6;
   });
 

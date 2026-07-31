@@ -96,34 +96,14 @@ export default async function LandingPage() {
 
       {/* Hero — the clipboard tumbles over the RUN YOUR LEAGUE marquee */}
       <h1 className="sr-only">Intramural — Run Your League</h1>
-      <CourtHero />
+      <CourtHero startHref={startHref} joinHref={joinHref} />
 
       <section className="relative px-4 sm:px-6">
         <div className="relative mx-auto w-full max-w-7xl">
-          <p
-            className="lp-rise mx-auto mt-6 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
-            style={delay(0.1)}
-          >
-            Captains draft teams. Games fit into lunch and free periods. Stats
-            are tracked live from the sideline. Playoffs settle it.
-          </p>
-
+          {/* Docked scoreboard — first thing after the hero releases */}
           <div
-            className="lp-rise mt-8 flex flex-wrap justify-center gap-3"
-            style={delay(0.22)}
-          >
-            <ButtonLink href={startHref} variant="accent">
-              Start a league
-            </ButtonLink>
-            <ButtonLink href={joinHref} variant="canvas">
-              I have a join code
-            </ButtonLink>
-          </div>
-
-          {/* Docked scoreboard — floats up over the fold */}
-          <div
-            className="lp-dock relative mx-auto mt-16 grid sm:mt-24 max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
-            style={delay(0.8)}
+            className="lp-dock relative mx-auto mt-14 grid max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
+            style={delay(0.15)}
           >
             <div className="bg-surface p-5 sm:p-6">
               <LiveScoreCell />

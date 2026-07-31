@@ -22,6 +22,7 @@
  */
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ButtonLink } from "@/components/ui";
 
 const CourtHeroScene = dynamic(() => import("./court-hero-scene"), {
   ssr: false,
@@ -33,8 +34,10 @@ const GRAIN =
 
 const LINE = "RUN YOUR LEAGUE";
 
-/** Exit begins at 68% of the pin and runs to 100%. */
-const EXIT_START = 0.68;
+/** Timeline: dwell to 62%, board exits over 62–85%, then the CTAs hold the
+    stage alone for the final 15% before the section releases. */
+const EXIT_START = 0.62;
+const EXIT_SPAN = 0.23;
 
 const MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 function subscribeMotion(cb: () => void) {
@@ -45,7 +48,13 @@ function subscribeMotion(cb: () => void) {
 
 export type HeroProgress = { p: number; e: number };
 
-export default function CourtHero() {
+export default function CourtHero({
+  startHref,
+  joinHref,
+}: {
+  startHref: string;
+  joinHref: string;
+}) {
   const ref = useRef<HTMLElement>(null);
   // p: 0..1 across the whole pin. e: eased exit progress (0 through the
   // dwell, 0..1 over the final stretch). Read per-frame by the scene.
@@ -87,7 +96,7 @@ export default function CourtHero() {
       const p = span > 0 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
       // Dwell, then a smoothstep-eased exit — smooth into the handoff, no
       // abrupt cutoff when the section releases.
-      const raw = Math.min(1, Math.max(0, (p - EXIT_START) / (1 - EXIT_START)));
+      const raw = Math.min(1, Math.max(0, (p - EXIT_START) / EXIT_SPAN));
       const e = raw * raw * (3 - 2 * raw);
       progress.current.p = p;
       progress.current.e = e;
@@ -145,8 +154,9 @@ export default function CourtHero() {
           </div>
         </div>
 
-        {/* The clipboard */}
-        <div className="absolute inset-0 z-10">
+        {/* The clipboard — its own region above the CTA band, so the board
+            cannot overlap the buttons at any rotation angle */}
+        <div className="absolute inset-x-0 top-0 z-10 h-[76%]">
           {seen ? (
             <CourtHeroScene
               active={active}
@@ -156,10 +166,28 @@ export default function CourtHero() {
           ) : null}
         </div>
 
+        {/* Tagline + CTAs: fixed on screen for the whole pin. They rise in
+            once on load and then never move, fade, or drift — during the
+            board's exit and the final hold they are the only thing left. */}
+        <div className="absolute inset-x-0 bottom-0 z-30 flex h-[24%] flex-col items-center justify-start gap-4 px-4 pt-1">
+          <p className="ch-cta max-w-[52ch] text-center text-[clamp(15px,1.3vw,18px)] font-medium leading-[1.5] text-white">
+            Captains draft teams. Games fit into lunch and free periods. Stats
+            are tracked live from the sideline. Playoffs settle it.
+          </p>
+          <div className="ch-cta flex flex-wrap justify-center gap-3" style={{ animationDelay: "1s" }}>
+            <ButtonLink href={startHref} variant="accent">
+              Start a league
+            </ButtonLink>
+            <ButtonLink href={joinHref} variant="canvas">
+              I have a join code
+            </ButtonLink>
+          </div>
+        </div>
+
         {/* Film grain wash */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 z-20 opacity-[0.13] mix-blend-overlay"
+          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[76%] opacity-[0.13] mix-blend-overlay"
           style={{ backgroundImage: GRAIN }}
         />
 
@@ -172,7 +200,7 @@ export default function CourtHero() {
           <span className="hidden sm:block">06 systems · one league</span>
         </div>
         <div
-          className="label pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-between p-5 !text-[11px] !text-white/60 sm:p-7"
+          className="label pointer-events-none absolute inset-x-0 bottom-0 z-20 hidden justify-between p-5 !text-[11px] !text-white/60 sm:flex sm:p-7"
           style={{ opacity: "calc(1 - var(--ch-p, 0) * 1.6)" }}
         >
           <span>Fig. A — coaching board</span>
@@ -211,8 +239,17 @@ export default function CourtHero() {
           from { transform: scaleY(1); }
           to { transform: scaleY(0.82); }
         }
+        .ch-cta {
+          opacity: 0;
+          animation: ch-cta .9s cubic-bezier(.2,.7,.2,1) .8s both;
+        }
+        @keyframes ch-cta {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: none; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .ch-scroll, .ch-stretch { animation: none; }
+          .ch-cta { animation: none; opacity: 1; }
         }
       `}</style>
     </section>
