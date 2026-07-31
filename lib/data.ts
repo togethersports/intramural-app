@@ -584,15 +584,19 @@ export async function getMyLastStatLine(
   userId: string,
 ): Promise<(PlayerGameStatRow & { game: GameRow | null }) | null> {
   const supabase = await createClient();
+  // The game comes back embedded rather than through a second getGame()
+  // call — the two queries were sequential, so this halves the wait on the
+  // dashboard's slowest card.
   const { data } = await supabase
     .from("player_game_stats")
-    .select("*")
+    .select(`*, game:games(${GAME_SELECT})`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (!data) return null;
-  const row = data as unknown as PlayerGameStatRow;
-  const game = await getGame(row.game_id);
-  return { ...row, game };
+  const { game, ...row } = data as unknown as PlayerGameStatRow & {
+    game: GameRow | null;
+  };
+  return { ...row, game: game ?? null };
 }

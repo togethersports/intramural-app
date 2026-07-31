@@ -16,7 +16,7 @@ import {
   PageHeader,
   RoleBadge,
 } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { getMyName, requireUser } from "@/lib/auth";
 import {
   getMyLastStatLine,
   getMyNextGame,
@@ -37,15 +37,14 @@ function greeting() {
 export default async function DashboardPage() {
   const user = await requireUser();
   const supabase = await createClient();
-  const [{ data: profile }, leagues, myTeams, nextGame, lastLine] =
-    await Promise.all([
-      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
-      getMyLeagues(),
-      getMyTeams(user.id),
-      getMyNextGame(user.id),
-      getMyLastStatLine(user.id),
-    ]);
-  const firstName = (profile?.full_name || "there").split(" ")[0];
+  const [name, leagues, myTeams, nextGame, lastLine] = await Promise.all([
+    getMyName(),
+    getMyLeagues(),
+    getMyTeams(user.id),
+    getMyNextGame(user.id),
+    getMyLastStatLine(user.id),
+  ]);
+  const firstName = name.split(" ")[0];
 
   // pending actions: live drafts in my leagues + missing availability
   const pending: { label: string; href: string; icon: React.ReactNode }[] = [];
