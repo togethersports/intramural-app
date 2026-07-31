@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CourtHero from "@/components/court-hero";
 import {
   DraftBoardClock,
   LiveScoreCell,
@@ -92,54 +93,15 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      {/* Hero — the court is the canvas */}
-      <section className="relative px-4 pt-12 sm:px-6 sm:pt-16">
-        {/* Court lines: center line, circle, and the two keys */}
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="lp-sweep absolute inset-y-0 left-1/2 w-px bg-white/30" />
-          <div
-            className="lp-court absolute left-1/2 top-1/2 aspect-square w-[min(46vw,600px)] rounded-full border border-white/30"
-            style={delay(0.1)}
-          />
-          <div
-            className="lp-court absolute left-1/2 top-1/2 aspect-square w-[min(16vw,180px)] rounded-full border border-white/30"
-            style={delay(0.22)}
-          />
-          <div
-            className="lp-fade absolute -left-px bottom-[22%] top-[22%] w-[min(15vw,200px)] rounded-r border border-l-0 border-white/25"
-            style={delay(0.35)}
-          />
-          <div
-            className="lp-fade absolute -right-px bottom-[22%] top-[22%] w-[min(15vw,200px)] rounded-l border border-r-0 border-white/25"
-            style={delay(0.35)}
-          />
-        </div>
+      {/* Hero — the clipboard tumbles over the RUN YOUR LEAGUE marquee */}
+      <h1 className="sr-only">Intramural — Run Your League</h1>
+      <CourtHero />
 
+      <section className="relative px-4 sm:px-6">
         <div className="relative mx-auto w-full max-w-7xl">
           <p
-            className="label lp-rise flex items-center justify-center gap-4 !text-white/90"
-            style={delay(0.05)}
-          >
-            <span className="hidden h-px w-[clamp(28px,12vw,170px)] bg-white/45 sm:block" />
-            <span className="whitespace-nowrap">School intramural sports</span>
-            <span className="hidden h-px w-[clamp(28px,12vw,170px)] bg-white/45 sm:block" />
-          </p>
-
-          <h1 className="mt-6 text-center text-[clamp(52px,11vw,150px)] font-semibold leading-[0.85] tracking-[-0.045em] text-white">
-            <span className="lp-rise block" style={delay(0.15)}>
-              Run<span className="lp-dot text-accent">.</span>
-            </span>
-            <span className="lp-rise block" style={delay(0.27)}>
-              Your<span className="lp-dot text-accent" style={{ animationDelay: "3.2s" }}>.</span>
-            </span>
-            <span className="lp-rise block" style={delay(0.39)}>
-              League<span className="lp-dot text-accent" style={{ animationDelay: "3.4s" }}>.</span>
-            </span>
-          </h1>
-
-          <p
-            className="lp-rise mx-auto mt-7 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
-            style={delay(0.52)}
+            className="lp-rise mx-auto mt-10 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
+            style={delay(0.1)}
           >
             Captains draft teams. Games fit into lunch and free periods. Stats
             are tracked live from the sideline. Playoffs settle it.
@@ -147,7 +109,7 @@ export default async function LandingPage() {
 
           <div
             className="lp-rise mt-8 flex flex-wrap justify-center gap-3"
-            style={delay(0.64)}
+            style={delay(0.22)}
           >
             <ButtonLink href={startHref} variant="accent">
               Start a league
