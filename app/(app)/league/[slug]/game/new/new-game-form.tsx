@@ -126,11 +126,11 @@ export function NewGameForm({
         </Field>
       </div>
 
-      <fieldset className="rounded-panel bg-paper p-4">
-        <legend className="label float-left mb-2 w-full">
+      <div className="rounded-panel bg-paper p-4">
+        <p className="label mb-3">
           Game rules — from the league rules, editable for this game only
-        </legend>
-        <div className="grid grid-cols-3 gap-3 pt-1">
+        </p>
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Periods" htmlFor="periods">
             <Input
               id="periods"
@@ -165,7 +165,7 @@ export function NewGameForm({
             />
           </Field>
         </div>
-      </fieldset>
+      </div>
 
       <label className="flex min-h-11 items-start gap-3 rounded-panel bg-paper p-4">
         {/* key remounts the checkbox so the default tracks guest selection
