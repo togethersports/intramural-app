@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:core": "tsc --noEmit -p mobile/core/tsconfig.json",
     "seed:demo": "node scripts/seed-demo.mjs",
+    "seed:ghosts": "node scripts/seed-ghost-players.mjs",
     "test:seed": "node --test scripts/seed-demo.test.mjs"
   },
   "dependencies": {

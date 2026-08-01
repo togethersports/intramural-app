@@ -672,6 +672,150 @@ assert(
   "adding user_id narrows it to exactly one row — what maybeSingle() needs",
 );
 
+// ------------------------------------------------------ demo league RPCs
+// league_members and trades have no direct insert policy for authenticated
+// users at all (RPC-only, per the comments in 0001/0005) — the demo
+// generator needs two narrow RPCs to bulk-enroll ghost players and to
+// fast-track a trade past the captain-acceptance step. Both must refuse to
+// touch anything that isn't flagged is_demo, and both must still require
+// the caller to be that league's admin.
+await asOwner();
+for (let n = 20; n <= 23; n++) {
+  await db.query(
+    `insert into auth.users (id, email, raw_user_meta_data)
+     values ($1, $2, jsonb_build_object('full_name', $3::text))`,
+    [uid(n), `ghost${n}@demo.invalid`, `Ghost Player ${n}`],
+  );
+}
+assert(
+  (await one(`select count(*)::int as c from profiles where id in ($1,$2,$3,$4)`,
+    [uid(20), uid(21), uid(22), uid(23)])).c === 4,
+  "profile bootstrap trigger fired for the 4 ghost users too",
+);
+
+await asAuthenticated(1);
+const demoSlug = (await one(
+  `select create_league('Demo Test League', 'basketball', '#c8232c', null) as s`,
+)).s;
+const demoLeague = await one(`select * from leagues where slug = $1`, [demoSlug]);
+assert(demoLeague.is_demo === false, "a freshly created league is not a demo league");
+
+assert(
+  await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  ),
+  "seed_demo_roster refuses a league that isn't flagged is_demo",
+);
+
+await asOwner();
+await db.query(`update leagues set is_demo = true where id = $1`, [demoLeague.id]);
+
+await asAuthenticated(6); // a real user, but not this league's admin
+assert(
+  await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  ),
+  "seed_demo_roster refuses a caller who isn't the league's admin",
+);
+
+await asAuthenticated(1);
+assert(
+  !(await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  )),
+  "the demo league's admin can seed the ghost roster",
+);
+await asOwner();
+assert(
+  (await one(
+    `select count(*)::int as c from league_members
+     where league_id = $1 and user_id in ($2,$3,$4,$5) and role = 'player'`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  )).c === 4,
+  "all 4 ghost players landed as league members",
+);
+
+// The is_league_admin NULL hole affected shipped RPCs too, not just the new
+// ones above — pin the fix against the real thing: a user who shares no
+// league at all with the original draft should not be able to undo a pick
+// in it. uid(20) is a member of the new demo league only.
+const picksBeforeOutsider = (
+  await one(`select count(*)::int as c from draft_picks where draft_id = $1`, [draft.id])
+).c;
+await asAuthenticated(20);
+assert(
+  await rejects(`select undo_last_pick($1)`, [draft.id]),
+  "undo_last_pick refuses a caller who shares no league with the draft at all",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from draft_picks where draft_id = $1`, [draft.id])).c ===
+    picksBeforeOutsider,
+  "the outsider's call did not actually undo anything",
+);
+
+// teams + rosters for the trade RPC to move
+await asAuthenticated(1);
+const demoSeason = await one(
+  `insert into seasons (league_id, name, starts_on, ends_on, num_weeks)
+   values ($1, 'Demo Season', '2026-01-05', '2026-03-01', 9) returning *`,
+  [demoLeague.id],
+);
+const demoTeamA = await one(
+  `insert into teams (season_id, name, abbrev) values ($1, 'Ghost A', 'GHA') returning *`,
+  [demoSeason.id],
+);
+const demoTeamB = await one(
+  `insert into teams (season_id, name, abbrev) values ($1, 'Ghost B', 'GHB') returning *`,
+  [demoSeason.id],
+);
+await db.query(
+  `insert into team_members (team_id, user_id) values
+     ($1, $3), ($1, $4), ($2, $5), ($2, $6)`,
+  [demoTeamA.id, demoTeamB.id, uid(20), uid(21), uid(22), uid(23)],
+);
+
+assert(
+  await rejects(
+    // the ORIGINAL non-demo league's teams — the gate must hold even
+    // though this caller genuinely is that league's admin.
+    `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[])`,
+    [season.id, teamA.id, teamB.id, uid(4), uid(7)],
+  ),
+  "seed_demo_trade refuses a real (non-demo) league even for its own admin",
+);
+
+await asAuthenticated(6);
+assert(
+  await rejects(
+    `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[])`,
+    [demoSeason.id, demoTeamA.id, demoTeamB.id, uid(20), uid(22)],
+  ),
+  "seed_demo_trade refuses a caller who isn't the demo league's admin",
+);
+
+await asAuthenticated(1);
+const demoTradeId = (await one(
+  `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[]) as id`,
+  [demoSeason.id, demoTeamA.id, demoTeamB.id, uid(20), uid(22)],
+)).id;
+await asOwner();
+assert(
+  (await one(`select status from trades where id = $1`, [demoTradeId])).status === "executed",
+  "seed_demo_trade proposes and executes in one call — no captain acceptance needed",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from team_members
+     where team_id = $1 and user_id = $2 and left_at is null`,
+    [demoTeamB.id, uid(20)],
+  )).c === 1,
+  "the traded ghost actually moved rosters",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

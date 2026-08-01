@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DemoLeagueButton } from "@/components/demo-league-button";
 import { GameCard } from "@/components/game-card";
 import {
   IconArrowRight,
@@ -195,13 +196,16 @@ export default async function DashboardPage() {
             title="You're not in a league yet"
             body="Start one as commissioner, or join with the 6-character code from yours."
             action={
-              <div className="flex gap-2">
-                <ButtonLink href="/leagues/new" variant="primary">
-                  Start a league
-                </ButtonLink>
-                <ButtonLink href="/join" variant="quiet">
-                  I have a code
-                </ButtonLink>
+              <div className="w-full space-y-4">
+                <div className="flex gap-2">
+                  <ButtonLink href="/leagues/new" variant="primary">
+                    Start a league
+                  </ButtonLink>
+                  <ButtonLink href="/join" variant="quiet">
+                    I have a code
+                  </ButtonLink>
+                </div>
+                <DemoLeagueButton className="max-w-xs" />
               </div>
             }
           />

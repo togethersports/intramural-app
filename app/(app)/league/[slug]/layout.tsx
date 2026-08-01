@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { resetDemoLeague } from "@/app/(app)/actions";
 import { LeagueNav } from "@/components/league-nav";
+import { Button } from "@/components/ui";
 import { getActiveSeason, getLeague } from "@/lib/data";
 import { isLeagueAdmin, sportLabel } from "@core/league-constants";
 
@@ -17,6 +19,21 @@ export default async function LeagueLayout({
 
   return (
     <div className="space-y-4">
+      {league.is_demo ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-ink px-4 py-3 text-white">
+          <p className="label !text-white">
+            Demo league — nothing here is real, explore freely.
+          </p>
+          {isLeagueAdmin(league.role) ? (
+            <form action={resetDemoLeague}>
+              <input type="hidden" name="league_id" value={league.id} />
+              <Button type="submit" variant="light" className="!min-h-9 !px-4 !py-2 !text-[13px]">
+                Reset demo league
+              </Button>
+            </form>
+          ) : null}
+        </div>
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3 text-white">
         <div className="flex items-center gap-3">
           <span

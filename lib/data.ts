@@ -31,6 +31,7 @@ export interface LeagueContext {
   primary_color: string;
   join_code: string;
   settings: { email_domain?: string; trade_approval?: "auto" | "commissioner" };
+  is_demo: boolean;
   role: LeagueRole;
 }
 
@@ -40,7 +41,7 @@ export const getLeague = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from("leagues")
-      .select("id, name, slug, sport, primary_color, join_code, settings")
+      .select("id, name, slug, sport, primary_color, join_code, settings, is_demo")
       .eq("slug", slug)
       .maybeSingle();
     if (!data) return null;
