@@ -196,10 +196,10 @@ export default async function GamePage({
         {canTrack ? (
           <div className="mt-4 text-center">
             <Link
-              href={`/league/${slug}/game/${gameId}/track`}
+              href={`/league/${slug}/game/${gameId}/live`}
               className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-surface hover:bg-black"
             >
-              {game.status === "live" ? "Resume tracking" : "Open tracker"}
+              {game.status === "live" ? "Resume the live console" : "Open the live console"}
             </Link>
           </div>
         ) : null}

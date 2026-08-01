@@ -17,6 +17,10 @@ export interface SeasonRow {
     matchups_per_pair?: number;
     periods?: number;
     period_minutes?: number;
+    foul_limit?: number;
+    bonus_threshold?: number;
+    timeouts_per_team?: number;
+    overtime_minutes?: number;
   };
 }
 

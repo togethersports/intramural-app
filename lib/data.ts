@@ -75,6 +75,18 @@ export const getActiveSeason = cache(
   },
 );
 
+export const getSeason = cache(
+  async (seasonId: string): Promise<SeasonRow | null> => {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("seasons")
+      .select("*")
+      .eq("id", seasonId)
+      .maybeSingle();
+    return (data as SeasonRow) ?? null;
+  },
+);
+
 export async function getSeasons(leagueId: string): Promise<SeasonRow[]> {
   const supabase = await createClient();
   const { data } = await supabase

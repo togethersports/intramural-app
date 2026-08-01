@@ -568,7 +568,7 @@ export async function setScorekeeper(formData: FormData) {
       category: "scorekeeper",
       title: "You're keeping book",
       body: "You've been assigned as scorekeeper for a game.",
-      link: `/league/${slug}/game/${gameId}/track`,
+      link: `/league/${slug}/game/${gameId}/live`,
     });
   }
   revalidateLeague(slug);
@@ -618,6 +618,23 @@ export async function voidEvent(
     .update({ voided })
     .eq("id", eventId)
     .eq("game_id", gameId);
+  return { error: error?.message ?? null };
+}
+
+/** Void keyed by client_uuid — the console doesn't learn server ids for
+    events it created itself, and this stays idempotent across retries. */
+export async function voidEventByClientId(
+  gameId: string,
+  clientUuid: string,
+  voided: boolean,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("game_events")
+    .update({ voided })
+    .eq("game_id", gameId)
+    .eq("client_uuid", clientUuid);
   return { error: error?.message ?? null };
 }
 

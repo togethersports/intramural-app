@@ -227,10 +227,10 @@ export default async function SchedulePage({
                   {(admin || g.scorekeeper_id === user.id) &&
                   (g.status === "scheduled" || g.status === "live") ? (
                     <Link
-                      href={`/league/${slug}/game/${g.id}/track`}
+                      href={`/league/${slug}/game/${g.id}/live`}
                       className="flex min-h-11 items-center justify-center rounded-control bg-ink text-sm font-semibold text-surface hover:bg-black"
                     >
-                      {g.status === "live" ? "Resume tracking" : "Track this game"}
+                      {g.status === "live" ? "Resume the live console" : "Start game"}
                     </Link>
                   ) : null}
                 </div>
