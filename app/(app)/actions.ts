@@ -483,6 +483,88 @@ export async function resetDemoLeague(formData: FormData) {
   redirect("/dashboard");
 }
 
+/* ------------------------------ league lifecycle -----------------------------
+   Archive: out of the active list, everything kept, reversible any time.
+   Delete: soft, with a 30-day recovery window surfaced on the dashboard's
+   Archived section, then purged (cascade) by purge_expired_leagues().
+   RLS enforces who may flip these flags — only the commissioner can update
+   a leagues row at all. */
+
+export async function archiveLeague(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const leagueId = String(formData.get("league_id") ?? "");
+  if (!leagueId) return;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("leagues")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", leagueId)
+    .select("name")
+    .maybeSingle();
+  if (!data) return; // RLS refused — not the commissioner
+  revalidatePath("/dashboard");
+  redirect(`/dashboard?notice=${encodeURIComponent(`${data.name} archived.`)}`);
+}
+
+export async function unarchiveLeague(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  await supabase
+    .from("leagues")
+    .update({ archived_at: null })
+    .eq("id", String(formData.get("league_id") ?? ""));
+  revalidatePath("/dashboard");
+}
+
+export async function restoreLeague(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("leagues")
+    .update({ deleted_at: null })
+    .eq("id", String(formData.get("league_id") ?? ""))
+    .select("name")
+    .maybeSingle();
+  revalidatePath("/dashboard");
+  if (data) {
+    redirect(`/dashboard?notice=${encodeURIComponent(`${data.name} restored.`)}`);
+  }
+}
+
+/** Typed-name confirmation happens client-side for feedback, but the server
+    re-verifies it — the destructive action never trusts the client. */
+export async function deleteLeagueAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const leagueId = String(formData.get("league_id") ?? "");
+  const typed = String(formData.get("confirm_name") ?? "").trim();
+  const supabase = await createClient();
+  const { data: league } = await supabase
+    .from("leagues")
+    .select("name")
+    .eq("id", leagueId)
+    .maybeSingle();
+  if (!league) return { error: "League not found." };
+  if (typed !== league.name)
+    return { error: `Type the league name exactly — "${league.name}" — to confirm.` };
+  const { data: updated, error } = await supabase
+    .from("leagues")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", leagueId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!updated) return { error: "Only the commissioner can delete a league." };
+  revalidatePath("/dashboard");
+  redirect(
+    `/dashboard?notice=${encodeURIComponent(
+      `${league.name} deleted. You can restore it for 30 days from the Archived section below.`,
+    )}`,
+  );
+}
+
 export async function updateMemberRole(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const memberId = String(formData.get("member_id") ?? "");

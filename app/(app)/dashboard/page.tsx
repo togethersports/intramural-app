@@ -12,18 +12,21 @@ import {
   IconWhistle,
 } from "@/components/icons";
 import {
+  Button,
   ButtonLink,
   EmptyState,
+  FormNotice,
   PageHeader,
   RoleBadge,
 } from "@/components/ui";
+import { restoreLeague, unarchiveLeague } from "@/app/(app)/actions";
 import { getMyName, requireUser } from "@/lib/auth";
 import {
   getMyLastStatLine,
   getMyNextGame,
   getMyTeams,
 } from "@/lib/data";
-import { getMyLeagues, sportLabel } from "@/lib/leagues";
+import { getMyLeagues, getShelvedLeagues, sportLabel } from "@/lib/leagues";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -35,12 +38,21 @@ function greeting() {
   return "Good evening";
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const { notice } = await searchParams;
   const user = await requireUser();
   const supabase = await createClient();
-  const [name, leagues, myTeams, nextGame, lastLine] = await Promise.all([
+  // opportunistic hard-purge of leagues past their 30-day recovery window —
+  // no cron on the free tier, and the exact purge hour doesn't matter
+  await supabase.rpc("purge_expired_leagues");
+  const [name, leagues, shelved, myTeams, nextGame, lastLine] = await Promise.all([
     getMyName(),
     getMyLeagues(),
+    getShelvedLeagues(),
     getMyTeams(user.id),
     getMyNextGame(user.id),
     getMyLastStatLine(user.id),
@@ -91,6 +103,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      {notice ? <FormNotice message={notice} /> : null}
       <PageHeader
         title={`${greeting()}, ${firstName}`}
         subtitle="Here's where your leagues stand."
@@ -247,6 +260,61 @@ export default async function DashboardPage() {
           </ul>
         )}
       </section>
+
+      {/* Archived + recently deleted */}
+      {shelved.length > 0 ? (
+        <section className="card p-5 sm:p-6">
+          <h2 className="mb-1 text-lg font-semibold tracking-tight">Archived</h2>
+          <p className="mb-4 text-sm text-ink-body">
+            Archived leagues keep everything and can come back any time.
+            Deleted leagues are restorable until their window runs out.
+          </p>
+          <ul className="space-y-2">
+            {shelved.map((l) => {
+              const commissioner = l.role === "commissioner";
+              return (
+                <li
+                  key={l.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-panel bg-paper px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    {l.deleted_at ? (
+                      <p className="truncate font-semibold">{l.name}</p>
+                    ) : (
+                      <Link
+                        href={`/league/${l.slug}`}
+                        className="truncate font-semibold hover:underline"
+                      >
+                        {l.name}
+                      </Link>
+                    )}
+                    <p className="text-sm text-ink-body">
+                      {l.deleted_at ? (
+                        <>
+                          Deleted —{" "}
+                          <span className="num">{l.days_remaining}</span>{" "}
+                          {l.days_remaining === 1 ? "day" : "days"} left to
+                          restore
+                        </>
+                      ) : (
+                        "Archived"
+                      )}
+                    </p>
+                  </div>
+                  {commissioner ? (
+                    <form action={l.deleted_at ? restoreLeague : unarchiveLeague}>
+                      <input type="hidden" name="league_id" value={l.id} />
+                      <Button type="submit" variant="quiet" className="!min-h-10 !px-4 !py-2 !text-[14px]">
+                        {l.deleted_at ? "Restore" : "Unarchive"}
+                      </Button>
+                    </form>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -71,6 +71,9 @@ const GAME: GameRow = {
   clock_ms: 252_000,
   scorekeeper_id: null,
   is_playoff: false,
+  is_adhoc: false,
+  counts_for_standings: true,
+  rules_override: {},
   bracket_node_id: null,
 };
 

@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import {
   getGame,
   getGameEvents,
+  getGameGuests,
   getLeague,
   getLineups,
   getTeamsWithRosters,
@@ -25,7 +26,7 @@ function BoxTable({
   title: string;
   abbrev: string;
   color: string;
-  rows: (StatLine & { name: string; userId: string; href: string })[];
+  rows: (StatLine & { name: string; userId: string; href: string | null })[];
 }) {
   return (
     <section className="card overflow-hidden">
@@ -51,9 +52,13 @@ function BoxTable({
               .map((r) => (
                 <tr key={r.userId} className="border-t border-rule">
                   <td className="sticky left-0 z-10 max-w-[8rem] truncate bg-surface py-2 pr-3">
-                    <Link href={r.href} className="font-semibold hover:underline">
-                      {r.name}
-                    </Link>
+                    {r.href ? (
+                      <Link href={r.href} className="font-semibold hover:underline">
+                        {r.name}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold">{r.name}</span>
+                    )}
                   </td>
                   <td className="tabular px-1.5 py-2 text-right font-semibold">{r.pts}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.reb}</td>
@@ -89,21 +94,29 @@ export default async function GamePage({
   const game = await getGame(gameId);
   if (!game) notFound();
 
-  const [events, lineups, teams] = await Promise.all([
+  const [events, lineups, teams, guests] = await Promise.all([
     getGameEvents(gameId),
     getLineups(gameId),
     getTeamsWithRosters(game.season_id),
+    getGameGuests(gameId),
   ]);
 
   const nameOf = new Map<string, string>();
   for (const t of teams)
     for (const r of t.roster) nameOf.set(r.user_id, r.full_name);
+  const guestIds = new Set(guests.map((g) => g.id));
+  for (const g of guests) nameOf.set(g.id, g.display_name);
 
-  // Final games read from materialized stats; live games compute from events.
+  // Final (and abandoned) games read from materialized stats; live games
+  // compute from events.
   let lines: (StatLine & { userId: string; teamId: string })[] = [];
   let homeScore = game.home_score;
   let awayScore = game.away_score;
-  if (game.status === "final" || game.status === "forfeit") {
+  if (
+    game.status === "final" ||
+    game.status === "forfeit" ||
+    game.status === "abandoned"
+  ) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("player_game_stats")
@@ -111,7 +124,8 @@ export default async function GamePage({
       .eq("game_id", gameId);
     lines = ((data as unknown as PlayerGameStatRow[]) ?? []).map((r) => ({
       ...r,
-      userId: r.user_id,
+      // exactly one of user_id/guest_id is set (DB check constraint)
+      userId: (r.user_id ?? r.guest_id)!,
       teamId: r.team_id,
     }));
   } else {
@@ -133,13 +147,15 @@ export default async function GamePage({
       .map((l) => ({
         ...l,
         name: nameOf.get(l.userId) ?? "Unnamed",
-        href: `/league/${slug}/player/${l.userId}`,
+        // guests have no player page — their stats live with this game only
+        href: guestIds.has(l.userId) ? null : `/league/${slug}/player/${l.userId}`,
       }));
 
   const canTrack =
     (isLeagueAdmin(league.role) || game.scorekeeper_id === user.id) &&
     game.status !== "final" &&
-    game.status !== "forfeit";
+    game.status !== "forfeit" &&
+    game.status !== "abandoned";
 
   const visibleEvents = [...events].filter((e) => !e.voided).reverse();
 
@@ -154,6 +170,8 @@ export default async function GamePage({
             Week {game.week}
             {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
             {game.venue?.name ? ` · ${game.venue.name}` : ""}
+            {game.is_adhoc ? " · Pickup" : ""}
+            {!game.counts_for_standings ? " · Exhibition" : ""}
           </span>
           {game.status === "live" ? (
             <span className="inline-flex items-center gap-1.5 font-bold text-accent">
@@ -163,6 +181,8 @@ export default async function GamePage({
               </span>
               LIVE · P{game.period}
             </span>
+          ) : game.status === "abandoned" ? (
+            <span className="font-bold uppercase">Incomplete</span>
           ) : (
             <span className="font-bold uppercase">{game.status}</span>
           )}

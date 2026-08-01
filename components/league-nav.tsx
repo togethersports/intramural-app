@@ -20,7 +20,13 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
     { href: `${base}/playoffs`, label: "Playoffs" },
     { href: `${base}/rules`, label: "Rules" },
     { href: `${base}/members`, label: "Members" },
-    ...(admin ? [{ href: `${base}/console`, label: "Console" }] : []),
+    ...(admin
+      ? [
+          { href: `${base}/console`, label: "Console" },
+          // one click from anywhere in the league to a courtside game
+          { href: `${base}/game/new`, label: "New game" },
+        ]
+      : []),
   ];
 
   // 12 tabs overflow ~4x the viewport on a phone; deep-linking to a later tab

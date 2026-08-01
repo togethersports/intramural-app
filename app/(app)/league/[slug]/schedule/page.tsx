@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
-import { IconCalendar } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
+import { IconCalendar, IconPlus } from "@/components/icons";
+import { ButtonLink, EmptyState, FormNotice } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
@@ -15,17 +15,25 @@ import {
 } from "@/lib/data";
 import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
-import { deleteGame, rescheduleGame, setScorekeeper } from "../actions";
+import {
+  deleteGame,
+  reassignGameTeams,
+  rescheduleGame,
+  setScorekeeper,
+} from "../actions";
 import { AddGameForm, GenerateScheduleForm } from "./schedule-forms";
 
 export const metadata: Metadata = { title: "Schedule" };
 
 export default async function SchedulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ remap?: string }>;
 }) {
   const { slug } = await params;
+  const { remap } = await searchParams;
   const user = await requireUser();
   const league = await getLeague(slug);
   if (!league) notFound();
@@ -44,13 +52,15 @@ export default async function SchedulePage({
     );
   }
 
-  const [games, teams, slots, venues, members] = await Promise.all([
+  const [games, allTeams, slots, venues, members] = await Promise.all([
     getGames(season.id),
-    getTeams(season.id),
+    // include external ad-hoc opponents so reassignment can pick them
+    getTeams(season.id, { includeExternal: true }),
     getTimeSlots(league.id),
     getVenues(league.id),
     admin ? getLeagueMembers(league.id) : Promise.resolve([]),
   ]);
+  const teams = allTeams.filter((t) => !t.is_external);
 
   const byWeek = new Map<number, typeof games>();
   for (const g of games) {
@@ -61,12 +71,28 @@ export default async function SchedulePage({
 
   return (
     <div className="space-y-5">
+      {remap ? (
+        <FormNotice
+          message={`Teams changed. ${remap} recorded ${
+            remap === "1" ? "event references a player" : "events reference players"
+          } not on the new roster — fix them from the game's log in the live console.`}
+        />
+      ) : null}
       {admin ? (
         <section className="card space-y-5 p-5 sm:p-6">
           <div>
-            <h2 className="mb-3 text-lg font-semibold tracking-tight">
-              Build the schedule
-            </h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Build the schedule
+              </h2>
+              <ButtonLink
+                href={`/league/${slug}/game/new`}
+                variant="primary"
+                className="!px-5 !text-[15px]"
+              >
+                <IconPlus size={16} /> New game
+              </ButtonLink>
+            </div>
             <GenerateScheduleForm
               slug={slug}
               leagueId={league.id}
@@ -191,6 +217,42 @@ export default async function SchedulePage({
                           <button className="min-h-11 rounded-control bg-ink px-3 text-xs font-bold text-surface">
                             Save + notify
                           </button>
+                        </form>
+                        <form
+                          action={reassignGameTeams}
+                          className="flex flex-wrap items-end gap-2 border-t border-rule pt-3"
+                        >
+                          <input type="hidden" name="game_id" value={g.id} />
+                          <input type="hidden" name="slug" value={slug} />
+                          {(
+                            [
+                              ["home_team_id", "Home", g.home_team_id],
+                              ["away_team_id", "Away", g.away_team_id],
+                            ] as const
+                          ).map(([name, label, current]) => (
+                            <label key={name} className="text-xs font-medium text-ink-body">
+                              {label}
+                              <select
+                                name={name}
+                                defaultValue={current}
+                                className="mt-1 block h-11 w-36 rounded-control border border-rule bg-paper px-2 text-[17px]"
+                              >
+                                {allTeams.map((t) => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ))}
+                          <button className="min-h-11 rounded-control bg-rule px-3 text-xs font-semibold">
+                            Change teams
+                          </button>
+                          <p className="w-full text-[11px] text-ink-faint">
+                            Swapping home and away keeps every stat. Replacing a
+                            team moves its recorded events over, and you&apos;ll
+                            be told if any player attributions need fixing.
+                          </p>
                         </form>
                         <div className="flex flex-wrap items-center gap-2">
                           <form action={setScorekeeper} className="flex items-center gap-2">

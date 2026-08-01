@@ -53,6 +53,10 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
           {dateStr}
           {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
           {game.venue?.name ? ` · ${game.venue.name}` : ""}
+          {game.is_adhoc ? " · Pickup" : ""}
+          {!game.counts_for_standings && game.status !== "abandoned"
+            ? " · Exhibition"
+            : ""}
         </span>
         {game.status === "live" ? (
           <span className="label inline-flex items-center gap-1.5 !text-accent">
@@ -68,6 +72,8 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
           </span>
         ) : game.status === "postponed" ? (
           <span className="label !text-accent">Postponed</span>
+        ) : game.status === "abandoned" ? (
+          <span className="label !text-ink-muted">Incomplete</span>
         ) : game.is_playoff ? (
           <span className="label !text-bench">Playoff</span>
         ) : null}

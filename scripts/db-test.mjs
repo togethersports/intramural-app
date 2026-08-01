@@ -816,6 +816,122 @@ assert(
   "the traded ghost actually moved rosters",
 );
 
+// ------------------------------------------------- ad-hoc games and guests
+console.log("\n— ad-hoc games and guests —");
+await asOwner();
+await actAs(1);
+const extTeam = await one(
+  `insert into teams (season_id, name, abbrev, color, is_external)
+   values ($1, 'Faculty All-Stars', 'FAC', '#5A6472', true) returning *`,
+  [season.id],
+);
+const adhoc = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, status,
+                      is_adhoc, counts_for_standings, rules_override, scorekeeper_id)
+   values ($1, 2, $2, $3, 'live', true, false, '{"period_minutes":6}'::jsonb, $4)
+   returning *`,
+  [season.id, teamA.id, extTeam.id, uid(1)],
+);
+const guest = await one(
+  `insert into game_guests (game_id, team_id, display_name)
+   values ($1, $2, 'Coach Rivera') returning *`,
+  [adhoc.id, extTeam.id],
+);
+await db.query(
+  `insert into game_events (game_id, seq, period, type, guest_id, team_id, created_by, client_uuid, value)
+   values ($1, 1, 1, 'fg2_made', $2, $3, $4, $5, 2)`,
+  [adhoc.id, guest.id, extTeam.id, uid(1), crypto.randomUUID()],
+);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1 and guest_id = $2`, [adhoc.id, guest.id])).c === 1,
+  "a guest can be credited with an event (guest_id, no auth user)",
+);
+assert(
+  await rejects(
+    `insert into game_events (game_id, seq, period, type, user_id, guest_id, team_id, created_by, client_uuid)
+     values ($1, 2, 1, 'stl', $2, $3, $4, $5, $6)`,
+    [adhoc.id, uid(4), guest.id, extTeam.id, uid(1), crypto.randomUUID()],
+  ),
+  "an event cannot claim both an auth user AND a guest",
+);
+await db.query(
+  `insert into player_game_stats (game_id, guest_id, team_id, pts) values ($1, $2, $3, 2)`,
+  [adhoc.id, guest.id, extTeam.id],
+);
+assert(
+  (await one(`select pts from player_game_stats where game_id = $1 and guest_id = $2`, [adhoc.id, guest.id])).pts === 2,
+  "a guest stat line materializes with guest_id in place of user_id",
+);
+assert(
+  await rejects(
+    `insert into player_game_stats (game_id, team_id, pts) values ($1, $2, 4)`,
+    [adhoc.id, extTeam.id],
+  ),
+  "a stat line must belong to exactly one of user/guest",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from games
+     where season_id = $1 and is_playoff = false and counts_for_standings = true and id = $2`,
+    [season.id, adhoc.id],
+  )).c === 0,
+  "the exhibition game is invisible to a counts_for_standings filter",
+);
+
+// ---------------------------------------------------- league lifecycle
+console.log("\n— league lifecycle —");
+// The demo league from the block above: uid(1) is its commissioner and
+// ghost uid(20) is an ordinary member.
+await asAuthenticated(20);
+assert(
+  await rejects(
+    `update leagues set deleted_at = now() where id = $1`,
+    [demoLeague.id],
+  ),
+  "a non-commissioner cannot soft-delete the league",
+);
+await asAuthenticated(1);
+await db.query(`update leagues set deleted_at = now() where id = $1`, [demoLeague.id]);
+await asAuthenticated(20);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 0,
+  "a deleted league disappears for ordinary members",
+);
+await asAuthenticated(1);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 1,
+  "the commissioner still sees it through the recovery window",
+);
+await db.query(`update leagues set deleted_at = null where id = $1`, [demoLeague.id]);
+await asAuthenticated(20);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 1,
+  "restoring brings it back for everyone",
+);
+
+// purge respects the 30-day window
+await asAuthenticated(1);
+await db.query(`update leagues set deleted_at = now() where id = $1`, [demoLeague.id]);
+assert(
+  (await one(`select purge_expired_leagues() as n`)).n === 0,
+  "purge leaves a league inside its 30-day window alone",
+);
+await asOwner();
+await db.query(
+  `update leagues set deleted_at = now() - interval '40 days' where id = $1`,
+  [demoLeague.id],
+);
+await asAuthenticated(1);
+assert(
+  (await one(`select purge_expired_leagues() as n`)).n === 1,
+  "purge hard-deletes once the window has expired",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 0,
+  "the purged league is really gone (cascade took its children)",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

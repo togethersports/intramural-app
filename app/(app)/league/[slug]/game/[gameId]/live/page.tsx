@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { LiveConsole } from "@/components/live-console";
+import { LiveConsole, type TeamSide } from "@/components/live-console";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
   getGameEvents,
+  getGameGuests,
   getLeague,
   getLineups,
   getSeason,
+  getTeamById,
   getTeamsWithRosters,
 } from "@/lib/data";
 import { parseGameRules } from "@core/game-rules";
@@ -28,35 +30,60 @@ export default async function LiveConsolePage({
   if (!game) notFound();
 
   const canScore = isLeagueAdmin(league.role) || game.scorekeeper_id === user.id;
-  if (!canScore || game.status === "final" || game.status === "forfeit") {
+  if (
+    !canScore ||
+    game.status === "final" ||
+    game.status === "forfeit" ||
+    game.status === "abandoned"
+  ) {
     redirect(`/league/${slug}/game/${gameId}`);
   }
 
-  const [teams, events, lineups, season] = await Promise.all([
+  const [teams, events, lineups, season, guests] = await Promise.all([
     getTeamsWithRosters(game.season_id),
     getGameEvents(gameId),
     getLineups(gameId),
     getSeason(game.season_id),
+    getGameGuests(gameId),
   ]);
-  const homeTeam = teams.find((t) => t.id === game.home_team_id);
-  const awayTeam = teams.find((t) => t.id === game.away_team_id);
-  if (!homeTeam || !awayTeam) notFound();
 
-  const side = (t: typeof homeTeam) => ({
-    id: t.id,
-    name: t.name,
-    abbrev: t.abbrev,
-    color: t.color,
-    roster: t.roster,
-  });
+  // An external (free-text) opponent isn't in the league team list — fetch
+  // it directly; its roster is guests-only.
+  const sideFor = async (teamId: string): Promise<TeamSide | null> => {
+    const known = teams.find((t) => t.id === teamId);
+    if (known) {
+      return {
+        id: known.id,
+        name: known.name,
+        abbrev: known.abbrev,
+        color: known.color,
+        roster: known.roster,
+      };
+    }
+    const external = await getTeamById(teamId);
+    if (!external) return null;
+    return {
+      id: external.id,
+      name: external.name,
+      abbrev: external.abbrev,
+      color: external.color,
+      roster: [],
+    };
+  };
+  const homeTeam = await sideFor(game.home_team_id);
+  const awayTeam = await sideFor(game.away_team_id);
+  if (!homeTeam || !awayTeam) notFound();
 
   return (
     <LiveConsole
       slug={slug}
       game={game}
-      home={side(homeTeam)}
-      away={side(awayTeam)}
-      rules={parseGameRules(season?.rules)}
+      home={homeTeam}
+      away={awayTeam}
+      // per-game overrides (ad-hoc settings, mid-game edits) win over the
+      // season's rules
+      rules={parseGameRules({ ...(season?.rules ?? {}), ...game.rules_override })}
+      serverGuests={guests}
       serverEvents={events.map((e) => ({
         id: e.id,
         seq: e.seq,

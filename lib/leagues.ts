@@ -34,7 +34,7 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
   const { data, error } = await supabase
     .from("league_members")
     .select(
-      "role, league:leagues(id, name, slug, sport, primary_color, join_code)",
+      "role, league:leagues(id, name, slug, sport, primary_color, join_code, archived_at, deleted_at)",
     )
     // Scope to MY memberships. RLS makes every member of a league I belong to
     // visible — rosters need that — so without this the league comes back once
@@ -44,12 +44,78 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
     .order("created_at", { ascending: true });
   if (error || !data) return [];
   return data
-    .map((row) => {
-      const league = row.league as unknown as Omit<LeagueSummary, "role">;
-      if (!league) return null;
-      return { ...league, role: row.role as LeagueRole };
+    .map((row): LeagueSummary | null => {
+      const league = row.league as unknown as
+        | (Omit<LeagueSummary, "role"> & {
+            archived_at: string | null;
+            deleted_at: string | null;
+          })
+        | null;
+      // active list only — archived and deleted leagues live in the
+      // dashboard's Archived section (getShelvedLeagues)
+      if (!league || league.archived_at || league.deleted_at) return null;
+      return {
+        id: league.id,
+        name: league.name,
+        slug: league.slug,
+        sport: league.sport,
+        primary_color: league.primary_color,
+        join_code: league.join_code,
+        role: row.role as LeagueRole,
+      };
     })
     .filter((l): l is LeagueSummary => l !== null);
+}
+
+export interface ShelvedLeague {
+  id: string;
+  name: string;
+  slug: string;
+  role: LeagueRole;
+  archived_at: string | null;
+  deleted_at: string | null;
+  /** Days left in the recovery window; null for merely-archived leagues. */
+  days_remaining: number | null;
+}
+
+export const DELETE_RECOVERY_DAYS = 30;
+
+/** Archived and recently-deleted leagues for the dashboard's Archived
+    section. RLS already hides other people's deleted leagues — a deleted
+    league is only readable by its admins during the recovery window. */
+export async function getShelvedLeagues(): Promise<ShelvedLeague[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("league_members")
+    .select("role, league:leagues(id, name, slug, archived_at, deleted_at)")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return data
+    .map((row) => {
+      const league = row.league as unknown as {
+        id: string;
+        name: string;
+        slug: string;
+        archived_at: string | null;
+        deleted_at: string | null;
+      } | null;
+      if (!league || (!league.archived_at && !league.deleted_at)) return null;
+      const days = league.deleted_at
+        ? Math.max(
+            0,
+            DELETE_RECOVERY_DAYS -
+              Math.floor(
+                (Date.now() - new Date(league.deleted_at).getTime()) / 86_400_000,
+              ),
+          )
+        : null;
+      return { ...league, role: row.role as LeagueRole, days_remaining: days };
+    })
+    .filter((l): l is ShelvedLeague => l !== null);
 }
 
 export async function getLeagueBySlug(

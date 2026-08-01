@@ -10,6 +10,7 @@ import type {
   DraftPickRow,
   DraftRow,
   GameEventRow,
+  GameGuestRow,
   GameRow,
   LineupRow,
   NotificationRow,
@@ -41,10 +42,16 @@ export const getLeague = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from("leagues")
-      .select("id, name, slug, sport, primary_color, join_code, settings, is_demo")
+      .select(
+        "id, name, slug, sport, primary_color, join_code, settings, is_demo, deleted_at",
+      )
       .eq("slug", slug)
       .maybeSingle();
     if (!data) return null;
+    // A soft-deleted league is gone from the app until restored from the
+    // dashboard's Archived section — even for the commissioner (whose RLS
+    // read access exists precisely so that restore can work).
+    if (data.deleted_at) return null;
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return null;
     // Must be scoped to me: RLS exposes every member of a league I am in, and
@@ -119,14 +126,32 @@ export async function getVenues(leagueId: string): Promise<VenueRow[]> {
   return (data as VenueRow[]) ?? [];
 }
 
-export async function getTeams(seasonId: string): Promise<TeamRow[]> {
+/** League teams. External (free-text ad-hoc opponent) teams are excluded by
+    default so standings, drafts, and the scheduler never see them — pass
+    includeExternal for surfaces that genuinely list every team. */
+export async function getTeams(
+  seasonId: string,
+  { includeExternal = false }: { includeExternal?: boolean } = {},
+): Promise<TeamRow[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("teams")
+    .select("id, season_id, name, abbrev, color, captain_id, is_external")
+    .eq("season_id", seasonId)
+    .order("created_at");
+  if (!includeExternal) query = query.eq("is_external", false);
+  const { data } = await query;
+  return (data as TeamRow[]) ?? [];
+}
+
+export async function getTeamById(teamId: string): Promise<TeamRow | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("teams")
-    .select("id, season_id, name, abbrev, color, captain_id")
-    .eq("season_id", seasonId)
-    .order("created_at");
-  return (data as TeamRow[]) ?? [];
+    .select("id, season_id, name, abbrev, color, captain_id, is_external")
+    .eq("id", teamId)
+    .maybeSingle();
+  return (data as TeamRow) ?? null;
 }
 
 export async function getTeamsWithRosters(
@@ -281,7 +306,8 @@ export async function getMyAvailability(
 
 const GAME_SELECT = `id, season_id, week, home_team_id, away_team_id, venue_id,
   time_slot_id, scheduled_date, status, home_score, away_score, period,
-  clock_ms, scorekeeper_id, is_playoff, bracket_node_id,
+  clock_ms, scorekeeper_id, is_playoff, is_adhoc, counts_for_standings,
+  rules_override, bracket_node_id,
   home_team:teams!games_home_team_id_fkey(name, abbrev, color),
   away_team:teams!games_away_team_id_fkey(name, abbrev, color),
   time_slot:time_slots(label), venue:venues(name)`;
@@ -312,11 +338,30 @@ export async function getGameEvents(gameId: string): Promise<GameEventRow[]> {
   const { data } = await supabase
     .from("game_events")
     .select(
-      "id, seq, period, clock_ms, team_id, user_id, type, value, related_user_id, voided, client_uuid",
+      "id, seq, period, clock_ms, team_id, user_id, guest_id, type, value, related_user_id, related_guest_id, voided, client_uuid",
     )
     .eq("game_id", gameId)
     .order("seq");
-  return (data as GameEventRow[]) ?? [];
+  // Merge the player keys: the pure stat/replay logic treats them as opaque,
+  // so guest events flow through box scores and the console unchanged.
+  // Writers split them back apart (recordEvent payloads from the console).
+  return (
+    (data as (GameEventRow & { related_guest_id: string | null })[]) ?? []
+  ).map((e) => ({
+    ...e,
+    user_id: e.user_id ?? e.guest_id,
+    related_user_id: e.related_user_id ?? e.related_guest_id,
+  }));
+}
+
+export async function getGameGuests(gameId: string): Promise<GameGuestRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("game_guests")
+    .select("id, game_id, team_id, display_name")
+    .eq("game_id", gameId)
+    .order("created_at");
+  return (data as GameGuestRow[]) ?? [];
 }
 
 export async function getLineups(gameId: string): Promise<LineupRow[]> {
@@ -333,7 +378,7 @@ export async function getLineups(gameId: string): Promise<LineupRow[]> {
 
 export async function getSeasonPlayerStats(
   seasonId: string,
-): Promise<PlayerGameStatRow[]> {
+): Promise<(PlayerGameStatRow & { user_id: string })[]> {
   const supabase = await createClient();
   const { data: games } = await supabase
     .from("games")
@@ -345,9 +390,11 @@ export async function getSeasonPlayerStats(
   const { data } = await supabase
     .from("player_game_stats")
     .select("*, profile:profiles(full_name)")
-    .in("game_id", ids);
+    .in("game_id", ids)
+    // guest lines belong to one game only — they have no season identity
+    .not("user_id", "is", null);
   return (data ?? []).map((r) => ({
-    ...(r as unknown as PlayerGameStatRow),
+    ...(r as unknown as PlayerGameStatRow & { user_id: string }),
     full_name:
       (r.profile as unknown as { full_name: string } | null)?.full_name ||
       "Unnamed",
@@ -499,10 +546,10 @@ export async function getSeasonStandings(seasonId: string): Promise<{
   explanations: string[];
 }> {
   const [teams, games] = await Promise.all([
-    getTeams(seasonId),
+    getTeams(seasonId), // external ad-hoc opponents excluded by default
     getGames(seasonId),
   ]);
-  const regular = games.filter((g) => !g.is_playoff);
+  const regular = games.filter((g) => !g.is_playoff && g.counts_for_standings);
   const { standings, explanations } = computeStandings(
     teams.map((t) => t.id),
     regular,
@@ -516,6 +563,72 @@ export async function getSeasonStandings(seasonId: string): Promise<{
       color: byId.get(s.teamId)?.color ?? "#54749b",
     })),
     explanations,
+  };
+}
+
+/* ---------------------------- league lifecycle ---------------------------- */
+
+export interface LeagueFootprint {
+  teams: number;
+  members: number;
+  games: number;
+  statLines: number;
+  trades: number;
+  bracketNodes: number;
+}
+
+/** What a delete would destroy — shown in the danger zone so the
+    commissioner sees the scale before typing the league name. */
+export async function getLeagueFootprint(
+  leagueId: string,
+): Promise<LeagueFootprint> {
+  const supabase = await createClient();
+  const { data: seasonRows } = await supabase
+    .from("seasons")
+    .select("id")
+    .eq("league_id", leagueId);
+  const seasonIds = (seasonRows ?? []).map((s) => s.id as string);
+  const zero = Promise.resolve({ count: 0 });
+  const bySeason = (table: string) =>
+    seasonIds.length === 0
+      ? zero
+      : supabase
+          .from(table)
+          .select("id", { count: "exact", head: true })
+          .in("season_id", seasonIds);
+
+  const gameIds =
+    seasonIds.length === 0
+      ? []
+      : ((
+          await supabase.from("games").select("id").in("season_id", seasonIds)
+        ).data ?? []).map((g) => g.id as string);
+
+  const [teams, members, games, statLines, trades, bracketNodes] =
+    await Promise.all([
+      bySeason("teams"),
+      supabase
+        .from("league_members")
+        .select("id", { count: "exact", head: true })
+        .eq("league_id", leagueId)
+        .eq("status", "active"),
+      bySeason("games"),
+      gameIds.length === 0
+        ? zero
+        : supabase
+            .from("player_game_stats")
+            .select("id", { count: "exact", head: true })
+            .in("game_id", gameIds),
+      bySeason("trades"),
+      bySeason("bracket_nodes"),
+    ]);
+  return {
+    teams: teams.count ?? 0,
+    members: members.count ?? 0,
+    games: games.count ?? 0,
+    statLines: statLines.count ?? 0,
+    trades: trades.count ?? 0,
+    bracketNodes: bracketNodes.count ?? 0,
   };
 }
 

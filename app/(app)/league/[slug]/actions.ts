@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getGame, getGameEvents, getLineups, getSeasonAvailability, getTeams, getTeamsWithRosters } from "@/lib/data";
+import { redirect } from "next/navigation";
+import { getGame, getGameEvents, getGameGuests, getLineups, getSeasonAvailability, getTeams, getTeamsWithRosters } from "@/lib/data";
 import { computeBoxScore } from "@core/stats";
 import { generateSchedule, slotDateFor } from "@core/scheduler";
 import { computeStandings } from "@core/standings";
@@ -505,6 +506,205 @@ export async function createGame(
   return { error: null };
 }
 
+/* -------------------------------- ad-hoc games ------------------------------
+   A game spun up on the spot, no schedule dependency: any two teams
+   (repeat matchups fine), or a free-text opponent that becomes an
+   is_external team row so the whole stats pipeline works unchanged. */
+
+/** Find-or-create the external team an ad-hoc free-text opponent plays as. */
+async function resolveExternalTeam(
+  seasonId: string,
+  name: string,
+): Promise<{ id: string | null; error: string | null }> {
+  const supabase = await createClient();
+  const trimmed = name.trim().slice(0, 60);
+  if (trimmed.length < 2) return { id: null, error: "Give the visiting team a name." };
+  const { data: existing } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("season_id", seasonId)
+    .eq("is_external", true)
+    .ilike("name", trimmed)
+    .maybeSingle();
+  if (existing) return { id: existing.id as string, error: null };
+  const { data: created, error } = await supabase
+    .from("teams")
+    .insert({
+      season_id: seasonId,
+      name: trimmed,
+      abbrev: trimmed.replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() || "VIS",
+      color: "#5A6472", // neutral slate — visiting teams get no school colour
+      is_external: true,
+    })
+    .select("id")
+    .single();
+  if (error) return { id: null, error: error.message };
+  return { id: created.id as string, error: null };
+}
+
+export async function createAdhocGame(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const slug = str(formData, "slug");
+  const seasonId = str(formData, "season_id");
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return { error: "Not signed in" };
+
+  const sideId = async (side: "home" | "away") => {
+    const teamId = str(formData, `${side}_team_id`);
+    if (teamId && teamId !== "__guest") return { id: teamId, error: null };
+    return resolveExternalTeam(seasonId, str(formData, `${side}_guest_name`));
+  };
+  const home = await sideId("home");
+  if (home.error) return { error: home.error };
+  const away = await sideId("away");
+  if (away.error) return { error: away.error };
+  if (!home.id || !away.id || home.id === away.id)
+    return { error: "Pick two different teams." };
+
+  // per-game rule overrides — stored whole; merged over season rules on load
+  const override: Record<string, number> = {};
+  for (const key of ["periods", "period_minutes", "foul_limit"]) {
+    const n = parseInt(str(formData, key), 10);
+    if (Number.isFinite(n) && n > 0) override[key] = n;
+  }
+
+  const { data: season } = await supabase
+    .from("seasons")
+    .select("starts_on, num_weeks")
+    .eq("id", seasonId)
+    .single();
+  if (!season) return { error: "Season not found." };
+  const weeksIn = Math.floor(
+    (Date.now() - new Date(`${season.starts_on}T00:00:00`).getTime()) /
+      (7 * 24 * 3600 * 1000),
+  );
+  const week = Math.min(Math.max(weeksIn + 1, 1), season.num_weeks as number);
+
+  const { data: game, error } = await supabase
+    .from("games")
+    .insert({
+      season_id: seasonId,
+      week,
+      home_team_id: home.id,
+      away_team_id: away.id,
+      venue_id: str(formData, "venue_id") || null,
+      scheduled_date:
+        str(formData, "scheduled_date") || new Date().toISOString().slice(0, 10),
+      is_adhoc: true,
+      counts_for_standings: formData.get("counts") === "on",
+      rules_override: override,
+      scorekeeper_id: userRes.user.id,
+    })
+    .select("id")
+    .single();
+  if (error) return { error: error.message };
+  revalidateLeague(slug);
+  if (str(formData, "mode") === "start") {
+    redirect(`/league/${slug}/game/${game.id}/live`);
+  }
+  redirect(`/league/${slug}/schedule`);
+}
+
+/** Mid-game settings edit: rules and the standings flag live outside the
+    event stream, so changing them never touches recorded events. */
+export async function updateGameSettings(
+  gameId: string,
+  settings: {
+    rules_override?: Record<string, number>;
+    counts_for_standings?: boolean;
+  },
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("games")
+    .update(settings)
+    .eq("id", gameId);
+  return { error: error?.message ?? null };
+}
+
+/** Swap in the right team after a mis-created game. A home/away swap never
+    touches events (an event's team_id means "who did it", which a swap
+    doesn't change); replacing a team remaps that team's events to the
+    replacement, and the schedule page reports how many attributions no
+    longer match the new roster. */
+export async function reassignGameTeams(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const gameId = str(formData, "game_id");
+  const slug = str(formData, "slug");
+  const newHome = str(formData, "home_team_id");
+  const newAway = str(formData, "away_team_id");
+  if (!newHome || !newAway || newHome === newAway) return;
+  const supabase = await createClient();
+  const { data: game } = await supabase
+    .from("games")
+    .select("home_team_id, away_team_id, home_score, away_score, status")
+    .eq("id", gameId)
+    .maybeSingle();
+  if (!game || game.status === "final" || game.status === "forfeit") return;
+  const oldHome = game.home_team_id as string;
+  const oldAway = game.away_team_id as string;
+  if (newHome === oldHome && newAway === oldAway) return;
+
+  // remap events only for teams leaving the game entirely
+  const kept = new Set([newHome, newAway]);
+  const remaps: [string, string][] = [];
+  if (!kept.has(oldHome)) remaps.push([oldHome, newHome === oldAway ? newAway : newHome]);
+  if (!kept.has(oldAway)) remaps.push([oldAway, newAway === oldHome ? newHome : newAway]);
+  for (const [from, to] of remaps) {
+    for (const table of ["game_events", "lineup_states", "game_guests"]) {
+      await supabase.from(table).update({ team_id: to }).eq("game_id", gameId).eq("team_id", from);
+    }
+  }
+
+  const pureSwap = newHome === oldAway && newAway === oldHome;
+  await supabase
+    .from("games")
+    .update({
+      home_team_id: newHome,
+      away_team_id: newAway,
+      // scores follow the slot on a pure swap; a replacement keeps them
+      home_score: pureSwap ? game.away_score : game.home_score,
+      away_score: pureSwap ? game.home_score : game.away_score,
+    })
+    .eq("id", gameId);
+
+  // how many recorded attributions no longer hold on the new rosters?
+  let unmapped = 0;
+  if (remaps.length > 0) {
+    const [{ data: events }, { data: members }, { data: guests }] = await Promise.all([
+      supabase
+        .from("game_events")
+        .select("user_id, guest_id")
+        .eq("game_id", gameId)
+        .eq("voided", false)
+        .not("user_id", "is", null),
+      supabase
+        .from("team_members")
+        .select("user_id")
+        .in("team_id", [newHome, newAway])
+        .is("left_at", null),
+      supabase.from("game_guests").select("id").eq("game_id", gameId),
+    ]);
+    const known = new Set([
+      ...(members ?? []).map((m) => m.user_id as string),
+      ...(guests ?? []).map((g) => g.id as string),
+    ]);
+    unmapped = (events ?? []).filter((e) => e.user_id && !known.has(e.user_id as string)).length;
+  }
+
+  revalidateLeague(slug);
+  redirect(
+    unmapped > 0
+      ? `/league/${slug}/schedule?remap=${unmapped}`
+      : `/league/${slug}/schedule`,
+  );
+}
+
 export async function rescheduleGame(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const gameId = str(formData, "game_id");
@@ -586,6 +786,28 @@ export interface TrackerEvent {
   value: number | null;
   related_user_id: string | null;
   client_uuid: string;
+  /** Set (with user_id null) when the player is a game guest. */
+  guest_id?: string | null;
+  /** Same split for the second player on subs and assists. */
+  related_guest_id?: string | null;
+}
+
+/** Free-text player for one game. The id is client-minted so the console
+    can add a guest offline and sync them before their events; the upsert
+    makes retries idempotent. */
+export async function addGameGuest(
+  gameId: string,
+  guest: { id: string; team_id: string; display_name: string },
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const name = guest.display_name.trim().slice(0, 60);
+  if (!name) return { error: "Give the player a name." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("game_guests").upsert(
+    { id: guest.id, game_id: gameId, team_id: guest.team_id, display_name: name },
+    { onConflict: "id" },
+  );
+  return { error: error?.message ?? null };
 }
 
 export async function recordEvent(
@@ -671,6 +893,47 @@ export async function setGameState(
   return { error: error?.message ?? null };
 }
 
+/** Materializes a replayed box score into player_game_stats, splitting the
+    opaque player keys back into auth users vs game guests. Shared by
+    finalize and abandon. */
+async function writeStatLines(
+  gameId: string,
+  box: ReturnType<typeof computeBoxScore>,
+): Promise<{ error: string | null; rows: { user_id: string | null; pts: number; reb: number }[] }> {
+  const supabase = await createClient();
+  const guestIds = new Set((await getGameGuests(gameId)).map((g) => g.id));
+  const all = [...box.players.entries()].map(([key, line]) => ({
+    game_id: gameId,
+    user_id: guestIds.has(key) ? null : key,
+    guest_id: guestIds.has(key) ? key : null,
+    team_id: line.team_id,
+    pts: line.pts, fgm: line.fgm, fga: line.fga, tpm: line.tpm, tpa: line.tpa,
+    ftm: line.ftm, fta: line.fta, oreb: line.oreb, dreb: line.dreb,
+    reb: line.reb, ast: line.ast, stl: line.stl, blk: line.blk,
+    tov: line.tov, pf: line.pf, plus_minus: line.plus_minus,
+  }));
+  const userRows = all.filter((r) => r.user_id !== null);
+  const guestRows = all.filter((r) => r.guest_id !== null);
+  if (userRows.length > 0) {
+    const { error } = await supabase
+      .from("player_game_stats")
+      .upsert(userRows, { onConflict: "game_id,user_id" });
+    if (error) return { error: error.message, rows: all };
+  }
+  if (guestRows.length > 0) {
+    // ON CONFLICT can't target the partial unique index through PostgREST,
+    // so guest lines are replace-on-write instead of upserted.
+    await supabase
+      .from("player_game_stats")
+      .delete()
+      .eq("game_id", gameId)
+      .not("guest_id", "is", null);
+    const { error } = await supabase.from("player_game_stats").insert(guestRows);
+    if (error) return { error: error.message, rows: all };
+  }
+  return { error: null, rows: all };
+}
+
 export async function finalizeGame(
   gameId: string,
   slug: string,
@@ -686,22 +949,8 @@ export async function finalizeGame(
 
   const box = computeBoxScore(events, lineups, game.home_team_id, game.away_team_id);
 
-  // per-player stat lines
-  const rows = [...box.players.entries()].map(([userId, line]) => ({
-    game_id: gameId,
-    user_id: userId,
-    team_id: line.team_id,
-    pts: line.pts, fgm: line.fgm, fga: line.fga, tpm: line.tpm, tpa: line.tpa,
-    ftm: line.ftm, fta: line.fta, oreb: line.oreb, dreb: line.dreb,
-    reb: line.reb, ast: line.ast, stl: line.stl, blk: line.blk,
-    tov: line.tov, pf: line.pf, plus_minus: line.plus_minus,
-  }));
-  if (rows.length > 0) {
-    const { error } = await supabase
-      .from("player_game_stats")
-      .upsert(rows, { onConflict: "game_id,user_id" });
-    if (error) return { error: error.message };
-  }
+  const { error: statError, rows } = await writeStatLines(gameId, box);
+  if (statError) return { error: statError };
 
   const { error: gameError } = await supabase
     .from("games")
@@ -713,10 +962,11 @@ export async function finalizeGame(
     .eq("id", gameId);
   if (gameError) return { error: gameError.message };
 
-  // top scorer for the headline
+  // top scorer for the headline — guests have no profile, so a guest-led
+  // final just drops the stat-line clause
   const top = rows.sort((a, b) => b.pts - a.pts)[0];
   let topName = "";
-  if (top) {
+  if (top?.user_id) {
     const { data: p } = await supabase
       .from("profiles")
       .select("full_name")
@@ -760,6 +1010,41 @@ export async function finalizeGame(
     });
   }
 
+  revalidateLeague(slug);
+  return { error: null };
+}
+
+/** Cut a game short without corrupting anything: the partial box score is
+    materialized and kept, the game is marked abandoned (which the standings
+    engine never counts), and nothing is posted or notified. */
+export async function abandonGame(
+  gameId: string,
+  slug: string,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const [game, events, lineups] = await Promise.all([
+    getGame(gameId),
+    getGameEvents(gameId),
+    getLineups(gameId),
+  ]);
+  if (!game) return { error: "Game not found." };
+  if (game.status !== "live")
+    return { error: "Only a live game can be abandoned." };
+
+  const box = computeBoxScore(events, lineups, game.home_team_id, game.away_team_id);
+  const { error: statError } = await writeStatLines(gameId, box);
+  if (statError) return { error: statError };
+
+  const { error } = await supabase
+    .from("games")
+    .update({
+      status: "abandoned",
+      home_score: box.homeScore,
+      away_score: box.awayScore,
+    })
+    .eq("id", gameId);
+  if (error) return { error: error.message };
   revalidateLeague(slug);
   return { error: null };
 }
@@ -888,7 +1173,8 @@ export async function generateBracketAction(
       .from("games")
       .select("home_team_id, away_team_id, home_score, away_score, status")
       .eq("season_id", seasonId)
-      .eq("is_playoff", false),
+      .eq("is_playoff", false)
+      .eq("counts_for_standings", true),
   ]);
   if (teams.length < 2) return { error: "Not enough teams." };
   const { standings } = computeStandings(

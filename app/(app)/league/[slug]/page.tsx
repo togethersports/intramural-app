@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { GameCard } from "@/components/game-card";
-import { IconArrowRight, IconBall, IconCalendar, IconTrophy } from "@/components/icons";
+import { IconArrowRight, IconBall, IconCalendar, IconPlus, IconTrophy } from "@/components/icons";
 import { StandingsTable } from "@/components/standings-table";
 import { Avatar, EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -100,16 +100,26 @@ export default async function LeagueOverviewPage({
       <div className="space-y-5 lg:col-span-2">
         {/* This week */}
         <section className="card p-5 sm:p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold tracking-tight">
               {weekGames.length > 0 ? `Week ${week}` : "Upcoming games"}
             </h2>
-            <Link
-              href={`/league/${slug}/schedule`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
-            >
-              Full schedule <IconArrowRight size={16} />
-            </Link>
+            <div className="flex items-center gap-3">
+              {admin ? (
+                <Link
+                  href={`/league/${slug}/game/new`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-surface hover:bg-black"
+                >
+                  <IconPlus size={15} /> New game
+                </Link>
+              ) : null}
+              <Link
+                href={`/league/${slug}/schedule`}
+                className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
+              >
+                Full schedule <IconArrowRight size={16} />
+              </Link>
+            </div>
           </div>
           {displayGames.length === 0 ? (
             <EmptyState

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import {
   getActiveSeason,
   getLeague,
+  getLeagueFootprint,
   getSeasons,
   getTimeSlots,
   getVenues,
@@ -15,6 +16,7 @@ import {
   CreateSeasonForm,
   LeagueSettingsForm,
 } from "./console-forms";
+import { DangerZone } from "./danger-zone";
 
 export const metadata: Metadata = { title: "Console" };
 
@@ -43,11 +45,13 @@ export default async function ConsolePage({
   if (!league) notFound();
   if (!isLeagueAdmin(league.role)) redirect(`/league/${slug}`);
 
-  const [seasons, activeSeason, slots, venues] = await Promise.all([
+  const commissioner = league.role === "commissioner";
+  const [seasons, activeSeason, slots, venues, footprint] = await Promise.all([
     getSeasons(league.id),
     getActiveSeason(league.id),
     getTimeSlots(league.id),
     getVenues(league.id),
+    commissioner ? getLeagueFootprint(league.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -185,6 +189,14 @@ export default async function ConsolePage({
         )}
         <AddVenueForm slug={slug} leagueId={league.id} />
       </section>
+
+      {commissioner && footprint ? (
+        <DangerZone
+          leagueId={league.id}
+          leagueName={league.name}
+          counts={footprint}
+        />
+      ) : null}
     </div>
   );
 }

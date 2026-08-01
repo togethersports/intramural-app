@@ -30,12 +30,15 @@ import {
   withRunningScore,
 } from "@core/live";
 import { computeBoxScore, type GameEventInput } from "@core/stats";
-import type { GameRow, LineupRow, RosterEntry } from "@core/types";
+import type { GameGuestRow, GameRow, LineupRow, RosterEntry } from "@core/types";
 import {
+  abandonGame,
+  addGameGuest,
   finalizeGame,
   recordEvent,
   saveLineup,
   setGameState,
+  updateGameSettings,
   voidEventByClientId,
   type TrackerEvent,
 } from "@/app/(app)/league/[slug]/actions";
@@ -54,6 +57,16 @@ interface LocalEvent extends TrackerEvent {
   voided: boolean;
   /** false = a void that still needs to reach the server */
   voidSynced: boolean;
+}
+
+/** Free-text player added from the console. Ids are minted client-side so
+    guests work fully offline; the sync loop lands them before any event
+    that references them. */
+interface LocalGuest {
+  id: string;
+  teamId: string;
+  name: string;
+  synced: boolean;
 }
 
 /* The 13 stat actions — two taps each: player chip, then one of these. */
@@ -91,6 +104,7 @@ function snapshotKey(gameId: string) {
 
 interface Snapshot {
   events: LocalEvent[];
+  guests?: LocalGuest[];
   period: number;
   clockMs: number;
 }
@@ -179,6 +193,7 @@ export function LiveConsole({
   serverEvents,
   lineups,
   rules,
+  serverGuests = [],
   demo = false,
 }: {
   slug: string;
@@ -188,10 +203,15 @@ export function LiveConsole({
   serverEvents: (TrackerEvent & { id: string; voided: boolean })[];
   lineups: LineupRow[];
   rules: GameRules;
+  serverGuests?: GameGuestRow[];
   demo?: boolean;
 }) {
   const router = useRouter();
-  const periodMs = rules.periodMinutes * 60_000;
+  // Editable mid-game (settings sheet) — rules live outside the event
+  // stream, so nothing recorded is ever touched by a change here.
+  const [gameRules, setGameRules] = useState<GameRules>(rules);
+  const [counts, setCounts] = useState(game.counts_for_standings);
+  const periodMs = gameRules.periodMinutes * 60_000;
 
   /* ------------------------------- event store ------------------------------ */
   const [events, setEvents] = useState<LocalEvent[]>(() =>
@@ -201,6 +221,21 @@ export function LiveConsole({
   useEffect(() => {
     eventsRef.current = events;
   }, [events]);
+
+  // Guests: free-text players added from the console, keyed like any other
+  // player everywhere in the replay logic.
+  const [guests, setGuests] = useState<LocalGuest[]>(() =>
+    serverGuests.map((g) => ({
+      id: g.id,
+      teamId: g.team_id ?? "",
+      name: g.display_name,
+      synced: true,
+    })),
+  );
+  const guestsRef = useRef(guests);
+  useEffect(() => {
+    guestsRef.current = guests;
+  }, [guests]);
 
   const [status, setStatus] = useState(game.status);
   const [period, setPeriod] = useState(Math.max(1, game.period));
@@ -216,6 +251,10 @@ export function LiveConsole({
     blocking?: boolean;
   } | null>(null);
   const [assist, setAssist] = useState<{ teamId: string; scorer: string } | null>(null);
+  const [addingFor, setAddingFor] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
   const [editing, setEditing] = useState<LocalEvent | null>(null);
   const [reassigning, setReassigning] = useState(false);
   const [betweenPeriods, setBetweenPeriods] = useState<{ next: number; overtime?: boolean } | null>(null);
@@ -248,6 +287,9 @@ export function LiveConsole({
       const known = new Set(eventsRef.current.map((e) => e.client_uuid));
       const queued = snap.events.filter((q) => !known.has(q.client_uuid));
       if (queued.length > 0) setEvents((prev) => [...prev, ...queued]);
+      const knownGuests = new Set(guestsRef.current.map((g) => g.id));
+      const queuedGuests = (snap.guests ?? []).filter((g) => !knownGuests.has(g.id));
+      if (queuedGuests.length > 0) setGuests((prev) => [...prev, ...queuedGuests]);
       if (game.status === "live" && snap.period >= Math.max(1, game.period)) {
         setPeriod(snap.period);
         setClockMs(snap.clockMs);
@@ -265,6 +307,7 @@ export function LiveConsole({
     try {
       const snap: Snapshot = {
         events: events.filter((e) => !e.synced || !e.voidSynced),
+        guests: guests.filter((g) => !g.synced),
         period,
         clockMs,
       };
@@ -272,27 +315,57 @@ export function LiveConsole({
     } catch {
       // storage full/unavailable — the in-memory list still has everything
     }
-  }, [events, period, clockMs, game.id, demo]);
+  }, [events, guests, period, clockMs, game.id, demo]);
 
   /* -------------------------------- sync loop -------------------------------- */
+
+  // Locally a player key is opaque (user or guest, computeBoxScore doesn't
+  // care); the server payload has to split it back into the right column.
+  const toPayload = useCallback((e: LocalEvent): TrackerEvent => {
+    const isGuest = (id: string | null) =>
+      id !== null && guestsRef.current.some((g) => g.id === id);
+    return {
+      seq: e.seq, period: e.period, clock_ms: e.clock_ms,
+      team_id: e.team_id,
+      user_id: isGuest(e.user_id) ? null : e.user_id,
+      guest_id: isGuest(e.user_id) ? e.user_id : null,
+      type: e.type, value: e.value,
+      related_user_id: isGuest(e.related_user_id) ? null : e.related_user_id,
+      related_guest_id: isGuest(e.related_user_id) ? e.related_user_id : null,
+      client_uuid: e.client_uuid,
+    };
+  }, []);
+
   const syncing = useRef(false);
   const sync = useCallback(async () => {
     if (demo || syncing.current) return;
     syncing.current = true;
     let failed = false;
     try {
+      // guests first — events referencing a guest FK onto their row
+      const pendingGuests = guestsRef.current.filter((g) => !g.synced);
+      for (const g of pendingGuests) {
+        try {
+          const res = await addGameGuest(game.id, {
+            id: g.id,
+            team_id: g.teamId,
+            display_name: g.name,
+          });
+          if (res.error) { failed = true; break; }
+          setGuests((prev) =>
+            prev.map((p) => (p.id === g.id ? { ...p, synced: true } : p)),
+          );
+        } catch { failed = true; break; }
+      }
       // inserts, oldest first — skip events voided before they ever synced
-      const pending = eventsRef.current
-        .filter((e) => !e.synced && !e.voided)
-        .sort((a, b) => a.seq - b.seq);
+      const pending = failed
+        ? []
+        : eventsRef.current
+            .filter((e) => !e.synced && !e.voided)
+            .sort((a, b) => a.seq - b.seq);
       for (const e of pending) {
         try {
-          const res = await recordEvent(game.id, {
-            seq: e.seq, period: e.period, clock_ms: e.clock_ms,
-            team_id: e.team_id, user_id: e.user_id, type: e.type,
-            value: e.value, related_user_id: e.related_user_id,
-            client_uuid: e.client_uuid,
-          });
+          const res = await recordEvent(game.id, toPayload(e));
           if (res.error) { failed = true; break; }
           setEvents((prev) =>
             prev.map((p) => (p.client_uuid === e.client_uuid ? { ...p, synced: true } : p)),
@@ -316,7 +389,7 @@ export function LiveConsole({
       syncing.current = false;
       setNetDown(failed);
     }
-  }, [game.id, demo]);
+  }, [game.id, demo, toPayload]);
 
   useEffect(() => {
     if (demo) return;
@@ -381,12 +454,29 @@ export function LiveConsole({
     [events],
   );
 
+  const guestEntries = useMemo(
+    () =>
+      guests.map(
+        (g): RosterEntry & { teamId: string } => ({
+          id: g.id,
+          user_id: g.id,
+          full_name: g.name,
+          jersey_number: null,
+          is_captain: false,
+          is_guest: true,
+          teamId: g.teamId,
+        }),
+      ),
+    [guests],
+  );
+
   const everyone = useMemo(() => {
     const m = new Map<string, RosterEntry & { teamId: string }>();
     for (const r of home.roster) m.set(r.user_id, { ...r, teamId: home.id });
     for (const r of away.roster) m.set(r.user_id, { ...r, teamId: away.id });
+    for (const g of guestEntries) m.set(g.user_id, g);
     return m;
-  }, [home, away]);
+  }, [home, away, guestEntries]);
 
   const nameOf = useCallback(
     (userId: string | null | undefined) => {
@@ -399,17 +489,46 @@ export function LiveConsole({
   );
 
   const foulsOf = (userId: string) => box.players.get(userId)?.pf ?? 0;
-  const fouledOut = (userId: string) => foulsOf(userId) >= rules.foulLimit;
+  const fouledOut = (userId: string) => foulsOf(userId) >= gameRules.foulLimit;
 
   const sideOf = (teamId: string) => (teamId === home.id ? home : away);
+  /** Rostered players plus any guests added for this game. */
+  const rosterOf = (teamId: string) => [
+    ...sideOf(teamId).roster,
+    ...guestEntries.filter((g) => g.teamId === teamId),
+  ];
   const courtList = (teamId: string) =>
-    sideOf(teamId)
-      .roster.filter((r) => onCourt[teamId]?.has(r.user_id))
+    rosterOf(teamId)
+      .filter((r) => onCourt[teamId]?.has(r.user_id))
       .sort((a, b) => (a.jersey_number ?? 99) - (b.jersey_number ?? 99));
   const benchList = (teamId: string) =>
-    sideOf(teamId)
-      .roster.filter((r) => !onCourt[teamId]?.has(r.user_id))
+    rosterOf(teamId)
+      .filter((r) => !onCourt[teamId]?.has(r.user_id))
       .sort((a, b) => (a.jersey_number ?? 99) - (b.jersey_number ?? 99));
+
+  const addGuest = (teamId: string, name: string) => {
+    const trimmed = name.trim().slice(0, 60);
+    if (!trimmed) return;
+    const guest: LocalGuest = {
+      id: crypto.randomUUID(),
+      teamId,
+      name: trimmed,
+      synced: false,
+    };
+    setGuests((prev) => [...prev, guest]);
+    if (!demo) {
+      addGameGuest(game.id, { id: guest.id, team_id: teamId, display_name: trimmed })
+        .then((res) => {
+          if (!res.error) {
+            setGuests((prev) =>
+              prev.map((p) => (p.id === guest.id ? { ...p, synced: true } : p)),
+            );
+          }
+        })
+        .catch(() => setNetDown(true));
+    }
+    say(`${trimmed} added to ${sideOf(teamId).name}`);
+  };
 
   const describe = useCallback(
     (e: { type: string; user_id: string | null; related_user_id: string | null; team_id: string | null }) => {
@@ -459,12 +578,7 @@ export function LiveConsole({
       setEvents((prev) => [...prev, evt]);
       if (!demo) {
         // fire-and-forget; the sync loop covers failures and duplicates
-        recordEvent(game.id, {
-          seq: evt.seq, period: evt.period, clock_ms: evt.clock_ms,
-          team_id: evt.team_id, user_id: evt.user_id, type: evt.type,
-          value: evt.value, related_user_id: evt.related_user_id,
-          client_uuid: evt.client_uuid,
-        })
+        recordEvent(game.id, toPayload(evt))
           .then((res) => {
             if (!res.error) {
               setNetDown(false);
@@ -479,7 +593,7 @@ export function LiveConsole({
       }
       return evt;
     },
-    [period, clockMs, game.id, demo],
+    [period, clockMs, game.id, demo, toPayload],
   );
 
   /** Void an event wherever it lives (queued locally or already on the server). */
@@ -524,16 +638,16 @@ export function LiveConsole({
       }
       if (type === "pf" || type === "tf") {
         const now = foulsOf(userId) + 1; // box hasn't re-derived yet this tick
-        if (now >= rules.foulLimit) {
+        if (now >= gameRules.foulLimit) {
           setSubPrompt({ teamId, outId: userId, blocking: true });
           setAssist(null);
-        } else if (now === rules.foulLimit - 1) {
+        } else if (now === gameRules.foulLimit - 1) {
           say(`${nameOf(userId)} has ${now} fouls — one from fouling out.`);
         }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, status, record, rules.foulLimit, nameOf, say],
+    [selected, status, record, gameRules.foulLimit, nameOf, say],
   );
 
   const addAssist = (userId: string | null) => {
@@ -564,7 +678,7 @@ export function LiveConsole({
   };
 
   const takeTimeout = (teamId: string) => {
-    const left = rules.timeoutsPerTeam - timeoutsUsed(events, teamId);
+    const left = gameRules.timeoutsPerTeam - timeoutsUsed(events, teamId);
     if (left <= 0) return;
     record("timeout", { teamId });
     say(`Timeout — ${sideOf(teamId).name} (${left - 1} left)`);
@@ -583,15 +697,15 @@ export function LiveConsole({
     setRunning(false);
     record("period_end", {});
     const tied = box.homeScore === box.awayScore;
-    if (period >= rules.periods && !tied) {
+    if (period >= gameRules.periods && !tied) {
       setConfirmFinal(true);
     } else {
-      setBetweenPeriods({ next: period + 1, overtime: period >= rules.periods });
+      setBetweenPeriods({ next: period + 1, overtime: period >= gameRules.periods });
     }
   };
 
   const startPeriod = (next: number) => {
-    const ms = (next > rules.periods ? rules.overtimeMinutes : rules.periodMinutes) * 60_000;
+    const ms = (next > gameRules.periods ? gameRules.overtimeMinutes : gameRules.periodMinutes) * 60_000;
     setPeriod(next);
     setClockMs(ms);
     setClockEpoch((n) => n + 1);
@@ -620,9 +734,10 @@ export function LiveConsole({
     setFinalizing(true);
     setFinalizeError(null);
     await sync();
-    const stillPending = eventsRef.current.some(
-      (e) => (!e.synced && !e.voided) || (e.synced && !e.voidSynced),
-    );
+    const stillPending =
+      eventsRef.current.some(
+        (e) => (!e.synced && !e.voided) || (e.synced && !e.voidSynced),
+      ) || guestsRef.current.some((g) => !g.synced);
     if (stillPending) {
       setFinalizing(false);
       setFinalizeError(
@@ -666,12 +781,17 @@ export function LiveConsole({
       if (e.key === "?") { setHelpOpen((v) => !v); return; }
       if (e.key === "Escape") {
         setHelpOpen(false); setSelected(null); setEditing(null);
+        setAddingFor(null); setSettingsOpen(false); setConfirmAbandon(false);
         setReassigning(false); setAssist(null);
         if (!subPrompt?.blocking) setSubPrompt(null);
         return;
       }
       // everything below acts on the live game with no modal in the way
-      if (helpOpen || subPrompt || editing || betweenPeriods || confirmFinal) return;
+      if (
+        helpOpen || subPrompt || editing || betweenPeriods ||
+        confirmFinal || addingFor || settingsOpen
+      )
+        return;
       if (status !== "live") return;
 
       if (e.key === " ") { e.preventDefault(); setRunning((r) => !r); return; }
@@ -697,6 +817,186 @@ export function LiveConsole({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  /* --------------------- add player / settings / abandon --------------------- */
+
+  const addPlayerModal = addingFor ? (
+    <Modal
+      title={`Add a player to ${sideOf(addingFor).name}`}
+      onClose={() => setAddingFor(null)}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const input = e.currentTarget.elements.namedItem(
+            "guest_name",
+          ) as HTMLInputElement;
+          addGuest(addingFor, input.value);
+          setAddingFor(null);
+        }}
+        className="space-y-3"
+      >
+        <input
+          name="guest_name"
+          autoFocus
+          required
+          maxLength={60}
+          placeholder="Jordan from period 5"
+          aria-label="Player name"
+          className="w-full min-h-11 rounded-control border border-rule bg-paper px-4 text-[17px] text-ink placeholder:text-ink-faint focus:border-ink/40 focus:outline-none"
+        />
+        <p className="text-[13px] leading-relaxed text-ink-body">
+          Just a name — for pickup players and visitors who aren&apos;t in the
+          league. Their stats stay with this game.
+        </p>
+        <Button type="submit" variant="primary" className="w-full">
+          Add player
+        </Button>
+      </form>
+    </Modal>
+  ) : null;
+
+  const doAbandon = async () => {
+    if (demo) {
+      say("Demo console — abandoning is disabled here.");
+      return;
+    }
+    setAbandoning(true);
+    await sync();
+    const stillPending =
+      eventsRef.current.some(
+        (e) => (!e.synced && !e.voided) || (e.synced && !e.voidSynced),
+      ) || guestsRef.current.some((g) => !g.synced);
+    if (stillPending) {
+      setAbandoning(false);
+      say("Some events haven't reached the server — get back online first.");
+      return;
+    }
+    const res = await abandonGame(game.id, slug).catch(() => ({
+      error: "Network failed — try again.",
+    }));
+    setAbandoning(false);
+    if (res.error) {
+      say(res.error);
+      return;
+    }
+    try {
+      localStorage.removeItem(snapshotKey(game.id));
+    } catch {
+      // storage unavailable — nothing to clean
+    }
+    router.push(`/league/${slug}/game/${game.id}`);
+  };
+
+  const settingsModal = settingsOpen ? (
+    <Modal
+      title="Game settings"
+      onClose={() => {
+        setSettingsOpen(false);
+        setConfirmAbandon(false);
+      }}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const int = (key: string, fallback: number, min: number, max: number) => {
+            const n = parseInt(String(f.get(key) ?? ""), 10);
+            return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+          };
+          const next: GameRules = {
+            ...gameRules,
+            periods: int("periods", gameRules.periods, 1, 8),
+            periodMinutes: int("period_minutes", gameRules.periodMinutes, 1, 60),
+            foulLimit: int("foul_limit", gameRules.foulLimit, 1, 10),
+          };
+          const nextCounts = f.get("counts") === "on";
+          setGameRules(next);
+          setCounts(nextCounts);
+          if (!demo) {
+            updateGameSettings(game.id, {
+              rules_override: {
+                periods: next.periods,
+                period_minutes: next.periodMinutes,
+                foul_limit: next.foulLimit,
+              },
+              counts_for_standings: nextCounts,
+            }).catch(() => setNetDown(true));
+          }
+          setSettingsOpen(false);
+          say("Settings updated — recorded events untouched.");
+        }}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-3 gap-3">
+          {(
+            [
+              ["periods", "Periods", gameRules.periods],
+              ["period_minutes", "Minutes", gameRules.periodMinutes],
+              ["foul_limit", "Foul limit", gameRules.foulLimit],
+            ] as const
+          ).map(([name, label, value]) => (
+            <label key={name} className="block">
+              <span className="label block !text-[11px]">{label}</span>
+              <input
+                name={name}
+                type="number"
+                min={1}
+                defaultValue={value}
+                className="tabular mt-1.5 w-full min-h-11 rounded-control border border-rule bg-paper px-3 text-[17px]"
+              />
+            </label>
+          ))}
+        </div>
+        <label className="flex min-h-11 items-center gap-3 rounded-panel bg-paper px-4 py-3">
+          <input
+            type="checkbox"
+            name="counts"
+            defaultChecked={counts}
+            className="size-5 accent-ink"
+          />
+          <span className="text-sm font-semibold">Counts toward standings</span>
+        </label>
+        <Button type="submit" variant="primary" className="w-full">
+          Save settings
+        </Button>
+      </form>
+      <div className="mt-5 border-t border-rule pt-4">
+        {confirmAbandon ? (
+          <div className="space-y-3">
+            <p className="text-sm leading-relaxed text-ink-body">
+              The game ends here: the partial box score is kept and marked
+              incomplete, and it never counts toward standings.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="quiet"
+                className="flex-1"
+                onClick={() => setConfirmAbandon(false)}
+              >
+                Keep playing
+              </Button>
+              <Button
+                variant="accent"
+                className="flex-1"
+                disabled={abandoning}
+                onClick={doAbandon}
+              >
+                {abandoning ? "Abandoning…" : "Abandon game"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmAbandon(true)}
+            className="min-h-11 w-full rounded-control text-sm font-semibold text-accent hover:bg-tint"
+          >
+            Abandon this game…
+          </button>
+        )}
+      </div>
+    </Modal>
+  ) : null;
 
   /* ----------------------------- pre-game screen ----------------------------- */
   if (status === "scheduled") {
@@ -731,7 +1031,7 @@ export function LiveConsole({
               </span>
             </div>
             <div className="grid grid-cols-2 gap-1.5 p-3">
-              {side.roster.map((m) => {
+              {rosterOf(side.id).map((m) => {
                 const on = starters[side.id]?.includes(m.user_id);
                 return (
                   <button
@@ -746,12 +1046,19 @@ export function LiveConsole({
                   </button>
                 );
               })}
+              <button
+                onClick={() => setAddingFor(side.id)}
+                className="min-h-11 rounded-control border border-dashed border-ink/25 px-3 text-left text-sm font-semibold text-ink-body"
+              >
+                Add a player by name
+              </button>
             </div>
           </section>
         ))}
         <Button onClick={tipOff} disabled={!ready} variant="accent" className="w-full">
           Tip off
         </Button>
+        {addingFor ? addPlayerModal : null}
       </div>
     );
   }
@@ -771,7 +1078,7 @@ export function LiveConsole({
             <TeamBadge abbrev={away.abbrev} color={away.color} size={34} />
           </div>
           <p className="mt-2 text-sm text-ink-body">
-            {home.name} vs {away.name} · {periodLabel(period, rules.periods)}
+            {home.name} vs {away.name} · {periodLabel(period, gameRules.periods)}
           </p>
           <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
             Finalizing locks the box score, posts the result to the league feed,
@@ -820,13 +1127,13 @@ export function LiveConsole({
 
   /* -------------------------------- live layout ------------------------------- */
   const bonus = {
-    [home.id]: teamFoulsInPeriod(events, away.id, period) >= rules.bonusThreshold,
-    [away.id]: teamFoulsInPeriod(events, home.id, period) >= rules.bonusThreshold,
+    [home.id]: teamFoulsInPeriod(events, away.id, period) >= gameRules.bonusThreshold,
+    [away.id]: teamFoulsInPeriod(events, home.id, period) >= gameRules.bonusThreshold,
   };
 
   const teamHeader = (side: TeamSide) => {
     const fouls = teamFoulsInPeriod(events, side.id, period);
-    const toLeft = Math.max(0, rules.timeoutsPerTeam - timeoutsUsed(events, side.id));
+    const toLeft = Math.max(0, gameRules.timeoutsPerTeam - timeoutsUsed(events, side.id));
     return (
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-center gap-2">
@@ -888,7 +1195,7 @@ export function LiveConsole({
         </span>
         <span className={`num shrink-0 text-[12px] ${isSel ? "text-surface/70" : "text-ink-faint"}`}>
           {line?.pts ?? 0}p{" "}
-          <span className={pf >= rules.foulLimit - 1 && !isSel ? "text-accent" : ""}>{pf}f</span>
+          <span className={pf >= gameRules.foulLimit - 1 && !isSel ? "text-accent" : ""}>{pf}f</span>
         </span>
       </button>
     );
@@ -901,7 +1208,7 @@ export function LiveConsole({
         <div className="flex items-start justify-between gap-2">
           {teamHeader(home)}
           <div className="shrink-0 text-center">
-            <p className="label !text-[11px]">{periodLabel(period, rules.periods)}</p>
+            <p className="label !text-[11px]">{periodLabel(period, gameRules.periods)}</p>
             <button
               onClick={() => status === "live" && setRunning((r) => !r)}
               aria-label={running ? "Stop the clock" : "Start the clock"}
@@ -925,12 +1232,20 @@ export function LiveConsole({
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setHelpOpen(true)}
-              className="label mt-1 hidden !text-[10px] !text-ink-faint hover:!text-ink lg:inline-block"
-            >
-              Keys — press ?
-            </button>
+            <div className="mt-1 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="label !text-[10px] !text-ink-faint hover:!text-ink"
+              >
+                Settings
+              </button>
+              <button
+                onClick={() => setHelpOpen(true)}
+                className="label hidden !text-[10px] !text-ink-faint hover:!text-ink lg:inline-block"
+              >
+                Keys — press ?
+              </button>
+            </div>
           </div>
           {teamHeader(away)}
         </div>
@@ -989,8 +1304,9 @@ export function LiveConsole({
                     {benchOpen[side.id] ? "−" : "+"}
                   </span>
                 </button>
-                {benchOpen[side.id]
-                  ? bench.map((r) => {
+                {benchOpen[side.id] ? (
+                  <>
+                    {bench.map((r) => {
                       const out = fouledOut(r.user_id);
                       return (
                         <button
@@ -1015,8 +1331,15 @@ export function LiveConsole({
                           </span>
                         </button>
                       );
-                    })
-                  : null}
+                    })}
+                    <button
+                      onClick={() => setAddingFor(side.id)}
+                      className="flex min-h-11 w-full items-center rounded-control px-3 text-sm font-semibold text-ink-body hover:bg-rule/60"
+                    >
+                      Add a player by name
+                    </button>
+                  </>
+                ) : null}
               </div>
             </section>
           );
@@ -1041,7 +1364,7 @@ export function LiveConsole({
                   key={e.client_uuid}
                   className="label border-t border-rule bg-paper px-4 py-1.5 text-center !text-[10px] first:border-0"
                 >
-                  {periodLabel(e.period, rules.periods)}{" "}
+                  {periodLabel(e.period, gameRules.periods)}{" "}
                   {e.type === "period_start" ? "start" : "end"}
                 </p>
               ) : (
@@ -1051,7 +1374,7 @@ export function LiveConsole({
                   className="flex min-h-11 w-full items-center gap-3 border-t border-rule px-4 py-2 text-left first:border-0 hover:bg-paper"
                 >
                   <span className="num w-16 shrink-0 text-[12px] text-ink-faint">
-                    {periodLabel(e.period, rules.periods)} {formatClock(e.clock_ms)}
+                    {periodLabel(e.period, gameRules.periods)} {formatClock(e.clock_ms)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
                     {describe(e)}
@@ -1114,7 +1437,7 @@ export function LiveConsole({
             <div className="flex gap-1.5 sm:gap-2">
               <BarPill onClick={undo} ariaLabel="Undo last event">Undo</BarPill>
               <BarPill onClick={endPeriod} disabled={status !== "live"}>
-                End {periodLabel(period, rules.periods)}
+                End {periodLabel(period, gameRules.periods)}
               </BarPill>
               <BarPill onClick={() => { setRunning(false); setConfirmFinal(true); }} accent>
                 Finalize
@@ -1195,13 +1518,13 @@ export function LiveConsole({
           onClose={() => { setEditing(null); setReassigning(false); }}
         >
           <p className="num text-[12px] text-ink-faint">
-            {periodLabel(editing.period, rules.periods)} {formatClock(editing.clock_ms)}
+            {periodLabel(editing.period, gameRules.periods)} {formatClock(editing.clock_ms)}
           </p>
           {reassigning && editing.team_id ? (
             <div className="mt-3 space-y-1.5">
               <p className="label !text-[11px]">Credit it to</p>
-              {sideOf(editing.team_id)
-                .roster.filter((r) => r.user_id !== editing.user_id)
+              {rosterOf(editing.team_id)
+                .filter((r) => r.user_id !== editing.user_id)
                 .map((r) => (
                   <button
                     key={r.user_id}
@@ -1258,7 +1581,7 @@ export function LiveConsole({
           title={
             betweenPeriods.overtime
               ? "Tied. Overtime?"
-              : `Confirm lineups for ${periodLabel(betweenPeriods.next, rules.periods)}.`
+              : `Confirm lineups for ${periodLabel(betweenPeriods.next, gameRules.periods)}.`
           }
         >
           <p className="text-sm text-ink-body">
@@ -1303,11 +1626,14 @@ export function LiveConsole({
               </Button>
             ) : null}
             <Button variant="primary" className="flex-1" onClick={() => startPeriod(betweenPeriods.next)}>
-              Start {periodLabel(betweenPeriods.next, rules.periods)}
+              Start {periodLabel(betweenPeriods.next, gameRules.periods)}
             </Button>
           </div>
         </Modal>
       ) : null}
+
+      {addPlayerModal}
+      {settingsModal}
 
       {/* -------------------------------- shortcuts -------------------------------- */}
       {helpOpen ? (
