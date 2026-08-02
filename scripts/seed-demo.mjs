@@ -23,7 +23,24 @@
 */
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+
+/** Node doesn't auto-load .env.local the way Next does — fill in anything
+    the environment didn't provide (the project URL lives there; the
+    service-role key never does, so that one still comes from the shell). */
+function loadEnvLocal() {
+  try {
+    const raw = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
+    for (const line of raw.split("\n")) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (!m || process.env[m[1]]) continue;
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    // no .env.local — the environment must provide everything
+  }
+}
 
 export const LEAGUE_NAME = "Lincoln High Intramurals";
 export const LEAGUE_SLUG = "lincoln-high-intramurals";
@@ -212,6 +229,7 @@ async function upsertUser(email, fullName, grade) {
 }
 
 async function main() {
+  loadEnvLocal();
   const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
