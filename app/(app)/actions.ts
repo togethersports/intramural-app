@@ -441,9 +441,15 @@ export async function loadDemoLeague(
     if (seasonStatusError) throw new Error(seasonStatusError.message);
 
     // --------------------------------------------------------------- trades
+    // Sizes must respect the demo's own roster rules (4–8): 60 players over
+    // 8 teams deals out 8,8,8,8,7,7,7,7. The 1-for-1 leaves both teams
+    // unchanged; the 2-for-1 must RECEIVE at a 7-player team (7−1+2 = 8) and
+    // send from an 8 (8−2+1 = 7) — pointing it at another 8 makes a 9 and
+    // the trade engine rightly refuses. Index 0 is each team's captain;
+    // never trade them (an executed trade vacates the captaincy).
     const tradePairs: [number, number, number[], number[]][] = [
       [0, 1, [2], [2]],
-      [2, 3, [3, 4], [3]],
+      [2, 5, [3, 4], [3]],
     ];
     for (const [fromIdx, toIdx, offerIdx, requestIdx] of tradePairs) {
       const fromRoster = rosters[fromIdx];
