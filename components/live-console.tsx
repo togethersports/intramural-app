@@ -516,6 +516,15 @@ export function LiveConsole({
       synced: false,
     };
     setGuests((prev) => [...prev, guest]);
+    // Pre-game, a player added by name is obviously meant to play — put
+    // them straight into the starting five (tap to deselect still works),
+    // instead of leaving the 0/5 counter sitting there.
+    if (status === "scheduled") {
+      setStarters((prev) => {
+        const cur = prev[teamId] ?? [];
+        return cur.length < 5 ? { ...prev, [teamId]: [...cur, guest.id] } : prev;
+      });
+    }
     if (!demo) {
       addGameGuest(game.id, { id: guest.id, team_id: teamId, display_name: trimmed })
         .then((res) => {
@@ -1020,6 +1029,9 @@ export function LiveConsole({
           <h2 className="mt-1 text-[26px] font-semibold tracking-tight text-white">
             Pick starting fives.
           </h2>
+          <p className="mt-1.5 text-[15px] font-medium text-white/85">
+            Tap up to five players per team to put them on the floor.
+          </p>
         </div>
         {[home, away].map((side) => (
           <section key={side.id} className="card overflow-hidden">

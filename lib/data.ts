@@ -140,7 +140,12 @@ export async function getTeams(
     .eq("season_id", seasonId)
     .order("created_at");
   if (!includeExternal) query = query.eq("is_external", false);
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) {
+    // Everything downstream (rosters, standings, drafts) empties out when
+    // this fails — never let that happen silently.
+    console.error(`getTeams(${seasonId}) failed: ${error.message}`);
+  }
   return (data as TeamRow[]) ?? [];
 }
 
@@ -158,15 +163,25 @@ export async function getTeamsWithRosters(
   seasonId: string,
 ): Promise<TeamWithRoster[]> {
   const supabase = await createClient();
-  const [teams, { data: members }] = await Promise.all([
-    getTeams(seasonId),
-    supabase
-      .from("team_members")
-      .select(
-        "id, team_id, user_id, jersey_number, is_captain, left_at, profile:profiles(full_name)",
-      )
-      .is("left_at", null),
-  ]);
+  const teams = await getTeams(seasonId);
+  // Scoped to this season's teams — the old unscoped read fetched every
+  // roster row in every league the caller could see, which was both wasteful
+  // and fragile (a single failure emptied every roster in the app).
+  const { data: members, error } =
+    teams.length === 0
+      ? { data: [], error: null }
+      : await supabase
+          .from("team_members")
+          .select(
+            "id, team_id, user_id, jersey_number, is_captain, left_at, profile:profiles(full_name)",
+          )
+          .in("team_id", teams.map((t) => t.id))
+          .is("left_at", null);
+  if (error) {
+    // Surfaces in the server logs — an empty roster caused by a failed read
+    // must not be indistinguishable from a genuinely empty roster.
+    console.error(`getTeamsWithRosters(${seasonId}) members read failed: ${error.message}`);
+  }
   const byTeam = new Map<string, TeamWithRoster>();
   for (const t of teams) byTeam.set(t.id, { ...t, roster: [] });
   for (const m of members ?? []) {
