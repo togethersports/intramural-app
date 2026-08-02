@@ -133,7 +133,18 @@ export async function loadDemoLeague(
       p_league: leagueId,
       p_user_ids: GHOST_PLAYERS.map((p) => p.id),
     });
-    if (rosterRpcError) throw new Error(rosterRpcError.message);
+    if (rosterRpcError) {
+      // The FK into auth.users fails when the 60 ghost accounts were never
+      // created — name the fix instead of leaking the Postgres error.
+      throw new Error(
+        /league_members_user_id_fkey|violates foreign key/.test(rosterRpcError.message)
+          ? "One-time setup needed: the demo's 60 stand-in player accounts " +
+            "don't exist in this Supabase project yet. Run `npm run seed:ghosts` " +
+            "with your service-role key (see scripts/seed-ghost-players.mjs), " +
+            "then load the demo league again."
+          : rosterRpcError.message,
+      );
+    }
 
     const { error: rulesError } = await supabase.from("league_rules").insert({
       league_id: leagueId,
