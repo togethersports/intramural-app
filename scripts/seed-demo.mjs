@@ -615,6 +615,16 @@ async function main() {
       "then removes the account and all associated data immediately.",
       "-".repeat(68),
       "",
+      process.env.DEMO_PASSWORD
+        ? "Password came from DEMO_PASSWORD, so re-runs keep it stable."
+        : [
+            "IMPORTANT: this password was RANDOM and every re-run resets the",
+            "account to a NEW one — if App Store Connect already has credentials",
+            "for this account, they just went stale. Update App Review",
+            "Information -> Sign-In Information with the password above, or run",
+            'with DEMO_PASSWORD="..." to pin a password that survives re-runs.',
+          ].join("\n"),
+      "",
     ].join("\n"),
   );
 }
