@@ -46,27 +46,32 @@ export default async function DashboardPage({
   const { notice } = await searchParams;
   const user = await requireUser();
   const supabase = await createClient();
-  // opportunistic hard-purge of leagues past their 30-day recovery window —
-  // no cron on the free tier, and the exact purge hour doesn't matter
-  await supabase.rpc("purge_expired_leagues");
-  const [name, leagues, shelved, myTeams, nextGame, lastLine] = await Promise.all([
-    getMyName(),
-    getMyLeagues(),
-    getShelvedLeagues(),
-    getMyTeams(user.id),
-    getMyNextGame(user.id),
-    getMyLastStatLine(user.id),
-  ]);
+  // Everything the page needs, in ONE parallel round: the old shape ran the
+  // purge, then the batch, then drafts, then availability — four serial
+  // waits, and every one of them was a full network hop on a click.
+  const [name, leagues, shelved, myTeams, nextGame, lastLine, liveDraftsRes] =
+    await Promise.all([
+      getMyName(),
+      getMyLeagues(),
+      getShelvedLeagues(),
+      getMyTeams(user.id),
+      getMyNextGame(user.id),
+      getMyLastStatLine(user.id),
+      supabase
+        .from("drafts")
+        .select("status, season:seasons(league:leagues(slug, name))")
+        .eq("status", "live"),
+      // opportunistic hard-purge of leagues past their 30-day recovery
+      // window — no cron on the free tier, and the exact purge hour doesn't
+      // matter, so it rides along instead of blocking the page
+      supabase.rpc("purge_expired_leagues"),
+    ]);
   const firstName = name.split(" ")[0];
 
   // pending actions: live drafts in my leagues + missing availability
   const pending: { label: string; href: string; icon: React.ReactNode }[] = [];
   if (leagues.length > 0) {
-    const { data: liveDrafts } = await supabase
-      .from("drafts")
-      .select("status, season:seasons(league:leagues(slug, name))")
-      .eq("status", "live");
-    for (const d of liveDrafts ?? []) {
+    for (const d of liveDraftsRes.data ?? []) {
       const season = d.season as unknown as {
         league: { slug: string; name: string } | null;
       } | null;
