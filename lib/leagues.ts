@@ -156,6 +156,11 @@ export async function getLeagueMembers(leagueId: string): Promise<MemberRow[]> {
     .eq("league_id", leagueId)
     .eq("status", "active")
     .order("created_at", { ascending: true });
+  if (error) {
+    // A failed read must never masquerade as an empty members list —
+    // that hid a broken profiles embed as "0 active" in production.
+    console.error(`getLeagueMembers(${leagueId}) failed: ${error.message}`);
+  }
   if (error || !data) return [];
   return data.map((row) => {
     const profile = row.profile as unknown as {
