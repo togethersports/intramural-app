@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { resetDemoLeague } from "@/app/(app)/actions";
 import { LeagueNav } from "@/components/league-nav";
-import { Button } from "@/components/ui";
+import { TabTransition } from "@/components/tab-transition";
+import { Button, ButtonLink } from "@/components/ui";
+import { IconPlus } from "@/components/icons";
 import { getActiveSeason, getLeague } from "@/lib/data";
 import { isLeagueAdmin, sportLabel } from "@core/league-constants";
 
@@ -34,31 +36,48 @@ export default async function LeagueLayout({
           ) : null}
         </div>
       ) : null}
-      <header className="flex flex-wrap items-center justify-between gap-3 text-white">
-        <div className="flex items-center gap-3">
+      {/* Identity block: the mono eyebrow carries sport and season so the
+          league's own name gets the full display line to itself. */}
+      <header className="flex flex-wrap items-end justify-between gap-4 px-1 text-white">
+        <div className="flex min-w-0 items-center gap-3.5">
           <span
             aria-hidden
-            className="grid size-11 shrink-0 place-items-center rounded-[14px] text-lg font-bold text-white"
+            className="grid size-12 shrink-0 place-items-center rounded-[15px] text-[21px] font-semibold text-white"
             style={{ backgroundColor: league.primary_color }}
           >
             {league.name.slice(0, 1).toUpperCase()}
           </span>
-          <div>
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight">
-              {league.name}
-            </h1>
-            <p className="text-sm text-white/70">
+          <div className="min-w-0">
+            <p className="label !text-white/70">
               {sportLabel(league.sport)}
               {season ? ` · ${season.name}` : " · no season yet"}
             </p>
+            <h1 className="mt-1 truncate text-[clamp(24px,3vw,34px)] font-semibold leading-[1.05] tracking-[-0.03em]">
+              {league.name}
+            </h1>
           </div>
         </div>
-        {season ? (
-          <span className="chip capitalize">{season.status}</span>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2.5">
+          {season ? (
+            <span className="label rounded-full bg-white/22 px-4 py-2 !text-[11px] !text-white backdrop-blur-sm">
+              {season.status}
+            </span>
+          ) : null}
+          {/* An action, so it sits with the identity block rather than
+              competing with the twelve destinations in the rail. */}
+          {isLeagueAdmin(league.role) && season ? (
+            <ButtonLink
+              href={`/league/${league.slug}/game/new`}
+              variant="light"
+              className="!min-h-10 !px-5 !py-2.5 !text-[15px]"
+            >
+              <IconPlus size={16} /> New game
+            </ButtonLink>
+          ) : null}
+        </div>
       </header>
       <LeagueNav slug={league.slug} admin={isLeagueAdmin(league.role)} />
-      {children}
+      <TabTransition>{children}</TabTransition>
     </div>
   );
 }

@@ -8,7 +8,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
   const pathname = usePathname();
   const railRef = useRef<HTMLElement>(null);
   const base = `/league/${slug}`;
-  const items = [
+  const items: { href: string; label: string; exact?: boolean }[] = [
     { href: base, label: "Overview", exact: true },
     { href: `${base}/schedule`, label: "Schedule" },
     { href: `${base}/standings`, label: "Standings" },
@@ -23,8 +23,6 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
     ...(admin
       ? [
           { href: `${base}/console`, label: "Console" },
-          // one click from anywhere in the league to a courtside game
-          { href: `${base}/game/new`, label: "New game" },
         ]
       : []),
   ];
@@ -40,7 +38,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
     <nav
       ref={railRef}
       aria-label="League"
-      className="scroll-x flex gap-1 rounded-full bg-surface p-1.5"
+      className="scroll-x flex items-center gap-1 rounded-full bg-surface p-1.5"
     >
       {items.map(({ href, label, exact }) => {
         const active = exact
@@ -53,7 +51,7 @@ export function LeagueNav({ slug, admin }: { slug: string; admin: boolean }) {
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "min-h-11 shrink-0 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface"
+                ? "min-h-11 shrink-0 rounded-full bg-ink px-4 py-2.5 text-[15px] font-semibold text-surface"
                 : "min-h-11 shrink-0 rounded-full px-4 py-2.5 text-[15px] font-medium text-ink-body transition-colors hover:bg-rule hover:text-ink"
             }
           >

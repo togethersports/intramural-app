@@ -207,6 +207,62 @@ export function TeamBadge({
   );
 }
 
+/* ---------------------------------- Panel ----------------------------------
+   The section primitive every league tab is built from: a flat cream card
+   with one header rhythm — optional mono eyebrow, a title at reading
+   weight, an action on the right, and a hairline before the body. Using it
+   instead of hand-rolled headings is what keeps thirteen tabs looking like
+   one product. */
+
+export function Panel({
+  eyebrow,
+  title,
+  action,
+  children,
+  flush = false,
+  className,
+}: {
+  eyebrow?: string;
+  title?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  /** Body runs to the card edge (tables, lists with their own dividers). */
+  flush?: boolean;
+  className?: string;
+}) {
+  const hasHeader = Boolean(eyebrow || title || action);
+  return (
+    <section className={cx("card overflow-hidden", className)}>
+      {hasHeader ? (
+        <div
+          className={cx(
+            "flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6",
+            flush ? "border-b border-rule py-4" : "pb-1 pt-5 sm:pt-6",
+          )}
+        >
+          <div className="min-w-0">
+            {eyebrow ? <p className="label !text-[11px]">{eyebrow}</p> : null}
+            {title ? (
+              <h2
+                className={cx(
+                  "truncate text-[17px] font-semibold tracking-[-0.01em]",
+                  eyebrow ? "mt-1" : null,
+                )}
+              >
+                {title}
+              </h2>
+            ) : null}
+          </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
+      ) : null}
+      <div className={flush ? "" : "px-5 pb-5 pt-4 sm:px-6 sm:pb-6"}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 /* -------------------------------- Stat tile -------------------------------- */
 
 export function StatTile({

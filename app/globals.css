@@ -381,6 +381,27 @@ body {
   }
 }
 
+/* Every league tab's content fades up once on arrival. Paired with the
+   route-level loading skeleton, a tab click reads as: instant skeleton →
+   content settles in, instead of a blank wait then a hard swap. */
+.tab-in {
+  animation: db-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* A resting card that answers the cursor without leaving the page plane —
+   colour shift plus a single pixel. Shadow stays reserved for overlays. */
+.db-lift {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+.db-lift:hover {
+  transform: translateY(-1px);
+}
+.db-lift:active {
+  transform: translateY(0);
+}
+
 /* Tappable tile (league cards): the whole card answers the cursor. */
 .db-tile {
   transition:
@@ -413,15 +434,18 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .db-rise {
+  .db-rise,
+  .tab-in {
     animation: none !important;
   }
   .db-tile,
   .db-row,
+  .db-lift,
   .db-arrow {
     transition: none !important;
   }
-  .db-tile:hover {
+  .db-tile:hover,
+  .db-lift:hover {
     transform: none !important;
   }
   .lp-rise,
