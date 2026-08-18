@@ -360,7 +360,70 @@ body {
   }
 }
 
+/* --------------------------------- dashboard -------------------------------
+   Signed-in surfaces stay flat and quiet: a single short entrance per
+   section (staggered by --db-delay) and hover states that shift colour and
+   nudge, never lift into a shadow — shadow is reserved for overlays. */
+
+.db-rise {
+  animation: db-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--db-delay, 0ms);
+}
+
+@keyframes db-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tappable tile (league cards): the whole card answers the cursor. */
+.db-tile {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+.db-tile:hover {
+  background-color: var(--color-paper);
+  transform: translateY(-1px);
+}
+.db-tile:active {
+  transform: translateY(0);
+}
+
+/* Row inside a card (action-required list). */
+.db-row {
+  transition: background-color 0.18s ease;
+}
+.db-row:hover {
+  background-color: var(--color-paper);
+}
+
+/* The arrow leans into the direction of travel on hover. */
+.db-arrow {
+  transition: transform 0.18s ease;
+}
+.db-tile:hover .db-arrow,
+.db-row:hover .db-arrow {
+  transform: translateX(2px);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .db-rise {
+    animation: none !important;
+  }
+  .db-tile,
+  .db-row,
+  .db-arrow {
+    transition: none !important;
+  }
+  .db-tile:hover {
+    transform: none !important;
+  }
   .lp-rise,
   .lp-fade,
   .lp-dock,
