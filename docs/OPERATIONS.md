@@ -66,17 +66,37 @@ sent, so configuring the other one later still works for future games.
 
 ### Schedule
 
-`vercel.json` asks for `/api/cron/reminders` every five minutes. **Vercel's
-Hobby plan only runs cron once a day**, which is not enough for "an hour
-before" — on Hobby, point an external pinger at it instead:
+`vercel.json` is written for **Hobby**, whose limits are two cron jobs, each
+running at most once a day. A more frequent schedule there is not merely
+ignored — Vercel **rejects the deployment**, so the whole site stops
+updating. If you ever see "Deployment failed" right after touching
+`vercel.json`, this is the first thing to check.
+
+Once a day cannot deliver "an hour before tip-off", so on Hobby the daily
+Vercel cron is only a backstop and something else drives the real cadence.
+`.github/workflows/reminders.yml` does it, hitting the route every five
+minutes. Add `CRON_SECRET` under repo Settings → Secrets and variables →
+Actions and it starts working.
+
+The backstop is timed to be worth having on its own: `30 12 * * *` is 8:30am
+Eastern in summer and 7:30am in winter, which falls inside the 7:15am
+notice's 90-minute catch-up window in **both** halves of the year. So even
+with GitHub Actions completely down, the morning reminders still go out. The
+hour-before and ten-minute ones do not — nothing daily could send those.
+
+Retune that number if your leagues are not Eastern; the window you need to
+land in is 7:15–8:45 local, converted to UTC in *both* DST states.
+
+**On Pro**, set the reminders schedule to `*/5 * * * *` and delete
+`.github/workflows/reminders.yml` — Vercel does the whole job. Nothing else
+changes, and running both is harmless in the meantime.
+
+The route works out what is due from the clock, so it does not care what
+triggers it, how often, or whether a run was missed:
 
 ```
 curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/reminders
 ```
-
-every five minutes, from GitHub Actions, cron-job.org, or anything else. The
-route works out what is due from the clock, so it does not care what
-triggers it or whether a run was missed.
 
 ### Timezone
 

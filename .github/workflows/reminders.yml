@@ -1,10 +1,14 @@
 #
 # Pings the reminder job on a schedule.
 #
-# Only needed if the app is on Vercel's Hobby plan, whose cron runs once a
-# day — not often enough for "an hour before tip-off". On Pro, `vercel.json`
-# already schedules this every five minutes and this workflow is redundant
-# (though harmless: sends are idempotent, so a double ping cannot double-send).
+# Needed on Vercel's Hobby plan, whose cron runs at most once a day — not
+# often enough for "an hour before tip-off", and which rejects the whole
+# deployment if `vercel.json` asks for more. `vercel.json` therefore keeps a
+# daily backstop and this workflow drives the real five-minute cadence.
+#
+# On Pro, set the reminders cron in `vercel.json` to `*/5 * * * *` and delete
+# this file. Until then running both is harmless: sends are claimed against a
+# unique index before they go out, so a double ping cannot double-send.
 #
 # GitHub's scheduler is best-effort and is regularly 5–20 minutes late under
 # load. The morning notice (90-minute catch-up window) and the one-hour
