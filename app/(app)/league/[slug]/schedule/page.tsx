@@ -13,8 +13,11 @@ import {
   getTimeSlots,
   getVenues,
 } from "@/lib/data";
+import { getSchedulePolls } from "@/lib/data";
+import { getUser } from "@/lib/auth";
 import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
+import { SchedulePolls } from "../polls/poll-panel";
 import {
   deleteGame,
   reassignGameTeams,
@@ -52,15 +55,23 @@ export default async function SchedulePage({
     );
   }
 
-  const [games, allTeams, slots, venues, members] = await Promise.all([
-    getGames(season.id),
-    // include external ad-hoc opponents so reassignment can pick them
-    getTeams(season.id, { includeExternal: true }),
-    getTimeSlots(league.id),
-    getVenues(league.id),
-    admin ? getLeagueMembers(league.id) : Promise.resolve([]),
-  ]);
+  const [games, allTeams, slots, venues, members, polls, viewer] =
+    await Promise.all([
+      getGames(season.id),
+      // include external ad-hoc opponents so reassignment can pick them
+      getTeams(season.id, { includeExternal: true }),
+      getTimeSlots(league.id),
+      getVenues(league.id),
+      admin ? getLeagueMembers(league.id) : Promise.resolve([]),
+      getSchedulePolls(season.id),
+      getUser(),
+    ]);
   const teams = allTeams.filter((t) => !t.is_external);
+
+  // Captains run polls for their own teams; admins run any of them.
+  const myTeamIds = viewer
+    ? teams.filter((t) => t.captain_id === viewer.id).map((t) => t.id)
+    : [];
 
   const byWeek = new Map<number, typeof games>();
   for (const g of games) {
@@ -113,6 +124,17 @@ export default async function SchedulePage({
           ) : null}
         </Panel>
       ) : null}
+
+      <SchedulePolls
+        slug={slug}
+        seasonId={season.id}
+        polls={polls}
+        teams={teams.map((t) => ({ id: t.id, name: t.name }))}
+        slots={slots.map((s) => ({ id: s.id, name: s.label }))}
+        venues={venues.map((v) => ({ id: v.id, name: v.name }))}
+        canRun={admin || myTeamIds.length > 0}
+        myTeamIds={myTeamIds}
+      />
 
       {weeks.length === 0 ? (
         <div className="card p-6">

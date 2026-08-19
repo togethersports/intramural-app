@@ -791,3 +791,241 @@ export async function getMyLastStatLine(
   };
   return { ...row, game: game ?? null };
 }
+
+/* ------------------------------ subs & polls -------------------------------
+   Everything the sub-request and scheduling-poll surfaces read. Kept here
+   with the rest of the query layer so RLS stays the only place access is
+   decided. */
+
+export interface SubRequestRow {
+  id: string;
+  game_id: string;
+  team_id: string;
+  team_name: string;
+  requested_by: string;
+  absent_user_id: string | null;
+  absent_name: string | null;
+  fill_user_id: string | null;
+  fill_name: string | null;
+  scope: "team" | "league";
+  status: "open" | "proposed" | "approved" | "declined" | "cancelled";
+  note: string;
+  decision_note: string;
+  created_at: string;
+}
+
+export async function getSubRequests(gameId: string): Promise<SubRequestRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sub_requests")
+    .select(
+      "id, game_id, team_id, requested_by, absent_user_id, fill_user_id, scope, status, note, decision_note, created_at, team:teams(name), absent:profiles!sub_requests_absent_user_id_fkey(full_name), fill:profiles!sub_requests_fill_user_id_fkey(full_name)",
+    )
+    .eq("game_id", gameId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error(`getSubRequests(${gameId}) failed: ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    game_id: r.game_id as string,
+    team_id: r.team_id as string,
+    team_name: (r.team as unknown as { name: string } | null)?.name ?? "—",
+    requested_by: r.requested_by as string,
+    absent_user_id: (r.absent_user_id as string | null) ?? null,
+    absent_name:
+      (r.absent as unknown as { full_name: string } | null)?.full_name ?? null,
+    fill_user_id: (r.fill_user_id as string | null) ?? null,
+    fill_name: (r.fill as unknown as { full_name: string } | null)?.full_name ?? null,
+    scope: r.scope as SubRequestRow["scope"],
+    status: r.status as SubRequestRow["status"],
+    note: (r.note as string) ?? "",
+    decision_note: (r.decision_note as string) ?? "",
+    created_at: r.created_at as string,
+  }));
+}
+
+export async function getGameAbsences(
+  gameId: string,
+): Promise<{ user_id: string; team_id: string; reason: string; full_name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("game_absences")
+    .select("user_id, team_id, reason, profile:profiles(full_name)")
+    .eq("game_id", gameId);
+  return (data ?? []).map((a) => ({
+    user_id: a.user_id as string,
+    team_id: a.team_id as string,
+    reason: (a.reason as string) ?? "",
+    full_name:
+      (a.profile as unknown as { full_name: string } | null)?.full_name ?? "Unnamed",
+  }));
+}
+
+export interface PollOptionRow {
+  id: string;
+  scheduled_date: string;
+  time_slot_id: string | null;
+  slot_label: string | null;
+  venue_id: string | null;
+  venue_name: string | null;
+  yes: number;
+  maybe: number;
+  no: number;
+  myVote: "yes" | "maybe" | "no" | null;
+}
+
+export interface SchedulePollRow {
+  id: string;
+  season_id: string;
+  game_id: string | null;
+  home_team_id: string;
+  away_team_id: string;
+  home_team_name: string;
+  away_team_name: string;
+  title: string;
+  status: "open" | "locked" | "cancelled";
+  closes_at: string | null;
+  locked_option_id: string | null;
+  created_at: string;
+  options: PollOptionRow[];
+}
+
+/** Open and recently locked polls for a season, with live vote counts. */
+export async function getSchedulePolls(
+  seasonId: string,
+): Promise<SchedulePollRow[]> {
+  const supabase = await createClient();
+  const [{ data: polls, error }, { data: auth }] = await Promise.all([
+    supabase
+      .from("schedule_polls")
+      .select(
+        "id, season_id, game_id, home_team_id, away_team_id, title, status, closes_at, locked_option_id, created_at, home:teams!schedule_polls_home_team_id_fkey(name), away:teams!schedule_polls_away_team_id_fkey(name), options:schedule_poll_options(id, scheduled_date, time_slot_id, venue_id, slot:time_slots(label), venue:venues(name))",
+      )
+      .eq("season_id", seasonId)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
+  ]);
+  if (error) {
+    console.error(`getSchedulePolls(${seasonId}) failed: ${error.message}`);
+    return [];
+  }
+
+  const optionIds = (polls ?? []).flatMap((p) =>
+    ((p.options as unknown[]) ?? []).map((o) => (o as { id: string }).id),
+  );
+  const { data: votes } =
+    optionIds.length === 0
+      ? { data: [] }
+      : await supabase
+          .from("schedule_poll_votes")
+          .select("option_id, user_id, vote")
+          .in("option_id", optionIds);
+
+  const tally = new Map<string, { yes: number; maybe: number; no: number }>();
+  const mine = new Map<string, "yes" | "maybe" | "no">();
+  const me = auth?.user?.id;
+  for (const v of votes ?? []) {
+    const bucket = tally.get(v.option_id as string) ?? { yes: 0, maybe: 0, no: 0 };
+    bucket[v.vote as "yes" | "maybe" | "no"] += 1;
+    tally.set(v.option_id as string, bucket);
+    if (me && v.user_id === me) {
+      mine.set(v.option_id as string, v.vote as "yes" | "maybe" | "no");
+    }
+  }
+
+  return (polls ?? []).map((p) => ({
+    id: p.id as string,
+    season_id: p.season_id as string,
+    game_id: (p.game_id as string | null) ?? null,
+    home_team_id: p.home_team_id as string,
+    away_team_id: p.away_team_id as string,
+    home_team_name: (p.home as unknown as { name: string } | null)?.name ?? "Home",
+    away_team_name: (p.away as unknown as { name: string } | null)?.name ?? "Away",
+    title: (p.title as string) ?? "",
+    status: p.status as SchedulePollRow["status"],
+    closes_at: (p.closes_at as string | null) ?? null,
+    locked_option_id: (p.locked_option_id as string | null) ?? null,
+    created_at: p.created_at as string,
+    options: (((p.options as unknown[]) ?? []) as Record<string, unknown>[])
+      .map((o) => {
+        const counts = tally.get(o.id as string) ?? { yes: 0, maybe: 0, no: 0 };
+        return {
+          id: o.id as string,
+          scheduled_date: o.scheduled_date as string,
+          time_slot_id: (o.time_slot_id as string | null) ?? null,
+          slot_label:
+            (o.slot as unknown as { label: string } | null)?.label ?? null,
+          venue_id: (o.venue_id as string | null) ?? null,
+          venue_name: (o.venue as unknown as { name: string } | null)?.name ?? null,
+          ...counts,
+          myVote: mine.get(o.id as string) ?? null,
+        };
+      })
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
+  }));
+}
+
+/* --------------------------- recaps and awards ---------------------------- */
+
+export interface GameRecapRow {
+  headline: string;
+  body: string;
+  source: string;
+  created_at: string;
+}
+
+export async function getGameRecap(gameId: string): Promise<GameRecapRow | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("game_recaps")
+    .select("headline, body, source, created_at")
+    .eq("game_id", gameId)
+    .maybeSingle();
+  return (data as GameRecapRow) ?? null;
+}
+
+export interface WeeklyAwardRow {
+  week: number;
+  user_id: string | null;
+  team_id: string | null;
+  full_name: string;
+  team_name: string;
+  headline: string;
+  blurb: string;
+  stat_line: Record<string, number>;
+  source: string;
+}
+
+/** The most recent Player of the Week card for a season. */
+export async function getLatestAward(
+  seasonId: string,
+): Promise<WeeklyAwardRow | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("weekly_awards")
+    .select(
+      "week, user_id, team_id, headline, blurb, stat_line, source, profile:profiles(full_name), team:teams(name)",
+    )
+    .eq("season_id", seasonId)
+    .eq("category", "player_of_the_week")
+    .order("week", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    week: data.week as number,
+    user_id: (data.user_id as string | null) ?? null,
+    team_id: (data.team_id as string | null) ?? null,
+    full_name:
+      (data.profile as unknown as { full_name: string } | null)?.full_name ??
+      "Unnamed player",
+    team_name: (data.team as unknown as { name: string } | null)?.name ?? "—",
+    headline: (data.headline as string) ?? "",
+    blurb: (data.blurb as string) ?? "",
+    stat_line: (data.stat_line as Record<string, number>) ?? {},
+    source: (data.source as string) ?? "",
+  };
+}

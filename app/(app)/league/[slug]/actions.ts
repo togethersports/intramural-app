@@ -8,6 +8,7 @@ import { generateSchedule, slotDateFor } from "@core/scheduler";
 import { computeStandings } from "@core/standings";
 import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { generateGameRecap } from "@/lib/ai/recap";
 import { removeUploadedImage, uploadImage } from "@/lib/uploads";
 import { isValidPosition } from "@core/league-constants";
 import { normalizeHex } from "@core/theme";
@@ -461,6 +462,36 @@ export async function setSubAvailability(formData: FormData) {
     })
     .eq("league_id", str(formData, "league_id"))
     .eq("user_id", userRes.user.id);
+  revalidateLeague(str(formData, "slug"));
+}
+
+/* ------------------------------ player status -------------------------------
+   "Can I play at all right now" — injured, away, or fine. Distinct from the
+   availability grid (which periods am I free) and from the sub pool (will I
+   fill in for others). A captain reads this before building a lineup, which
+   is why it lives on the league membership rather than on the profile: a
+   torn ankle is true in every league, but "away" usually isn't. */
+
+export async function setPlayerStatus(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return;
+
+  const status = str(formData, "player_status");
+  if (!["available", "injured", "away"].includes(status)) return;
+  const until = str(formData, "status_until");
+
+  await supabase
+    .from("league_members")
+    .update({
+      player_status: status,
+      status_note: status === "available" ? null : str(formData, "status_note").slice(0, 140) || null,
+      status_until: status === "available" || !until ? null : until,
+    })
+    .eq("league_id", str(formData, "league_id"))
+    .eq("user_id", userRes.user.id);
+
   revalidateLeague(str(formData, "slug"));
 }
 
@@ -1255,6 +1286,19 @@ export async function finalizeGame(
       winner:
         box.homeScore >= box.awayScore ? game.home_team_id : game.away_team_id,
     });
+  }
+
+  // The recap, written from the stat lines that were just materialized.
+  // Deliberately awaited rather than fired and forgotten: a serverless
+  // function can be frozen the moment it returns, so a floating promise here
+  // would be a recap that sometimes never gets written. It is a single short
+  // model call and it never blocks the finalize — a failure falls back to
+  // prose assembled from the box score, and the weekly sweep retries anything
+  // that still has no recap at all.
+  try {
+    await generateGameRecap(gameId, supabase);
+  } catch (err) {
+    console.error(`Recap for ${gameId} failed: ${(err as Error).message}`);
   }
 
   revalidateLeague(slug);

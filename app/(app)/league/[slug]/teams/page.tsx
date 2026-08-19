@@ -13,6 +13,7 @@ import { getUser } from "@/lib/auth";
 import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
 import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
+import { MyAvailability, StatusChip } from "./my-availability";
 import { SubPool } from "./sub-pool";
 import { CreateTeamForm } from "./team-forms";
 
@@ -60,6 +61,15 @@ export default async function TeamsPage({
     }));
   const myMembership = members.find((m) => m.user_id === user?.id);
 
+  // Injured and away players are marked on the roster so a captain sees the
+  // hole before the game rather than at it.
+  const statusOf = new Map(
+    members.map((m) => [
+      m.user_id,
+      { status: m.player_status, note: m.status_note, until: m.status_until },
+    ]),
+  );
+
   return (
     <div className="space-y-5">
       {admin ? (
@@ -73,19 +83,20 @@ export default async function TeamsPage({
         </Panel>
       ) : null}
 
-      <SubPool
-        slug={slug}
-        leagueId={league.id}
-        subs={subs}
-        me={
-          myMembership
-            ? {
-                available: myMembership.sub_available,
-                note: myMembership.sub_note ?? "",
-              }
-            : null
-        }
-      />
+      <div className="grid gap-5 lg:grid-cols-2">
+        {myMembership ? (
+          <MyAvailability
+            slug={slug}
+            leagueId={league.id}
+            status={myMembership.player_status}
+            statusNote={myMembership.status_note ?? ""}
+            statusUntil={myMembership.status_until ?? ""}
+            subAvailable={myMembership.sub_available}
+            subNote={myMembership.sub_note ?? ""}
+          />
+        ) : null}
+        <SubPool subs={subs} />
+      </div>
 
       {teams.length === 0 ? (
         <div className="card p-6">
@@ -140,6 +151,11 @@ export default async function TeamsPage({
                           </span>
                         ) : null}
                       </Link>
+                      <StatusChip
+                        status={statusOf.get(m.user_id)?.status ?? "available"}
+                        note={statusOf.get(m.user_id)?.note ?? null}
+                        until={statusOf.get(m.user_id)?.until ?? null}
+                      />
                       {admin ? (
                         <form action={setJersey} className="flex items-center gap-1">
                           <input type="hidden" name="member_id" value={m.id} />

@@ -16,6 +16,7 @@
     "test:seed": "node --test scripts/seed-demo.test.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.119.0",
     "@react-three/fiber": "^9.7.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0",

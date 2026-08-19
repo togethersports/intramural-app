@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import { GoogleButton } from "@/components/GoogleButton";
 import { Lockup } from "@/components/Mark";
 import {
   Button,
@@ -69,6 +70,7 @@ export default function SignUp() {
             </Text>
           </View>
           <ErrorNote message={error} />
+          <GoogleButton label="Sign up with Google" />
           <Notice message={notice} />
           <Field label="Full name">
             <Input

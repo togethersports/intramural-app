@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { GameCard } from "@/components/game-card";
 import { IconArrowRight, IconBall, IconCalendar, IconTrophy } from "@/components/icons";
+import { PlayerOfWeekCard } from "@/components/recap-card";
 import { StandingsTable } from "@/components/standings-table";
 import { Avatar, EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -11,6 +12,7 @@ import {
   getGames,
   getLeague,
   getPosts,
+  getLatestAward,
   getSeasonPlayerStats,
   getSeasonStandings,
   getTeams,
@@ -63,12 +65,13 @@ export default async function LeagueOverviewPage({
     );
   }
 
-  const [games, teams, posts, statRows, standings] = await Promise.all([
+  const [games, teams, posts, statRows, standings, award] = await Promise.all([
     getGames(season.id),
     getTeams(season.id),
     getPosts(league.id, 12),
     getSeasonPlayerStats(season.id),
     getSeasonStandings(season.id),
+    getLatestAward(season.id),
   ]);
 
   const week = currentWeek(season.starts_on, season.num_weeks);
@@ -198,6 +201,8 @@ export default async function LeagueOverviewPage({
             <StandingsTable rows={standings.rows.slice(0, 5)} slug={slug} />
           )}
         </Panel>
+
+        {award ? <PlayerOfWeekCard award={award} slug={slug} /> : null}
 
         {/* Scoring leaders */}
         <Panel

@@ -4,7 +4,12 @@ import { Panel } from "@/components/ui";
 import { getMyProfile, requireUser } from "@/lib/auth";
 import { getMyLeagues } from "@/lib/leagues";
 import { DEFAULT_APPEARANCE, parseAppearance } from "@core/theme";
-import { DetailsForm, MyAppearanceForm, PhotoForm } from "./profile-forms";
+import {
+  DetailsForm,
+  MyAppearanceForm,
+  NotifyForm,
+  PhotoForm,
+} from "./profile-forms";
 
 export const metadata: Metadata = { title: "Profile" };
 
@@ -78,6 +83,20 @@ export default async function ProfilePage() {
             jersey_pref: profile?.jersey_pref ?? null,
             positions: profile?.positions ?? [],
           }}
+        />
+      </Panel>
+
+      <Panel eyebrow="Before every game" title="Reminders">
+        <NotifyForm
+          channel={
+            (profile?.notify_channel as
+              | "email"
+              | "sms"
+              | "both"
+              | "none") ?? "email"
+          }
+          phone={profile?.phone ?? ""}
+          email={profile?.email ?? null}
         />
       </Panel>
 

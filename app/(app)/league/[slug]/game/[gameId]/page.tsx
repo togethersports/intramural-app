@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RecapCard } from "@/components/recap-card";
 import { TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
+  getGameAbsences,
   getGameEvents,
   getGameGuests,
+  getGameRecap,
   getLeague,
   getLineups,
+  getSubRequests,
   getTeamsWithRosters,
 } from "@/lib/data";
+import { SubPanel } from "../../subs/sub-panel";
 import { isLeagueAdmin } from "@core/league-constants";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -94,12 +99,33 @@ export default async function GamePage({
   const game = await getGame(gameId);
   if (!game) notFound();
 
-  const [events, lineups, teams, guests] = await Promise.all([
-    getGameEvents(gameId),
-    getLineups(gameId),
-    getTeamsWithRosters(game.season_id),
-    getGameGuests(gameId),
-  ]);
+  const [events, lineups, teams, guests, recap, subRequests, absences] =
+    await Promise.all([
+      getGameEvents(gameId),
+      getLineups(gameId),
+      getTeamsWithRosters(game.season_id),
+      getGameGuests(gameId),
+      getGameRecap(gameId),
+      getSubRequests(gameId),
+      getGameAbsences(gameId),
+    ]);
+
+  // Which side the viewer is on decides what the sub panel offers them —
+  // you flag your own absence, you volunteer for the other side's hole only
+  // if it went league-wide, and you approve only the OTHER team's sub.
+  const myTeam = teams.find(
+    (t) =>
+      (t.id === game.home_team_id || t.id === game.away_team_id) &&
+      t.roster.some((r) => r.user_id === user.id),
+  );
+  const captainOf = teams
+    .filter(
+      (t) =>
+        (t.id === game.home_team_id || t.id === game.away_team_id) &&
+        (t.captain_id === user.id ||
+          t.roster.some((r) => r.user_id === user.id && r.is_captain)),
+    )
+    .map((t) => t.id);
 
   const nameOf = new Map<string, string>();
   for (const t of teams)
@@ -241,6 +267,29 @@ export default async function GamePage({
           />
         </div>
       ) : null}
+
+      {recap ? <RecapCard recap={recap} /> : null}
+
+      <SubPanel
+        slug={slug}
+        gameId={gameId}
+        homeTeamId={game.home_team_id}
+        awayTeamId={game.away_team_id}
+        teamNames={{
+          [game.home_team_id]: game.home_team?.name ?? "Home",
+          [game.away_team_id]: game.away_team?.name ?? "Away",
+        }}
+        requests={subRequests}
+        absences={absences}
+        viewer={{
+          userId: user.id,
+          myTeamId: myTeam?.id ?? null,
+          captainOf,
+          isAdmin: isLeagueAdmin(league.role),
+          isAbsent: absences.some((a) => a.user_id === user.id),
+        }}
+        locked={game.status === "final" || game.status === "forfeit"}
+      />
 
       {/* Play-by-play */}
       <Panel eyebrow="Every possession" title="Play-by-play">

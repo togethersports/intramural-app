@@ -16,6 +16,7 @@ import { positionsFor } from "@core/league-constants";
 import type { ThemePreset } from "@core/theme";
 import {
   updateMyAppearance,
+  updateNotifyPrefs,
   updateProfile,
   updateProfilePhoto,
   type ActionState,
@@ -215,6 +216,103 @@ export function MyAppearanceForm({
           </Button>
         ) : null}
       </div>
+    </form>
+  );
+}
+
+/**
+ * When and how the app is allowed to interrupt you.
+ *
+ * The three sends are fixed by the league (the morning of, an hour out, ten
+ * minutes out); the only choice here is which pipe they come down. "None"
+ * is a real option — a player who checks the app anyway shouldn't have to
+ * mute a phone number to stop the texts.
+ */
+export function NotifyForm({
+  channel,
+  phone,
+  email,
+}: {
+  channel: "email" | "sms" | "both" | "none";
+  phone: string;
+  email: string | null;
+}) {
+  const [state, action, pending] = useActionState(updateNotifyPrefs, EMPTY);
+  const [chosen, setChosen] = useState(channel);
+  const wantsSms = chosen === "sms" || chosen === "both";
+
+  return (
+    <form action={action} className="space-y-5">
+      <FormError message={state.error} />
+      <FormNotice message={state.notice} />
+
+      <p className="text-[15px] text-ink-body">
+        Every game you&apos;re rostered for sends three reminders: at 7:15 the
+        morning of, an hour before tip-off, and ten minutes before. Flag
+        yourself out of a game and they stop for that one.
+      </p>
+
+      <div>
+        <p className="label mb-2 !text-[11px]">Send them by</p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["email", "Email"],
+              ["sms", "Text"],
+              ["both", "Both"],
+              ["none", "Neither"],
+            ] as const
+          ).map(([value, label]) => (
+            <label
+              key={value}
+              className={
+                chosen === value
+                  ? "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-accent bg-tint px-5 text-[15px] font-semibold text-accent-ink"
+                  : "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-rule bg-paper px-5 text-[15px] font-medium transition-colors hover:border-ink-faint"
+              }
+            >
+              <input
+                type="radio"
+                name="notify_channel"
+                value={value}
+                checked={chosen === value}
+                onChange={() => setChosen(value)}
+                className="sr-only"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {chosen !== "none" && email ? (
+        <p className="text-[14px] text-ink-faint">
+          Emails go to <span className="font-semibold text-ink-body">{email}</span>.
+        </p>
+      ) : null}
+
+      <Field
+        label="Mobile number"
+        htmlFor="phone"
+        hint={
+          wantsSms
+            ? "Ten digits, or start with + and the country code."
+            : "Only needed if you switch texts on."
+        }
+      >
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          defaultValue={phone}
+          placeholder="(555) 123-4567"
+        />
+      </Field>
+
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save reminder settings"}
+      </Button>
     </form>
   );
 }

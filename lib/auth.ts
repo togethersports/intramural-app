@@ -23,6 +23,10 @@ export const getUser = cache(async () => {
 export interface MyProfile {
   id: string;
   full_name: string;
+  /** Mirrored from auth.users so the reminder sender can read it. */
+  email: string | null;
+  phone: string | null;
+  notify_channel: "email" | "sms" | "both" | "none";
   avatar_url: string | null;
   grade: number | null;
   height_in: number | null;
@@ -44,7 +48,7 @@ export const getMyProfile = cache(async (): Promise<MyProfile | null> => {
   const { data } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, avatar_url, grade, height_in, jersey_pref, positions, appearance",
+      "id, full_name, email, phone, notify_channel, avatar_url, grade, height_in, jersey_pref, positions, appearance",
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -56,6 +60,9 @@ export const getMyProfile = cache(async (): Promise<MyProfile | null> => {
     return {
       id: user.id,
       full_name: fallbackName,
+      email: user.email ?? null,
+      phone: null,
+      notify_channel: "email",
       avatar_url: null,
       grade: null,
       height_in: null,
@@ -67,6 +74,10 @@ export const getMyProfile = cache(async (): Promise<MyProfile | null> => {
   return {
     id: user.id,
     full_name: (data.full_name as string) || fallbackName,
+    email: (data.email as string | null) ?? user.email ?? null,
+    phone: (data.phone as string | null) ?? null,
+    notify_channel:
+      (data.notify_channel as MyProfile["notify_channel"]) ?? "email",
     avatar_url: (data.avatar_url as string | null) ?? null,
     grade: (data.grade as number | null) ?? null,
     height_in: (data.height_in as number | null) ?? null,

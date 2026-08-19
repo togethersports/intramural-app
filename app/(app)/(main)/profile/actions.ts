@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getUser } from "@/lib/auth";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { toE164 } from "@/lib/notify";
 import { removeUploadedImage, uploadImage } from "@/lib/uploads";
 import { isValidPosition, positionsFor } from "@core/league-constants";
 import { normalizeHex } from "@core/theme";
@@ -115,6 +116,59 @@ export async function updateProfilePhoto(
   await removeUploadedImage("avatars", previous);
   revalidatePath("/", "layout");
   return { error: null, notice: "Photo updated." };
+}
+
+/**
+ * How the app reaches you outside the app.
+ *
+ * The phone number is normalised to E.164 before it is stored, so the sender
+ * never has to guess what a person typed — and a number it can't make sense
+ * of is rejected here, where the person can fix it, rather than silently
+ * failing three weeks later at ten minutes to tip-off.
+ */
+export async function updateNotifyPrefs(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const user = await getUser();
+  if (!user) return { error: "Sign in again — your session expired." };
+
+  const channel = str(formData, "notify_channel");
+  if (!["email", "sms", "both", "none"].includes(channel)) {
+    return { error: "Pick one of the four options." };
+  }
+
+  const rawPhone = str(formData, "phone");
+  let phone: string | null = null;
+  if (rawPhone) {
+    phone = toE164(rawPhone);
+    if (!phone) {
+      return {
+        error:
+          "That doesn't look like a phone number. Use ten digits, or start with + and the country code.",
+      };
+    }
+  }
+  if ((channel === "sms" || channel === "both") && !phone) {
+    return { error: "Add a phone number, or switch reminders back to email." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ notify_channel: channel, phone })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/", "layout");
+  return {
+    error: null,
+    notice:
+      channel === "none"
+        ? "Reminders off. You'll still see games in the app."
+        : "Reminder settings saved.",
+  };
 }
 
 export async function updateMyAppearance(

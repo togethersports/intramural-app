@@ -27,6 +27,10 @@ export interface MemberRow {
   /** Hand up to fill in for any team that is short. */
   sub_available: boolean;
   sub_note: string | null;
+  /** Can they play at all right now — a captain reads this before a lineup. */
+  player_status: "available" | "injured" | "away";
+  status_note: string | null;
+  status_until: string | null;
 }
 
 export async function getMyLeagues(): Promise<LeagueSummary[]> {
@@ -159,7 +163,7 @@ export async function getLeagueMembers(leagueId: string): Promise<MemberRow[]> {
   const { data, error } = await supabase
     .from("league_members")
     .select(
-      "id, user_id, role, sub_available, sub_note, profile:profiles(full_name, avatar_url, grade, positions)",
+      "id, user_id, role, sub_available, sub_note, player_status, status_note, status_until, profile:profiles(full_name, avatar_url, grade, positions)",
     )
     .eq("league_id", leagueId)
     .eq("status", "active")
@@ -187,6 +191,10 @@ export async function getLeagueMembers(leagueId: string): Promise<MemberRow[]> {
       positions: profile?.positions ?? [],
       sub_available: Boolean(row.sub_available),
       sub_note: (row.sub_note as string | null) ?? null,
+      player_status:
+        (row.player_status as MemberRow["player_status"]) ?? "available",
+      status_note: (row.status_note as string | null) ?? null,
+      status_until: (row.status_until as string | null) ?? null,
     };
   });
 }

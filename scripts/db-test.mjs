@@ -996,6 +996,242 @@ assert(
   "the attempt left the role untouched",
 );
 
+// -------------------------------------------- subs, approval and polls
+console.log("\n— sub approval and scheduling polls —");
+
+// Fresh fixtures: this section is about who may approve what, so it should
+// not depend on which roster the trade scenarios above left people on.
+await asOwner();
+const subSeason = await one(
+  `insert into seasons (league_id, name, starts_on, ends_on, num_weeks, status)
+   values ($1, 'Sub Season', current_date, current_date + 60, 6, 'active') returning *`,
+  [league.id],
+);
+const redTeam = await one(
+  `insert into teams (season_id, name, abbrev, captain_id) values ($1, 'Reds', 'RED', $2) returning *`,
+  [subSeason.id, uid(4)],
+);
+const blueTeam = await one(
+  `insert into teams (season_id, name, abbrev, captain_id) values ($1, 'Blues', 'BLU', $2) returning *`,
+  [subSeason.id, uid(3)],
+);
+await db.query(
+  `insert into team_members (team_id, user_id, is_captain) values ($1, $2, true), ($3, $4, true)`,
+  [redTeam.id, uid(4), blueTeam.id, uid(3)],
+);
+const subGame = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, scheduled_date)
+   values ($1, 1, $2, $3, current_date + 3) returning *`,
+  [subSeason.id, redTeam.id, blueTeam.id],
+);
+
+// The Reds' captain opens a hole and puts a name to it.
+await asAuthenticated(4);
+const subRequest = await one(
+  `insert into sub_requests (game_id, team_id, requested_by, absent_user_id, scope, note)
+   values ($1, $2, $3, $3, 'league', 'Away at a meet') returning *`,
+  [subGame.id, redTeam.id, uid(4)],
+);
+assert(subRequest.status === "open", "a captain can open a sub request for their own team");
+
+// A league member who plays for neither team volunteers. This goes through
+// an RPC, not a plain update: at policy time the volunteer is not yet on the
+// row, so no row policy could ever let them claim it.
+await asAuthenticated(9);
+await db.query(`select claim_sub_request($1)`, [subRequest.id]);
+await asOwner();
+assert(
+  (await one(`select status, fill_user_id from sub_requests where id = $1`, [subRequest.id]))
+    .status === "proposed",
+  "any league member can volunteer for a league-wide request",
+);
+
+// THE RULE: the team that asked cannot sign off on its own sub.
+await asAuthenticated(4);
+assert(
+  await rejects(`select decide_sub_request($1, true)`, [subRequest.id]),
+  "the requesting team's own captain cannot approve their sub",
+);
+await asOwner();
+assert(
+  (await one(`select status from sub_requests where id = $1`, [subRequest.id])).status ===
+    "proposed",
+  "the refused approval left the request untouched",
+);
+
+// Nor can the person who volunteered wave themselves through.
+await asAuthenticated(9);
+assert(
+  await rejects(`select decide_sub_request($1, true)`, [subRequest.id]),
+  "the volunteer cannot approve themselves",
+);
+
+// The opposing captain can.
+await asAuthenticated(3);
+await db.query(`select decide_sub_request($1, true, 'Fine by us')`, [subRequest.id]);
+await asOwner();
+const decided = await one(
+  `select status, approved_by, decision_note from sub_requests where id = $1`,
+  [subRequest.id],
+);
+assert(
+  decided.status === "approved" && decided.approved_by === uid(3),
+  "the opposing captain can approve a sub",
+);
+assert(decided.decision_note === "Fine by us", "the decision note is kept");
+assert(
+  (await one(
+    `select count(*)::int as c from team_members
+     where team_id = $1 and user_id = $2 and left_at is null`,
+    [redTeam.id, uid(9)],
+  )).c === 1,
+  "an approved sub lands on the roster so the box score can credit them",
+);
+
+// A decided request is finished — it cannot be flipped back.
+await asAuthenticated(3);
+assert(
+  await rejects(`select decide_sub_request($1, false)`, [subRequest.id]),
+  "an already-decided request cannot be decided again",
+);
+
+// An admin can approve on either side's behalf.
+await asAuthenticated(4);
+const secondRequest = await one(
+  `insert into sub_requests (game_id, team_id, requested_by, fill_user_id, scope, status)
+   values ($1, $2, $3, $4, 'league', 'proposed') returning *`,
+  [subGame.id, redTeam.id, uid(4), uid(6)],
+);
+await asAuthenticated(1);
+await db.query(`select decide_sub_request($1, false, 'Ineligible this week')`, [
+  secondRequest.id,
+]);
+await asOwner();
+assert(
+  (await one(`select status from sub_requests where id = $1`, [secondRequest.id]))
+    .status === "declined",
+  "a league admin can decide a sub on either side's behalf",
+);
+
+// A sub request must name somebody before it can be decided at all.
+await asOwner();
+assert(
+  await rejects(
+    `insert into sub_requests (game_id, team_id, requested_by, scope, status)
+     values ($1, $2, $3, 'league', 'approved')`,
+    [subGame.id, redTeam.id, uid(4)],
+  ),
+  "a request cannot be approved without naming who is filling in",
+);
+
+// ---- scheduling polls ----
+
+await asAuthenticated(4);
+const poll = await one(
+  `insert into schedule_polls (season_id, game_id, home_team_id, away_team_id, created_by, title)
+   values ($1, $2, $3, $4, $5, 'Week 1') returning *`,
+  [subSeason.id, subGame.id, redTeam.id, blueTeam.id, uid(4)],
+);
+const optionA = await one(
+  `insert into schedule_poll_options (poll_id, scheduled_date) values ($1, current_date + 5) returning *`,
+  [poll.id],
+);
+const optionB = await one(
+  `insert into schedule_poll_options (poll_id, scheduled_date) values ($1, current_date + 6) returning *`,
+  [poll.id],
+);
+assert(poll.status === "open", "a captain can open a scheduling poll for their own game");
+
+// Votes are own-row only.
+await asAuthenticated(9);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionB.id, uid(9)],
+);
+assert(
+  await rejects(
+    `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+    [optionB.id, uid(6)],
+  ),
+  "nobody can cast somebody else's vote",
+);
+
+await asAuthenticated(6);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionB.id, uid(6)],
+);
+await asAuthenticated(3);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionA.id, uid(3)],
+);
+
+// Locking with no option named picks the winner by weight, and writes it
+// onto the game — which is what hands it to the reminder sender.
+await asAuthenticated(4);
+await db.query(`select lock_schedule_poll($1)`, [poll.id]);
+await asOwner();
+const lockedPoll = await one(`select status, locked_option_id from schedule_polls where id = $1`, [
+  poll.id,
+]);
+assert(
+  lockedPoll.status === "locked" && lockedPoll.locked_option_id === optionB.id,
+  "the option with the most votes wins the lock",
+);
+const lockedGame = await one(`select scheduled_date from games where id = $1`, [subGame.id]);
+assert(
+  String(lockedGame.scheduled_date).slice(0, 10) ===
+    String((await one(`select (current_date + 6) as d`)).d).slice(0, 10),
+  "locking writes the winning date onto the game",
+);
+
+// Somebody with no standing in the game cannot lock it.
+await asAuthenticated(9);
+assert(
+  await rejects(`select lock_schedule_poll($1)`, [poll.id]),
+  "a player who captains neither team cannot lock a poll",
+);
+
+// ---- the tip-off view ----
+await asOwner();
+const tipOff = await one(
+  `select starts_at, timezone, league_slug from game_schedule where game_id = $1`,
+  [subGame.id],
+);
+assert(
+  tipOff && tipOff.starts_at !== null,
+  "game_schedule resolves a date and a slot into a real instant",
+);
+assert(
+  tipOff.timezone === "America/New_York",
+  "the tip-off instant is computed in the league's own timezone",
+);
+
+// ---- reminder idempotency ----
+await db.query(
+  `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'email')`,
+  [subGame.id, uid(4)],
+);
+assert(
+  await rejects(
+    `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'email')`,
+    [subGame.id, uid(4)],
+  ),
+  "the same reminder cannot be logged twice — a double-fired cron sends once",
+);
+await db.query(
+  `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'sms')`,
+  [subGame.id, uid(4)],
+);
+assert(
+  (await one(
+    `select count(*)::int as c from reminder_log where game_id = $1 and user_id = $2`,
+    [subGame.id, uid(4)],
+  )).c === 2,
+  "the same reminder on a different channel is a different send",
+);
+
 // ---------------------------------------------------- league lifecycle
 console.log("\n— league lifecycle —");
 // The demo league from the block above: uid(1) is its commissioner and
