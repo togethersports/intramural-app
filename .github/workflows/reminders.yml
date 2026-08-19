@@ -16,6 +16,11 @@
 # secret, named CRON_SECRET, matching the one in Vercel. Then set SITE_URL
 # below to the production domain.
 #
+# SITE_URL must be the domain Vercel treats as canonical, apex or www. If it
+# is the one that *redirects*, this job gets a 401: curl drops the
+# Authorization header across a redirect to a different host, and
+# `www.example.com` is a different host from `example.com`.
+#
 name: Game reminders
 
 on:
@@ -37,7 +42,7 @@ jobs:
     steps:
       - name: Send due reminders
         env:
-          SITE_URL: https://intramural.app
+          SITE_URL: https://www.intramural.app
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then

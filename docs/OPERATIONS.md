@@ -50,6 +50,13 @@ and ten minutes before. Off until all three of these are set.
 | `SUPABASE_SERVICE_ROLE_KEY` | The job reads across every league and has no signed-in session to borrow from. **Server-only — never prefix it with `NEXT_PUBLIC`.** |
 | `CRON_SECRET` | The job refuses to run without it. Sent as `Authorization: Bearer <secret>`. |
 | `NEXT_PUBLIC_SITE_URL` | Links in emails and texts. Without it they point at the per-deploy preview URL, which dies on the next deploy. |
+
+Use whichever of apex or `www` your host treats as **canonical** — the one
+that doesn't redirect. Pointing the cron at the redirecting one gets a 401,
+not a follow: curl drops the `Authorization` header across a redirect to a
+different host, and `www.example.com` is a different host from `example.com`.
+`-L` does not help; `--location-trusted` would, but sending your secret to
+wherever a redirect happens to lead is not a habit worth having.
 | `RESEND_API_KEY`, `REMINDER_FROM_EMAIL` | Email. The from address must be on a domain verified with Resend. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Texts. The from number must be one you own, in E.164. |
 
