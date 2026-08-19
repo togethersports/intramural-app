@@ -10,6 +10,19 @@ School intramural league app. **The spec is `docs/BRIEF.md`** — treat it as
 the instruction set. Build order is BRIEF §6; Phase 0 (foundation) is done,
 Phase 1 is the draft room.
 
+## Running it
+
+**`docs/OPERATIONS.md` is the setup guide** — Google OAuth, the reminder
+cron, provider keys, and the league timezone. Everything external degrades:
+no Resend key means email reminders report "not configured" rather than
+throwing, no Anthropic key means recaps are assembled from the box score
+instead of written. Never make a missing key fatal.
+
+`SUPABASE_SERVICE_ROLE_KEY` is used in exactly one place — `lib/supabase/admin.ts`,
+imported only by the cron routes, which have no signed-in user to borrow
+permissions from. Every other read goes through `lib/supabase/server.ts` so
+RLS stays the one place access is decided.
+
 ## Conventions
 
 - Next.js App Router + TypeScript + Tailwind v4. Note Next 16 changes:
@@ -20,7 +33,14 @@ Phase 1 is the draft room.
 - The app must build and render with NO Supabase env vars: guard with
   `isSupabaseConfigured()`; authed routes redirect to `/setup`.
 - Keep stat/scheduling logic in `lib/` as pure, unit-testable functions,
-  separate from UI (BRIEF §7).
+  separate from UI (BRIEF §7). Timing rules, recap facts and award ranking
+  live in `@core` for the same reason — they are the parts that go wrong
+  silently, so they are the parts that get tests.
+- A rule about a *transition* ("only a proposed request may be approved",
+  "only the opposing captain may approve it") cannot be a row policy — a
+  policy cannot see the previous row, and cannot see a value the caller is
+  about to write. Those go in a security-definer RPC. `claim_sub_request`
+  and `decide_sub_request` are the worked examples.
 
 ## Design
 

@@ -56,6 +56,7 @@ export default function BrandPage() {
           ["/design/league", "League chrome"],
           ["/design/dashboard", "Dashboard"],
           ["/design/identity", "Identity & colours"],
+          ["/design/season", "Recaps, subs & polls"],
           ["/design/live", "Live console"],
           ["/design/pregame", "Pre-game"],
           ["/design/new-game", "New game"],
