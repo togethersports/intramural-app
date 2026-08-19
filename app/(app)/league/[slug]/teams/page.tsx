@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconUsers } from "@/components/icons";
-import { Avatar, EmptyState, TeamBadge } from "@/components/ui";
+import { Avatar, EmptyState, TeamBadge, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getFreeAgents,
@@ -46,17 +46,14 @@ export default async function TeamsPage({
   return (
     <div className="space-y-5">
       {admin ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            Add a team
-          </h2>
+        <Panel eyebrow="Commissioner" title="Add a team">
           <CreateTeamForm
             slug={slug}
             leagueId={league.id}
             seasonId={season.id}
             candidates={freeAgents}
           />
-        </section>
+        </Panel>
       ) : null}
 
       {teams.length === 0 ? (
@@ -185,10 +182,7 @@ export default async function TeamsPage({
       )}
 
       {freeAgents.length > 0 ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
-            Free agents
-          </h2>
+        <Panel eyebrow="Undrafted" title="Free agents">
           <div className="flex flex-wrap gap-2">
             {freeAgents.map((f) => (
               <span
@@ -203,7 +197,7 @@ export default async function TeamsPage({
               </span>
             ))}
           </div>
-        </section>
+        </Panel>
       ) : null}
     </div>
   );

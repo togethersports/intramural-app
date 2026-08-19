@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { IconUsers } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
@@ -75,18 +75,12 @@ export default async function TradesPage({
   return (
     <div className="space-y-5">
       {myTeam ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            Build a trade
-          </h2>
+        <Panel eyebrow="Captain" title="Build a trade">
           <TradeForm slug={slug} seasonId={season.id} myTeam={myTeam} teams={teams} />
-        </section>
+        </Panel>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          Open trades
-        </h2>
+      <Panel eyebrow="Awaiting a decision" title="Open trades">
         {open.length === 0 ? (
           <p className="text-sm text-ink-faint">Nothing on the table.</p>
         ) : (
@@ -170,12 +164,9 @@ export default async function TradesPage({
             })}
           </ul>
         )}
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          Transaction log
-        </h2>
+      <Panel eyebrow="Public record" title="Transaction log">
         {history.length === 0 ? (
           <p className="text-sm text-ink-faint">No completed trades yet.</p>
         ) : (
@@ -190,7 +181,7 @@ export default async function TradesPage({
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
       {!myTeam && !admin ? (
         <p className="text-center text-sm text-white/70">

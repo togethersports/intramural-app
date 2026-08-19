@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Panel } from "@/components/ui";
 import { notFound, redirect } from "next/navigation";
 import {
   getActiveSeason,
@@ -56,10 +57,7 @@ export default async function ConsolePage({
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          League settings
-        </h2>
+      <Panel eyebrow="Identity" title="League settings">
         <LeagueSettingsForm
           slug={slug}
           name={league.name}
@@ -67,10 +65,9 @@ export default async function ConsolePage({
           emailDomain={league.settings?.email_domain ?? ""}
           tradeApproval={league.settings?.trade_approval ?? "commissioner"}
         />
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Seasons</h2>
+      <Panel eyebrow="Calendar" title="Seasons">
         <p className="mb-4 text-sm text-ink-body">
           The newest season is the active one everywhere in the app.
         </p>
@@ -112,10 +109,9 @@ export default async function ConsolePage({
           </ul>
         ) : null}
         <CreateSeasonForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Time slots</h2>
+      <Panel eyebrow="When games fit" title="Time slots">
         <p className="mb-4 text-sm text-ink-body">
           Named school periods that games are scheduled into — the scheduler
           only uses these.
@@ -150,10 +146,9 @@ export default async function ConsolePage({
           </p>
         )}
         <AddTimeSlotForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Venues</h2>
+      <Panel eyebrow="Where they're played" title="Venues">
         <p className="mb-4 text-sm text-ink-body">
           One game per venue per slot, or two when splittable.
         </p>
@@ -188,7 +183,7 @@ export default async function ConsolePage({
           </p>
         )}
         <AddVenueForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
 
       {commissioner && footprint ? (
         <DangerZone

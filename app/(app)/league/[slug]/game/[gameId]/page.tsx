@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TeamBadge } from "@/components/ui";
+import { TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
@@ -243,10 +243,7 @@ export default async function GamePage({
       ) : null}
 
       {/* Play-by-play */}
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">
-          Play-by-play
-        </h3>
+      <Panel eyebrow="Every possession" title="Play-by-play">
         {visibleEvents.length === 0 ? (
           <p className="text-sm text-ink-faint">
             Nothing yet — events stream in live once tracking starts.
@@ -289,7 +286,7 @@ export default async function GamePage({
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

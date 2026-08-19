@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import { getLeague, getLeagueRules, getRuleFiles } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
 import { createClient } from "@/lib/supabase/server";
@@ -53,10 +53,7 @@ export default async function RulesPage({
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
-          League rules
-        </h2>
+      <Panel eyebrow="On the record" title="League rules">
         <p className="mb-4 text-sm text-ink-muted">
           {admin
             ? "What you write here is what players see. Keep it on the record."
@@ -85,12 +82,9 @@ export default async function RulesPage({
             ))}
           </div>
         )}
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
-          Rule documents
-        </h2>
+      <Panel eyebrow="Files" title="Rule documents">
         <p className="mb-4 text-sm text-ink-muted">
           Official documents — rulebooks, waivers, code of conduct.
         </p>
@@ -143,7 +137,7 @@ export default async function RulesPage({
           </ul>
         )}
         {admin ? <RuleFileUpload slug={slug} leagueId={league.id} /> : null}
-      </section>
+      </Panel>
     </div>
   );
 }

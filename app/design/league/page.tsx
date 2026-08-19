@@ -175,6 +175,24 @@ export default function LeagueChromeReferencePage() {
               </ol>
             </Panel>
 
+            <Panel
+              eyebrow="Roster"
+              title="3 members"
+              flush
+            >
+              <div className="divide-y divide-rule">
+                {["Aiden Coleman", "Liam Foster", "Noah Sinclair"].map((n) => (
+                  <div key={n} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                    <Avatar name={n} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{n}</p>
+                      <p className="text-sm text-ink-body">Grade 11</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+
             <Panel eyebrow="Season" title="Demo Season">
               <dl className="space-y-2 text-[15px]">
                 {[

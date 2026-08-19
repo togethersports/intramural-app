@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconTrophy } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getBracketNodes,
@@ -178,8 +178,7 @@ export default async function PlayoffsPage({
         </section>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-5 text-lg font-semibold tracking-tight">Bracket</h2>
+      <Panel eyebrow="Single elimination" title="Bracket">
         <div className="scroll-x -mx-1 flex gap-8 px-1 pb-2">
           {rounds.map((round) => (
             <div key={round} className="flex flex-col gap-4">
@@ -204,11 +203,11 @@ export default async function PlayoffsPage({
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-ink-faint">
+        <p className="mt-4 border-t border-rule pt-3.5 text-[12.5px] text-ink-muted">
           Winners advance automatically when playoff games go final. Playoff
           games are scheduled from the Schedule tab like any other game.
         </p>
-      </section>
+      </Panel>
     </div>
   );
 }

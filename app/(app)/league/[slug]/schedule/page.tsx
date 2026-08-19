@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
 import { IconCalendar, IconPlus } from "@/components/icons";
-import { ButtonLink, EmptyState, FormNotice } from "@/components/ui";
+import { ButtonLink, EmptyState, FormNotice, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
@@ -79,20 +79,20 @@ export default async function SchedulePage({
         />
       ) : null}
       {admin ? (
-        <section className="card space-y-5 p-5 sm:p-6">
+        <Panel
+          eyebrow="Commissioner"
+          title="Build the schedule"
+          action={
+            <ButtonLink
+              href={`/league/${slug}/game/new`}
+              variant="primary"
+              className="!min-h-10 !px-5 !py-2.5 !text-[15px]"
+            >
+              <IconPlus size={16} /> New game
+            </ButtonLink>
+          }
+        >
           <div>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">
-                Build the schedule
-              </h2>
-              <ButtonLink
-                href={`/league/${slug}/game/new`}
-                variant="primary"
-                className="!px-5 !text-[15px]"
-              >
-                <IconPlus size={16} /> New game
-              </ButtonLink>
-            </div>
             <GenerateScheduleForm
               slug={slug}
               leagueId={league.id}
@@ -100,10 +100,8 @@ export default async function SchedulePage({
             />
           </div>
           {teams.length >= 2 ? (
-            <div className="border-t border-rule pt-4">
-              <h3 className="mb-3 text-sm font-semibold text-ink-body">
-                Or add a game manually
-              </h3>
+            <div className="mt-5 border-t border-rule pt-4">
+              <p className="label mb-3 !text-[11px]">Or add one manually</p>
               <AddGameForm
                 slug={slug}
                 seasonId={season.id}
@@ -113,7 +111,7 @@ export default async function SchedulePage({
               />
             </div>
           ) : null}
-        </section>
+        </Panel>
       ) : null}
 
       {weeks.length === 0 ? (
@@ -130,12 +128,19 @@ export default async function SchedulePage({
         </div>
       ) : (
         weeks.map((week) => (
-          <section key={week} className="card p-5 sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold tracking-tight">
-              {byWeek.get(week)!.some((g) => g.is_playoff)
-                ? `Playoffs — round ${week - season.num_weeks}`
-                : `Week ${week}`}
-            </h2>
+          <Panel
+            key={week}
+            eyebrow={
+              byWeek.get(week)!.some((g) => g.is_playoff)
+                ? "Playoffs"
+                : `Week ${week} of ${season.num_weeks}`
+            }
+            title={
+              byWeek.get(week)!.some((g) => g.is_playoff)
+                ? `Round ${week - season.num_weeks}`
+                : `Week ${week}`
+            }
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               {byWeek.get(week)!.map((g) => (
                 <div key={g.id} className="space-y-2">
@@ -298,7 +303,7 @@ export default async function SchedulePage({
                 </div>
               ))}
             </div>
-          </section>
+          </Panel>
         ))
       )}
     </div>

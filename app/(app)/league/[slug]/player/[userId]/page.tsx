@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Avatar, StatTile } from "@/components/ui";
+import { Avatar, StatTile, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getLeague,
@@ -73,8 +73,7 @@ export default async function PlayerPage({
         </div>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">Game log</h3>
+      <Panel eyebrow="Every game" title="Game log">
         {log.length === 0 ? (
           <p className="text-sm text-ink-faint">
             No games recorded{season ? "" : " — no active season"}.
@@ -132,7 +131,7 @@ export default async function PlayerPage({
             </table>
           </div>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
-import { Avatar, StatTile, TeamBadge } from "@/components/ui";
+import { Avatar, StatTile, TeamBadge, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getGames,
@@ -87,8 +87,7 @@ export default async function TeamPage({
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="card p-5 sm:p-6">
-          <h3 className="mb-3 text-lg font-semibold tracking-tight">Roster</h3>
+        <Panel eyebrow="Who plays" title="Roster">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-ink-faint">
@@ -141,10 +140,9 @@ export default async function TeamPage({
               })}
             </tbody>
           </table>
-        </section>
+        </Panel>
 
-        <section className="card p-5 sm:p-6">
-          <h3 className="mb-3 text-lg font-semibold tracking-tight">Results</h3>
+        <Panel eyebrow="Season" title="Results">
           {teamGames.length === 0 ? (
             <p className="text-sm text-ink-faint">No games yet.</p>
           ) : (
@@ -154,7 +152,7 @@ export default async function TeamPage({
               ))}
             </div>
           )}
-        </section>
+        </Panel>
       </div>
     </div>
   );

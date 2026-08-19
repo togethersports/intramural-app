@@ -53,7 +53,8 @@ export default async function DraftPage({
       <div className="card p-6">
         {admin ? (
           <>
-            <h2 className="mb-1 text-lg font-semibold tracking-tight">
+            <p className="label !text-[11px]">Commissioner</p>
+            <h2 className="mb-1 mt-1 text-[17px] font-semibold tracking-[-0.01em]">
               Set up the draft
             </h2>
             <p className="mb-4 text-sm text-ink-body">

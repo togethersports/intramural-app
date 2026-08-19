@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconChart } from "@/components/icons";
-import { Avatar, EmptyState, Meter } from "@/components/ui";
+import { Avatar, EmptyState, Meter, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getLeague,
@@ -102,8 +102,7 @@ export default async function StatsPage({
             .slice(0, 5);
           const max = top.length > 0 ? cat.value(top[0]) : 0;
           return (
-            <section key={cat.key} className="card p-5">
-              <h3 className="mb-3 font-semibold tracking-tight">{cat.label}</h3>
+            <Panel key={cat.key} eyebrow="Leaders" title={cat.label}>
               <ol className="space-y-2.5">
                 {top.map((p) => (
                   <li key={p.userId}>
@@ -129,16 +128,13 @@ export default async function StatsPage({
                   </li>
                 ))}
               </ol>
-            </section>
+            </Panel>
           );
         })}
       </div>
 
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">
-          All players — season totals
-        </h3>
-        <div className="scroll-x">
+      <Panel eyebrow="Every player" title="Season totals" flush>
+        <div className="scroll-x px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-ink-faint">
@@ -192,7 +188,7 @@ export default async function StatsPage({
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
     </div>
   );
 }
