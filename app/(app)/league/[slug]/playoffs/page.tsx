@@ -62,7 +62,7 @@ function NodeCard({
     return (
       <div
         className={`flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm ${
-          winner ? "bg-ink text-surface font-bold" : "bg-paper font-medium"
+          winner ? "bg-ink text-on-ink font-bold" : "bg-paper font-medium"
         }`}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -168,10 +168,10 @@ export default async function PlayoffsPage({
     <div className="space-y-5">
       {champion ? (
         <section className="card flex items-center justify-center gap-4 bg-ink p-8 text-center">
-          <IconTrophy size={40} className="text-accent" />
+          <IconTrophy size={40} className="text-accent-ink" />
           <div>
-            <p className="text-sm font-medium text-surface/60">Champions</p>
-            <p className="text-3xl font-semibold tracking-tight text-surface">
+            <p className="text-sm font-medium text-on-ink/60">Champions</p>
+            <p className="text-3xl font-semibold tracking-tight text-on-ink">
               {teams.get(champion)?.name ?? "?"}
             </p>
           </div>

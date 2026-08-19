@@ -21,12 +21,12 @@ import { TradeForm } from "./trade-form";
 export const metadata: Metadata = { title: "Trades" };
 
 const STATUS_TONE: Record<TradeRow["status"], string> = {
-  proposed: "bg-tint text-accent",
+  proposed: "bg-tint text-accent-ink",
   accepted: "bg-bench text-white",
-  executed: "bg-ink text-white",
+  executed: "bg-ink text-on-ink",
   declined: "bg-rule text-ink-faint",
   cancelled: "bg-rule text-ink-faint",
-  vetoed: "bg-tint text-accent",
+  vetoed: "bg-tint text-accent-ink",
 };
 
 export default async function TradesPage({
@@ -115,7 +115,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="accept" value="true" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-white">
+                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-on-ink">
                             Accept
                           </button>
                         </form>
@@ -135,7 +135,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="approve" value="true" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-surface">
+                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-on-ink">
                             Approve + execute
                           </button>
                         </form>
@@ -143,7 +143,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="approve" value="false" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-tint px-4 text-sm font-semibold text-accent">
+                          <button className="min-h-11 rounded-control bg-tint px-4 text-sm font-semibold text-accent-ink">
                             Veto
                           </button>
                         </form>
@@ -184,7 +184,7 @@ export default async function TradesPage({
       </Panel>
 
       {!myTeam && !admin ? (
-        <p className="text-center text-sm text-white/70">
+        <p className="text-center text-sm text-ink-faint">
           Only team captains can propose trades — talk to yours.
         </p>
       ) : null}

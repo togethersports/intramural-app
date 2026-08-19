@@ -187,3 +187,42 @@ export function IconQueue(props: IconProps) {
     </svg>
   );
 }
+
+export function IconMenu(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+export function IconClose(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m6 6 12 12" />
+      <path d="m18 6-12 12" />
+    </svg>
+  );
+}
+
+export function IconCamera(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h1.7a2 2 0 0 0 1.7-1l.5-.9a1.5 1.5 0 0 1 1.3-.7h2.6a1.5 1.5 0 0 1 1.3.7l.5.9a2 2 0 0 0 1.7 1h1.7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" />
+      <circle cx="12" cy="12.5" r="3.2" />
+    </svg>
+  );
+}
+
+export function IconPalette(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.9-.8 1.9-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.6 1.7-1.6h1.3a4.6 4.6 0 0 0 4.6-4.6C20.5 6.6 16.7 3.5 12 3.5Z" />
+      <circle cx="7.8" cy="11.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="10.4" cy="7.6" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15.2" cy="7.9" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

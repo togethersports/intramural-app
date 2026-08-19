@@ -10,7 +10,7 @@
   which is what `flat` does — the favicon and tiny lockups use it.
 */
 
-type MarkTone = "ink" | "white" | "white-red" | "red";
+type MarkTone = "ink" | "white" | "white-red" | "red" | "theme";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -28,6 +28,10 @@ const STROKE: Record<MarkTone, { line: string; output: string }> = {
   "white-red": { line: "#FFFFFF", output: "#C9242C" },
   white: { line: "#FFFFFF", output: "#FFFFFF" },
   red: { line: "#C9242C", output: "#C9242C" },
+  // Signed-in surfaces, where a league may have restyled the accent: the
+  // seed lines take the text colour and the output line takes the accent, so
+  // the mark is drawn in whatever palette is running.
+  theme: { line: "currentColor", output: "var(--color-accent)" },
 };
 
 export function Mark({
@@ -86,6 +90,7 @@ export function Lockup({
   className?: string;
 }) {
   const onDark = tone === "white" || tone === "white-red";
+  const theme = tone === "theme";
   return (
     <span
       className={cx(
@@ -104,7 +109,7 @@ export function Lockup({
         style={{
           fontSize: size * 0.53,
           letterSpacing: "-0.02em",
-          color: onDark ? "#FFFFFF" : "#17171A",
+          color: theme ? "currentColor" : onDark ? "#FFFFFF" : "#17171A",
         }}
       >
         Intramural

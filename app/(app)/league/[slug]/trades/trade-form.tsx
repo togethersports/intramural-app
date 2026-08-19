@@ -33,7 +33,7 @@ export function TradeForm({
     <form action={formAction} className="space-y-4">
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-on-ink">
           {state.notice}
         </p>
       ) : null}

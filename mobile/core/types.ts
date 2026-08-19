@@ -45,6 +45,8 @@ export interface TeamRow {
   name: string;
   abbrev: string;
   color: string;
+  /** Team badge, set by the captain. */
+  logo_url: string | null;
   captain_id: string | null;
   /** Free-text opponent from an ad-hoc game — kept out of standings,
       draft order, and the scheduler. */
@@ -57,6 +59,15 @@ export interface RosterEntry {
   full_name: string;
   jersey_number: number | null;
   is_captain: boolean;
+  /** Player photo, when they have set one. */
+  avatar_url?: string | null;
+  /** Position on THIS team — the captain's call, which may differ from the
+      positions the player claims on their own profile. */
+  position?: string | null;
+  /** Whether the captain has them in the starting lineup. */
+  lineup_role?: "starter" | "reserve";
+  /** 1-based slot within the starting lineup; null for reserves. */
+  lineup_order?: number | null;
   /** Free-text player added for one game (game_guests row). */
   is_guest?: boolean;
 }

@@ -64,10 +64,10 @@ export default async function AvailabilityPage({
 
   const heatColor = (count: number, rosterSize: number) => {
     if (rosterSize === 0) return "bg-rule text-ink-faint";
-    if (count >= 5) return "bg-ink text-white";
+    if (count >= 5) return "bg-ink text-on-ink";
     if (count >= 4) return "bg-bench text-white";
     if (count >= 3) return "bg-bench/50 text-ink";
-    if (count > 0) return "bg-tint text-accent";
+    if (count > 0) return "bg-tint text-accent-ink";
     return "bg-rule text-ink-faint";
   };
 

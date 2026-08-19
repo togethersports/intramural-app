@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button, EmptyState, PageHeader } from "@/components/ui";
+import { Button, EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/data";
-import { markAllNotificationsRead } from "../league/[slug]/actions";
+import { markAllNotificationsRead } from "../../league/[slug]/actions";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -24,22 +24,23 @@ export default async function InboxPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Inbox"
-        subtitle={
-          unread.length > 0 ? `${unread.length} unread` : "All caught up"
-        }
-        actions={
+      <Panel
+        eyebrow={unread.length > 0 ? `${unread.length} unread` : "All caught up"}
+        title="Everything that happened"
+        action={
           unread.length > 0 ? (
             <form action={markAllNotificationsRead}>
-              <Button type="submit" variant="canvas">
+              <Button
+                type="submit"
+                variant="quiet"
+                className="!min-h-10 !px-4 !py-2 !text-[14px]"
+              >
                 Mark all read
               </Button>
             </form>
           ) : undefined
         }
-      />
-      <section className="card p-4">
+      >
         {notifications.length === 0 ? (
           <EmptyState
             title="Nothing yet"
@@ -95,7 +96,7 @@ export default async function InboxPage() {
             })}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

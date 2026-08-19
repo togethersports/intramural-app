@@ -27,12 +27,12 @@ export function Logo({
 type ButtonVariant = "accent" | "primary" | "light" | "quiet" | "canvas";
 
 const buttonStyles: Record<ButtonVariant, string> = {
-  accent: "bg-accent text-white hover:bg-[#AC1F26] active:scale-[0.98]",
-  primary: "bg-ink text-white hover:bg-black active:scale-[0.98]",
+  accent: "bg-accent text-on-accent hover:bg-accent-strong active:scale-[0.98]",
+  primary: "bg-ink text-on-ink hover:opacity-90 active:scale-[0.98]",
   light: "bg-paper text-ink hover:bg-surface active:scale-[0.98]",
   quiet: "bg-paper text-ink font-medium hover:bg-surface active:scale-[0.98]",
   canvas:
-    "bg-white/22 text-white backdrop-blur-sm hover:bg-white/32 active:scale-[0.98]",
+    "bg-white/22 text-on-canvas backdrop-blur-sm hover:bg-white/32 active:scale-[0.98]",
 };
 
 const buttonBase =
@@ -107,18 +107,18 @@ export function FormError({ message }: { message?: string | null }) {
   return (
     <p
       role="alert"
-      className="rounded-row bg-tint px-4 py-3 text-[17px] font-medium text-accent"
+      className="rounded-row bg-tint px-4 py-3 text-[17px] font-medium text-accent-ink"
     >
       {message}
     </p>
   );
 }
 
-/** Confirmation / neutral notice. No green in the palette — ink does it. */
+/** Confirmation / neutral notice. Ink, never green — a notice is not a state. */
 export function FormNotice({ message }: { message?: string | null }) {
   if (!message) return null;
   return (
-    <p className="rounded-row bg-ink px-4 py-3 text-[17px] font-medium text-white">
+    <p className="rounded-row bg-ink px-4 py-3 text-[17px] font-medium text-on-ink">
       {message}
     </p>
   );
@@ -127,9 +127,9 @@ export function FormNotice({ message }: { message?: string | null }) {
 /* ---------------------------------- Badge ---------------------------------- */
 
 const roleTone: Record<string, string> = {
-  commissioner: "bg-ink text-white",
+  commissioner: "bg-ink text-on-ink",
   admin: "bg-bench text-white",
-  captain: "bg-accent text-white",
+  captain: "bg-accent text-on-accent",
   player: "bg-rule text-ink-body",
   spectator: "bg-rule text-ink-muted",
 };
@@ -140,7 +140,6 @@ export function RoleBadge({ role }: { role: string }) {
       className={cx(
         "label inline-flex items-center rounded-full px-2.5 py-1 !text-[11px]",
         roleTone[role] ?? roleTone.player,
-        role === "player" || role === "spectator" ? "" : "!text-white",
       )}
     >
       {role}
@@ -149,15 +148,18 @@ export function RoleBadge({ role }: { role: string }) {
 }
 
 /* --------------------------------- Avatar ----------------------------------
-   Initials on Night Court. Never tinted by team colour — team colour lives in
-   team badges and bracket rows only (brandbook 04). */
+   The person's photo when they have set one, their initials when they
+   haven't. Never tinted by team colour — team colour lives in team badges and
+   bracket rows only (brandbook 04). */
 
 export function Avatar({
   name,
+  src,
   size = 40,
   className,
 }: {
   name: string;
+  src?: string | null;
   size?: number;
   className?: string;
 }) {
@@ -169,14 +171,24 @@ export function Avatar({
     .join("");
   return (
     <span
-      className={cx(
-        "grid shrink-0 place-items-center rounded-full bg-ink font-medium text-white",
-        className,
-      )}
+      className={cx("avatar", className)}
       style={{ width: size, height: size, fontSize: size * 0.36 }}
       aria-hidden
     >
-      {initials || "—"}
+      {src ? (
+        // Served from a public Supabase bucket; next/image would need the
+        // project ref pinned into next.config, and these are thumbnail-sized.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          width={size}
+          height={size}
+          className="size-full object-cover"
+        />
+      ) : (
+        (initials || "—")
+      )}
     </span>
   );
 }
@@ -355,11 +367,11 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[36px] font-semibold leading-[1.05] tracking-[-0.025em] text-white">
+        <h1 className="text-[36px] font-semibold leading-[1.05] tracking-[-0.025em] text-on-canvas">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-1 text-[17px] font-medium text-white">{subtitle}</p>
+          <p className="mt-1 text-[17px] font-medium text-on-canvas">{subtitle}</p>
         ) : null}
       </div>
       {actions ? <div className="flex gap-2">{actions}</div> : null}

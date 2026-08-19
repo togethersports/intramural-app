@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getActiveSeason, getLeague, getTeams, getVenues } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
@@ -29,10 +28,6 @@ export default async function NewGamePage({
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="New game"
-        subtitle="Any matchup, playable right now — no schedule required."
-      />
       <div className="card max-w-2xl p-6 sm:p-8">
         <NewGameForm
           slug={slug}

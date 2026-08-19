@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GameCard } from "@/components/game-card";
-import { IconArrowRight, IconPlus } from "@/components/icons";
-import { LeagueNav } from "@/components/league-nav";
+import { IconArrowRight, IconBell, IconGrid, IconPlus } from "@/components/icons";
 import { Lockup } from "@/components/mark";
 import { StandingsTable } from "@/components/standings-table";
 import { Avatar, Panel } from "@/components/ui";
+import { ThemeStyle } from "@/components/theme-style";
+import { leagueNav } from "@/lib/nav";
+import { DEFAULT_APPEARANCE } from "@core/theme";
 import type { GameRow } from "@core/types";
 
 export const metadata: Metadata = { title: "League chrome — design reference" };
 
-/* The vocabulary every league tab is built from: identity header, tab
-   rail, Panel sections, GameCards, standings rows. Fixture data only.
-   (The rail shows no active pill here — nothing matches /design/league.) */
+/* The vocabulary every league surface is built from: the rail, the screen
+   header, Panel sections, GameCards, standings rows — drawn in the default
+   Court appearance against fixture data. No auth, no database. */
 
 const base: Omit<GameRow, "id" | "status" | "home_score" | "away_score"> = {
   season_id: "s",
@@ -86,130 +88,194 @@ const LEADERS = [
   ["Noah Sinclair", "29.3"],
 ] as const;
 
+const BADGES: Record<string, number> = { trades: 2, inbox: 3 };
+
 export default function LeagueChromeReferencePage() {
+  const groups = leagueNav("demo", { admin: true, mode: "player" });
+
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6">
-      <header className="mx-auto mb-6 flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
-        <Link href="/design" aria-label="Design reference home">
-          <Lockup size={32} tone="white-red" />
-        </Link>
-        <p className="label !text-white/80">League chrome · fixture data</p>
-      </header>
+    <>
+      <ThemeStyle appearance={DEFAULT_APPEARANCE} />
+      <div className="min-h-screen px-4 py-5 sm:px-6">
+        <header className="mx-auto mb-5 flex w-full max-w-[88rem] flex-wrap items-center justify-between gap-3">
+          <Link href="/design" aria-label="Design reference home">
+            <Lockup size={32} tone="theme" />
+          </Link>
+          <p className="label">League chrome · fixture data</p>
+        </header>
 
-      <div className="mx-auto w-full max-w-6xl space-y-4">
-        {/* identity block, as the league layout renders it */}
-        <div className="flex flex-wrap items-end justify-between gap-4 px-1 text-white">
-          <div className="flex min-w-0 items-center gap-3.5">
-            <span
-              aria-hidden
-              className="grid size-12 shrink-0 place-items-center rounded-[15px] text-[21px] font-semibold text-white"
-              style={{ backgroundColor: "#3E5C50" }}
-            >
-              E
-            </span>
-            <div className="min-w-0">
-              <p className="label !text-white/70">Basketball · Demo Season</p>
-              <h1 className="mt-1 truncate text-[clamp(24px,3vw,34px)] font-semibold leading-[1.05] tracking-[-0.03em]">
-                Example Middle School Hoops
-              </h1>
+        <div className="mx-auto flex w-full max-w-[88rem] items-start gap-5">
+          {/* The rail, exactly as components/shell/shell.tsx draws it. */}
+          <aside className="card sticky top-5 hidden h-[calc(100dvh-2.5rem)] w-[248px] shrink-0 flex-col p-3.5 lg:flex">
+            <div className="flex items-center gap-2.5 px-1 pb-3.5">
+              <span
+                aria-hidden
+                className="grid size-[38px] shrink-0 place-items-center rounded-[12px] text-[15px] font-semibold text-white"
+                style={{ backgroundColor: "#3E5C50" }}
+              >
+                E
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">
+                  Example MS Hoops
+                </span>
+                <span className="label block truncate !text-[10px]">
+                  Winter 2026
+                </span>
+              </span>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2.5">
-            <span className="label rounded-full bg-white/22 px-4 py-2 !text-[11px] !text-white backdrop-blur-sm">
-              playoffs
-            </span>
-            <span className="inline-flex min-h-10 items-center gap-2 rounded-full bg-paper px-5 py-2.5 text-[15px] font-semibold text-ink">
-              <IconPlus size={16} /> New game
-            </span>
-          </div>
-        </div>
 
-        <LeagueNav slug="demo" admin />
+            <div className="grid grid-cols-2 gap-1 rounded-[14px] bg-paper p-1">
+              <span className="grid min-h-10 place-items-center rounded-[10px] bg-ink text-[13px] font-semibold text-on-ink">
+                Player
+              </span>
+              <span className="grid min-h-10 place-items-center rounded-[10px] text-[13px] font-semibold text-ink-muted">
+                Commish
+              </span>
+            </div>
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="space-y-5 lg:col-span-2">
-            <Panel
-              eyebrow="Week 9 of 9"
-              title="This week"
-              action={
-                <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body">
-                  Full schedule <IconArrowRight size={16} />
+            <nav className="-mx-1 mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
+              {groups.map((group) => (
+                <div key={group.label} className="flex flex-col gap-0.5">
+                  <p className="label px-2 pb-1.5 !text-[10px] !tracking-[0.18em]">
+                    {group.label}
+                  </p>
+                  {group.items.map((item, i) => {
+                    const active = group.label === "This week" && i === 0;
+                    const count = item.badge ? (BADGES[item.badge] ?? 0) : 0;
+                    return (
+                      <span
+                        key={item.href}
+                        className={
+                          active
+                            ? "flex min-h-11 items-center gap-2.5 rounded-[11px] bg-paper px-2.5 text-[15px] font-semibold text-ink"
+                            : "flex min-h-11 items-center gap-2.5 rounded-[11px] px-2.5 text-[15px] font-medium text-ink-muted"
+                        }
+                      >
+                        <span className="num w-[18px] shrink-0 text-[10px] opacity-70">
+                          {item.tag}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {count > 0 ? (
+                          <span className="num grid min-w-5 shrink-0 place-items-center rounded-full bg-accent px-1.5 text-[10px] text-on-accent">
+                            {count}
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+
+            <div className="mt-3 flex items-center gap-1 border-t border-rule pt-3">
+              <span className="flex min-h-10 flex-1 items-center gap-2 rounded-[11px] px-2.5 text-[13px] font-medium text-ink-muted">
+                <IconGrid size={17} /> Leagues
+              </span>
+              <span className="flex min-h-10 flex-1 items-center gap-2 rounded-[11px] px-2.5 text-[13px] font-medium text-ink-muted">
+                <IconBell size={17} /> Inbox
+                <span className="num ml-auto grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] text-on-accent">
+                  3
                 </span>
-              }
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                {GAMES.map((g) => (
-                  <GameCard key={g.id} game={g} slug="demo" />
-                ))}
-              </div>
-            </Panel>
-          </div>
+              </span>
+            </div>
 
-          <div className="space-y-5">
-            <Panel
-              title="Standings"
-              action={
-                <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body">
-                  Full <IconArrowRight size={16} />
+            <div className="mt-2 flex items-center gap-2 rounded-[14px] bg-paper p-2">
+              <Avatar name="Harry Stone" size={32} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold">
+                  Harry Stone
                 </span>
-              }
-            >
-              <StandingsTable rows={ROWS} slug="demo" />
-            </Panel>
+                <span className="block truncate text-[11px] text-ink-faint">
+                  captain · Example MS Hoops
+                </span>
+              </span>
+            </div>
+          </aside>
 
-            <Panel title="Top scorers">
-              <ol className="space-y-2.5">
-                {LEADERS.map(([name, ppg], i) => (
-                  <li key={name} className="flex items-center gap-3">
-                    <span className="num w-4 text-right text-[12px] text-ink-faint">
-                      {i + 1}
-                    </span>
-                    <Avatar name={name} size={30} />
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
-                      {name}
-                    </span>
-                    <span className="num text-[17px]">{ppg}</span>
-                    <span className="label !text-[10px]">PPG</span>
-                  </li>
-                ))}
-              </ol>
-            </Panel>
-
-            <Panel
-              eyebrow="Roster"
-              title="3 members"
-              flush
-            >
-              <div className="divide-y divide-rule">
-                {["Aiden Coleman", "Liam Foster", "Noah Sinclair"].map((n) => (
-                  <div key={n} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
-                    <Avatar name={n} size={36} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{n}</p>
-                      <p className="text-sm text-ink-body">Grade 11</p>
-                    </div>
-                  </div>
-                ))}
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="label !text-[10.5px]">Player view · This week</p>
+                <h1 className="mt-1 truncate text-[clamp(22px,2.6vw,28px)] font-semibold leading-[1.15] tracking-[-0.025em]">
+                  Overview
+                </h1>
+                <p className="mt-1 max-w-[46rem] text-[14.5px] text-ink-body">
+                  What&apos;s on, what needs you, and where the season stands.
+                </p>
               </div>
-            </Panel>
+              <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[15px] font-semibold text-on-accent">
+                <IconPlus size={16} /> New game
+              </span>
+            </div>
 
-            <Panel eyebrow="Season" title="Demo Season">
-              <dl className="space-y-2 text-[15px]">
-                {[
-                  ["Week", "9 of 9"],
-                  ["Teams", "8"],
-                  ["Status", "Playoffs"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between">
-                    <dt className="text-ink-body">{k}</dt>
-                    <dd className="num font-medium">{v}</dd>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="space-y-5 lg:col-span-2">
+                <Panel
+                  eyebrow="Week 9 of 9"
+                  title="This week"
+                  action={
+                    <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body">
+                      Full schedule <IconArrowRight size={16} />
+                    </span>
+                  }
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {GAMES.map((g) => (
+                      <GameCard key={g.id} game={g} slug="demo" />
+                    ))}
                   </div>
-                ))}
-              </dl>
-            </Panel>
+                </Panel>
+              </div>
+
+              <div className="space-y-5">
+                <Panel
+                  title="Standings"
+                  action={
+                    <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body">
+                      Full <IconArrowRight size={16} />
+                    </span>
+                  }
+                >
+                  <StandingsTable rows={ROWS} slug="demo" />
+                </Panel>
+
+                <Panel title="Top scorers">
+                  <ol className="space-y-2.5">
+                    {LEADERS.map(([name, ppg], i) => (
+                      <li key={name} className="flex items-center gap-3">
+                        <span className="num w-4 text-right text-[12px] text-ink-faint">
+                          {i + 1}
+                        </span>
+                        <Avatar name={name} size={30} />
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                          {name}
+                        </span>
+                        <span className="num text-[17px]">{ppg}</span>
+                        <span className="label !text-[10px]">PPG</span>
+                      </li>
+                    ))}
+                  </ol>
+                </Panel>
+
+                <Panel eyebrow="Roster" title="3 members" flush>
+                  <div className="divide-y divide-rule">
+                    {["Aiden Coleman", "Liam Foster", "Noah Sinclair"].map((n) => (
+                      <div key={n} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                        <Avatar name={n} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold">{n}</p>
+                          <p className="text-sm text-ink-body">Grade 11</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

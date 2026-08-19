@@ -155,7 +155,7 @@ function NextGameCard({
       <div className="flex items-center justify-between gap-3">
         <p className="label">Up next</p>
         {live ? (
-          <span className="label inline-flex items-center gap-1.5 !text-accent">
+          <span className="label inline-flex items-center gap-1.5 !text-accent-ink">
             <span className="relative flex size-2">
               <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative size-2 rounded-full bg-accent" />
@@ -321,12 +321,12 @@ export function DashboardView({
           so the page opens with air instead of another slab. */}
       <header className="db-rise flex flex-wrap items-end justify-between gap-4" style={rise(0)}>
         <div className="min-w-0">
-          <p className="label !text-white/70">{today}</p>
-          <h1 className="mt-1.5 text-[clamp(30px,4vw,42px)] font-semibold leading-[1.02] tracking-[-0.03em] text-white">
+          <p className="label !text-on-canvas/70">{today}</p>
+          <h1 className="mt-1.5 text-[clamp(30px,4vw,42px)] font-semibold leading-[1.02] tracking-[-0.03em] text-on-canvas">
             {greeting(now.getHours())}, {firstName}.
           </h1>
           {summary.length > 0 ? (
-            <p className="mt-1.5 text-[16px] font-medium text-white/85">
+            <p className="mt-1.5 text-[16px] font-medium text-on-canvas/85">
               {summary.join(" · ")}
             </p>
           ) : null}
@@ -348,7 +348,7 @@ export function DashboardView({
           style={rise(1)}
           aria-label="Action required"
         >
-          <p className="label border-b border-rule px-5 py-3 !text-accent">
+          <p className="label border-b border-rule px-5 py-3 !text-accent-ink">
             Action required
           </p>
           <ul className="divide-y divide-rule">
@@ -358,7 +358,7 @@ export function DashboardView({
                   href={p.href}
                   className="db-row flex min-h-14 items-center gap-3.5 px-5 py-3 text-[16px] font-medium"
                 >
-                  <span className="text-accent">
+                  <span className="text-accent-ink">
                     {p.kind === "draft" ? (
                       <IconWhistle size={18} />
                     ) : (
@@ -409,12 +409,15 @@ export function DashboardView({
           </div>
         ) : (
           <>
-            <h2 className="label mb-3 px-1 !text-white/70">My leagues</h2>
+            <h2 className="label mb-3 px-1 !text-on-canvas/70">My leagues</h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {leagues.map((l, i) => {
                 const team = myTeams.find((t) => t.league_slug === l.slug);
                 return (
-                  <li key={l.id} className="db-rise" style={rise(5 + i)}>
+                  // min-w-0: a grid item defaults to min-width:auto, so without
+                  // it the role badge's min-content width pushed the tile past
+                  // the viewport on a phone.
+                  <li key={l.id} className="db-rise min-w-0" style={rise(5 + i)}>
                     <Link
                       href={`/league/${l.slug}`}
                       className="card db-tile group flex h-full items-center gap-4 p-4"
@@ -454,7 +457,7 @@ export function DashboardView({
       {/* Archived — deliberately the quietest thing on the page. */}
       {shelved.length > 0 ? (
         <section className="db-rise" style={rise(6)}>
-          <h2 className="label mb-3 px-1 !text-white/60">Archived</h2>
+          <h2 className="label mb-3 px-1 !text-on-canvas/60">Archived</h2>
           <ul className="space-y-2">
             {shelved.map((l) => (
               <li

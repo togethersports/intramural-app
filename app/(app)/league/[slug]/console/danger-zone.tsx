@@ -60,7 +60,7 @@ export function DangerZone({
       </div>
 
       <div className="mt-3 rounded-panel bg-tint p-4">
-        <p className="font-semibold text-accent">Delete this league</p>
+        <p className="font-semibold text-accent-ink">Delete this league</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-body">
           Removes the league for every member: teams, rosters, the schedule,
           all games and box scores, standings, stats history, trades, and the

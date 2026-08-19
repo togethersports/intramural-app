@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createLeague, type ActionState } from "../../actions";
+import { createLeague, type ActionState } from "../../../actions";
 import { Button, Field, FormError, Input, Select } from "@/components/ui";
 import { LEAGUE_COLORS, SPORTS } from "@core/league-constants";
 

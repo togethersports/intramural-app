@@ -4,14 +4,28 @@
   Intramural — brand implementation (Brandbook v1.0, July 2026).
   Token names are semantic; the brand name for each is in the comment.
   See docs/DESIGN.md for the full mapping and the usage rules.
+
+  The values below are the *Sideline* preset — the cream-on-court-blue brand
+  the marketing site, the docs and the auth screens are drawn in. Signed-in
+  surfaces re-declare every one of these custom properties at runtime from
+  the league's chosen appearance (see @core/theme + components/theme-style),
+  which is why nothing here may be hard-coded downstream: a colour written as
+  a literal is a colour a league cannot restyle.
 */
 
 @theme {
   /* ---- Core four ---- */
-  --color-ink: #17171a; /* Night Court   — text, dark panels */
+  --color-ink: #17171a; /* Night Court   — text, and the contrast fill */
   --color-accent: #c9242c; /* Whistle Red   — the one action / the decision */
   --color-canvas: #8fa6bf; /* Court Blue    — the ground everything sits on */
   --color-surface: #f1efe8; /* Sideline Cream — cards, paper */
+
+  /* ---- Reading pairs ---- */
+  --color-on-ink: #ffffff; /* text printed on an ink fill */
+  --color-on-accent: #ffffff; /* text printed on the accent */
+  --color-on-canvas: #ffffff; /* text printed on the bare ground */
+  --color-accent-ink: #c9242c; /* the accent as *text*, contrast-corrected */
+  --color-accent-strong: #ac1f26; /* accent, pressed / hovered */
 
   /* ---- Support ---- */
   --color-bench: #4e7ca8; /* Bench Blue    — slot chips, tags */
@@ -25,6 +39,12 @@
   --color-rule: #e7e5dd; /* hairlines, card borders */
   --color-rule-soft: #e2e0d8; /* section rules */
   --color-blush: #f1a0a4; /* light red — labels on Night Court only */
+
+  /* ---- States ----
+     Reserved for the availability grid and win/loss pips, where the reading
+     is a scale rather than a decision. Never chrome, never a button. */
+  --color-positive: #2f7d5b;
+  --color-caution: #9a7220;
 
   /* ---- Radii (brandbook 06) ---- */
   --radius-card: 1.25rem; /* 20px — cards sit 18–24 */
@@ -42,8 +62,21 @@
   --shadow-float: 0 30px 80px rgb(23 23 26 / 0.18);
 }
 
+/*
+  Non-colour theme knobs. These are what turn a flat cream card into a pane
+  of glass without any component knowing which preset is running: the Court
+  preset sets a hairline and a blur radius, Sideline zeroes both.
+*/
+:root {
+  --canvas-image: none;
+  --card-border: transparent;
+  --card-blur: 0px;
+}
+
 body {
   background-color: var(--color-canvas);
+  background-image: var(--canvas-image);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-weight: 400;
@@ -51,17 +84,41 @@ body {
 }
 
 @layer components {
-  /* Cream card — the primary surface. Flat: no shadow at rest. */
+  /* The primary surface. Flat: no shadow at rest, ever. On a dark preset
+     the fill is white at low alpha, so the ground reads through it and the
+     hairline is what gives the card its edge. */
   .card {
     background-color: var(--color-surface);
+    border: 1px solid var(--card-border);
     border-radius: var(--radius-card);
+    backdrop-filter: blur(var(--card-blur));
   }
 
   /* A card that floats above the page (hero cards, overlays, popovers). */
   .card-float {
     background-color: var(--color-surface);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(var(--card-blur));
+    box-shadow: var(--shadow-float);
+  }
+
+  /* An overlay has to be opaque — a sheet you can read the page through is
+     not a sheet. Composites the surface over the ground. */
+  .card-solid {
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(var(--color-surface), var(--color-surface));
+    border: 1px solid var(--card-border);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-float);
+  }
+
+  /* A frozen first column in a horizontally scrolling table. It has to be
+     opaque or the columns slide visibly underneath it — which a translucent
+     card fill is not, so composite that fill over the ground. */
+  .sticky-cell {
+    background-color: var(--color-canvas);
+    background-image: linear-gradient(var(--color-surface), var(--color-surface));
   }
 
   /* Nested row inside a cream card. */
@@ -96,7 +153,7 @@ body {
     color: #fff;
   }
 
-  /* Stat-action chip — Night Court, mono (2PT, REB, AST…). */
+  /* Stat-action chip — the contrast fill, mono (2PT, REB, AST…). */
   .chip-stat {
     display: inline-flex;
     align-items: center;
@@ -106,7 +163,21 @@ body {
     padding: 0.625rem 1rem;
     font-family: var(--font-mono);
     font-size: 0.875rem;
-    color: #fff;
+    color: var(--color-on-ink);
+  }
+
+  /* Identity disc — initials, or a photo when the person has set one. It is
+     deliberately *not* the contrast fill: an avatar is a face, not a button,
+     and a grid of solid white discs on the dark preset reads as UI. */
+  .avatar {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    overflow: hidden;
+    border-radius: calc(infinity * 1px);
+    background-color: color-mix(in srgb, var(--color-ink) 16%, transparent);
+    color: var(--color-ink);
+    font-weight: 500;
   }
 
   /*

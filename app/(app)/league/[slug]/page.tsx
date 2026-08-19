@@ -152,7 +152,7 @@ export default async function LeagueOverviewPage({
               {posts.map((p) => (
                 <li key={p.id} className="flex gap-3 rounded-panel bg-paper p-3.5">
                   {p.kind === "auto" ? (
-                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-accent">
+                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-accent-ink">
                       <IconBall size={16} />
                     </span>
                   ) : (
@@ -275,7 +275,7 @@ export default async function LeagueOverviewPage({
           {season.status === "playoffs" || season.status === "complete" ? (
             <Link
               href={`/league/${slug}/playoffs`}
-              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent text-[15px] font-medium text-white"
+              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent text-[15px] font-medium text-on-accent"
             >
               <IconTrophy size={18} /> View bracket
             </Link>

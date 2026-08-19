@@ -82,7 +82,7 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
       <div className="flex items-center justify-between gap-2">
         <span className="label !text-[11px]">{dateStr}</span>
         {game.status === "live" ? (
-          <span className="label inline-flex shrink-0 items-center gap-1.5 !text-[11px] !text-accent">
+          <span className="label inline-flex shrink-0 items-center gap-1.5 !text-[11px] !text-accent-ink">
             <span className="relative flex size-2">
               <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-60" />
               <span className="relative size-2 rounded-full bg-accent" />
@@ -94,7 +94,7 @@ export function GameCard({ game, slug }: { game: GameRow; slug: string }) {
             {game.status === "forfeit" ? "Forfeit" : "Final"}
           </span>
         ) : game.status === "postponed" ? (
-          <span className="label shrink-0 !text-[11px] !text-accent">
+          <span className="label shrink-0 !text-[11px] !text-accent-ink">
             Postponed
           </span>
         ) : game.status === "abandoned" ? (

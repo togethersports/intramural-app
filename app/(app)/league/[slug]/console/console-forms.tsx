@@ -1,16 +1,138 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   addTimeSlot,
   addVenue,
   createSeason,
+  updateLeagueAppearance,
+  updateLeagueLogo,
   updateLeagueSettings,
   type ActionState,
 } from "../actions";
-import { Button, Field, FormError, Input, Select } from "@/components/ui";
+import { AppearancePicker } from "@/components/appearance-picker";
+import { IconCamera } from "@/components/icons";
+import {
+  Button,
+  Field,
+  FormError,
+  FormNotice,
+  Input,
+  Select,
+} from "@/components/ui";
+import type { ThemePreset } from "@core/theme";
 
 const initial: ActionState = { error: null };
+
+/** The league crest. Editable at any point in the season, by design — a
+ *  league that renames itself in week 6 should not have to start over. */
+export function LeagueLogoForm({
+  slug,
+  name,
+  color,
+  logoUrl,
+}: {
+  slug: string;
+  name: string;
+  color: string;
+  logoUrl: string | null;
+}) {
+  const [state, formAction, pending] = useActionState(updateLeagueLogo, initial);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const shown = preview ?? logoUrl;
+
+  return (
+    <form ref={formRef} action={formAction} className="space-y-4">
+      <input type="hidden" name="slug" value={slug} />
+      <div className="flex flex-wrap items-center gap-4">
+        {shown ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={shown}
+            alt=""
+            className="size-20 shrink-0 rounded-[20px] object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="grid size-20 shrink-0 place-items-center rounded-[20px] text-[30px] font-semibold text-white"
+            style={{ backgroundColor: color }}
+          >
+            {name.slice(0, 1).toUpperCase()}
+          </span>
+        )}
+        <div className="space-y-2">
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-[15px] font-semibold text-on-ink transition-opacity hover:opacity-90">
+            <IconCamera size={17} />
+            {logoUrl ? "Change logo" : "Add a logo"}
+            <input
+              type="file"
+              name="logo"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setPreview(URL.createObjectURL(file));
+                formRef.current?.requestSubmit();
+              }}
+            />
+          </label>
+          <p className="text-[13px] text-ink-body">
+            Square works best. Up to 4 MB.
+          </p>
+        </div>
+        {logoUrl ? (
+          <Button
+            type="submit"
+            name="intent"
+            value="remove"
+            variant="quiet"
+            className="!min-h-11 !px-4 !text-[15px]"
+            onClick={() => setPreview(null)}
+          >
+            Remove
+          </Button>
+        ) : null}
+      </div>
+      {pending ? (
+        <p className="text-[15px] text-ink-body">Uploading…</p>
+      ) : (
+        <>
+          <FormError message={state.error} />
+          <FormNotice message={state.notice} />
+        </>
+      )}
+    </form>
+  );
+}
+
+/** The palette everyone in the league gets, unless they set their own. */
+export function LeagueAppearanceForm({
+  slug,
+  preset,
+  accent,
+}: {
+  slug: string;
+  preset: ThemePreset;
+  accent: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    updateLeagueAppearance,
+    initial,
+  );
+  return (
+    <form action={formAction} className="space-y-5">
+      <input type="hidden" name="slug" value={slug} />
+      <FormError message={state.error} />
+      <FormNotice message={state.notice} />
+      <AppearancePicker defaultPreset={preset} defaultAccent={accent} />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Apply to the whole league"}
+      </Button>
+    </form>
+  );
+}
 
 export function LeagueSettingsForm({
   slug,
@@ -33,7 +155,7 @@ export function LeagueSettingsForm({
     <form action={formAction} className="space-y-3">
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-on-ink">
           {state.notice}
         </p>
       ) : null}

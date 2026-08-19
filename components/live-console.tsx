@@ -139,7 +139,7 @@ function BarPill({
       disabled={disabled}
       aria-label={ariaLabel}
       className={`min-h-11 rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-35 sm:px-4 ${
-        accent ? "bg-accent text-white" : "bg-rule text-ink"
+        accent ? "bg-accent text-on-accent" : "bg-rule text-ink"
       }`}
     >
       {children}
@@ -998,7 +998,7 @@ export function LiveConsole({
         ) : (
           <button
             onClick={() => setConfirmAbandon(true)}
-            className="min-h-11 w-full rounded-control text-sm font-semibold text-accent hover:bg-tint"
+            className="min-h-11 w-full rounded-control text-sm font-semibold text-accent-ink hover:bg-tint"
           >
             Abandon this game…
           </button>
@@ -1025,11 +1025,11 @@ export function LiveConsole({
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <div>
-          <p className="label !text-white/80">Live console</p>
-          <h2 className="mt-1 text-[26px] font-semibold tracking-tight text-white">
+          <p className="label !text-on-canvas/80">Live console</p>
+          <h2 className="mt-1 text-[26px] font-semibold tracking-tight text-on-canvas">
             Pick starting fives.
           </h2>
-          <p className="mt-1.5 text-[15px] font-medium text-white/85">
+          <p className="mt-1.5 text-[15px] font-medium text-on-canvas/85">
             Tap up to five players per team to put them on the floor.
           </p>
         </div>
@@ -1050,7 +1050,7 @@ export function LiveConsole({
                     key={m.user_id}
                     onClick={() => toggleStarter(side.id, m.user_id)}
                     className={`min-h-11 rounded-control px-3 text-left text-sm font-semibold ${
-                      on ? "bg-ink text-surface" : "bg-rule text-ink-body"
+                      on ? "bg-ink text-on-ink" : "bg-rule text-ink-body"
                     }`}
                   >
                     {m.jersey_number != null ? `#${m.jersey_number} ` : ""}
@@ -1111,7 +1111,7 @@ export function LiveConsole({
           ))}
         </section>
         {finalizeError ? (
-          <p role="alert" className="rounded-row bg-tint px-4 py-3 text-[15px] font-medium text-accent">
+          <p role="alert" className="rounded-row bg-tint px-4 py-3 text-[15px] font-medium text-accent-ink">
             {finalizeError}
           </p>
         ) : null}
@@ -1159,7 +1159,7 @@ export function LiveConsole({
           <span>
             Fouls <span className="num">{fouls}</span>
           </span>
-          {bonus[side.id] ? <span className="!text-accent">Bonus</span> : null}
+          {bonus[side.id] ? <span className="!text-accent-ink">Bonus</span> : null}
           <span>
             <span aria-hidden className="!text-ink-faint">
               ·{" "}
@@ -1194,20 +1194,20 @@ export function LiveConsole({
         aria-pressed={isSel}
         aria-label={`${nameOf(r.user_id)} — ${line?.pts ?? 0} points, ${pf} fouls`}
         className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-control px-3 text-left ${
-          isSel ? "bg-ink text-surface" : out ? "bg-tint" : "bg-paper hover:bg-surface"
+          isSel ? "bg-ink text-on-ink" : out ? "bg-tint" : "bg-paper hover:bg-surface"
         }`}
       >
         <span className="min-w-0 truncate text-sm font-semibold">
           {r.jersey_number != null ? (
-            <span className={`num mr-1.5 text-[13px] ${isSel ? "text-surface/70" : "text-ink-faint"}`}>
+            <span className={`num mr-1.5 text-[13px] ${isSel ? "text-on-ink/70" : "text-ink-faint"}`}>
               {r.jersey_number}
             </span>
           ) : null}
           {r.full_name}
         </span>
-        <span className={`num shrink-0 text-[12px] ${isSel ? "text-surface/70" : "text-ink-faint"}`}>
+        <span className={`num shrink-0 text-[12px] ${isSel ? "text-on-ink/70" : "text-ink-faint"}`}>
           {line?.pts ?? 0}p{" "}
-          <span className={pf >= gameRules.foulLimit - 1 && !isSel ? "text-accent" : ""}>{pf}f</span>
+          <span className={pf >= gameRules.foulLimit - 1 && !isSel ? "text-accent-ink" : ""}>{pf}f</span>
         </span>
       </button>
     );
@@ -1225,7 +1225,7 @@ export function LiveConsole({
               onClick={() => status === "live" && setRunning((r) => !r)}
               aria-label={running ? "Stop the clock" : "Start the clock"}
               className={`num mt-1 min-h-11 rounded-control px-4 text-[34px] leading-tight sm:text-[40px] ${
-                running ? "bg-tint text-accent" : "bg-rule"
+                running ? "bg-tint text-accent-ink" : "bg-rule"
               }`}
             >
               {formatClock(clockMs)}
@@ -1415,15 +1415,15 @@ export function LiveConsole({
                 key={a.type}
                 onClick={() => tapStat(a.type)}
                 disabled={!selected || status !== "live"}
-                className="flex min-h-12 flex-col items-center justify-center rounded-control bg-ink leading-none text-surface disabled:opacity-30"
+                className="flex min-h-12 flex-col items-center justify-center rounded-control bg-ink leading-none text-on-ink disabled:opacity-30"
               >
                 <span className="num text-[11px] font-semibold sm:text-[12px]">
                   {a.label}
                 </span>
                 {a.sub ? (
-                  <span className="mt-0.5 text-[9px] text-surface/60">{a.sub}</span>
+                  <span className="mt-0.5 text-[9px] text-on-ink/60">{a.sub}</span>
                 ) : (
-                  <span className="mt-0.5 hidden text-[9px] text-surface/40 lg:block">
+                  <span className="mt-0.5 hidden text-[9px] text-on-ink/40 lg:block">
                     {a.key}
                   </span>
                 )}
@@ -1432,7 +1432,7 @@ export function LiveConsole({
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <p className="label flex items-center gap-2 !text-[11px]">
-              <span className={demo || (!netDown && pendingCount === 0) ? "" : "!text-accent"}>
+              <span className={demo || (!netDown && pendingCount === 0) ? "" : "!text-accent-ink"}>
                 ●
               </span>
               {demo
@@ -1462,7 +1462,7 @@ export function LiveConsole({
       {/* ---------------------------------- toast --------------------------------- */}
       {toast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-56 z-40 flex justify-center px-4 sm:bottom-48">
-          <p className="card-float rounded-full bg-ink px-5 py-2.5 text-[14px] font-medium text-white">
+          <p className="card-float rounded-full bg-ink px-5 py-2.5 text-[14px] font-medium text-on-ink">
             {toast}
           </p>
         </div>
@@ -1573,7 +1573,7 @@ export function LiveConsole({
               ) : null}
               <Button
                 variant="quiet"
-                className="!text-accent"
+                className="!text-accent-ink"
                 onClick={() => {
                   voidLocal(editing.client_uuid);
                   say(`Deleted — ${describe(editing)}`);
@@ -1668,7 +1668,7 @@ export function LiveConsole({
       <p className="pt-1 text-center">
         <Link
           href={`/league/${slug}/game/${game.id}`}
-          className="label !text-white/70 hover:!text-white"
+          className="label !text-on-canvas/70 hover:!text-on-canvas"
         >
           Game page
         </Link>

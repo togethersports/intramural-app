@@ -117,7 +117,7 @@ export default async function RulesPage({
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-black"
+                      className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-on-ink hover:opacity-90"
                     >
                       Open
                     </a>
@@ -126,7 +126,7 @@ export default async function RulesPage({
                     <form action={deleteRuleFile}>
                       <input type="hidden" name="file_id" value={f.id} />
                       <input type="hidden" name="slug" value={slug} />
-                      <button className="min-h-11 rounded-full px-3 text-sm font-medium text-accent hover:bg-tint">
+                      <button className="min-h-11 rounded-full px-3 text-sm font-medium text-accent-ink hover:bg-tint">
                         Remove
                       </button>
                     </form>

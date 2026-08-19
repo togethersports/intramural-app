@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
-import { Avatar, PageHeader, RoleBadge, Panel } from "@/components/ui";
+import { Avatar, RoleBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getLeagueBySlug,
@@ -24,19 +23,6 @@ export default async function MembersPage({
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Members"
-        subtitle={
-          <>
-            <Link href={`/league/${league.slug}`} className="underline">
-              {league.name}
-            </Link>
-            {" · "}
-            {members.length} active
-          </>
-        }
-      />
-
       {admin ? (
         <Panel
           eyebrow="Invite"
@@ -69,7 +55,7 @@ export default async function MembersPage({
               key={m.id}
               className="flex flex-wrap items-center gap-3 px-5 py-3.5 sm:px-6"
             >
-              <Avatar name={m.full_name} size={40} />
+              <Avatar name={m.full_name} src={m.avatar_url} size={40} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{m.full_name}</p>
                 <p className="text-sm text-ink-body">

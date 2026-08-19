@@ -20,7 +20,13 @@ export interface MemberRow {
   user_id: string;
   role: LeagueRole;
   full_name: string;
+  avatar_url: string | null;
   grade: number | null;
+  /** Positions this person claims on their own profile. */
+  positions: string[];
+  /** Hand up to fill in for any team that is short. */
+  sub_available: boolean;
+  sub_note: string | null;
 }
 
 export async function getMyLeagues(): Promise<LeagueSummary[]> {
@@ -152,7 +158,9 @@ export async function getLeagueMembers(leagueId: string): Promise<MemberRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("league_members")
-    .select("id, user_id, role, profile:profiles(full_name, grade)")
+    .select(
+      "id, user_id, role, sub_available, sub_note, profile:profiles(full_name, avatar_url, grade, positions)",
+    )
     .eq("league_id", leagueId)
     .eq("status", "active")
     .order("created_at", { ascending: true });
@@ -165,14 +173,20 @@ export async function getLeagueMembers(leagueId: string): Promise<MemberRow[]> {
   return data.map((row) => {
     const profile = row.profile as unknown as {
       full_name: string;
+      avatar_url: string | null;
       grade: number | null;
+      positions: string[] | null;
     } | null;
     return {
       id: row.id as string,
       user_id: row.user_id as string,
       role: row.role as LeagueRole,
       full_name: profile?.full_name || "Unnamed player",
+      avatar_url: profile?.avatar_url ?? null,
       grade: profile?.grade ?? null,
+      positions: profile?.positions ?? [],
+      sub_available: Boolean(row.sub_available),
+      sub_note: (row.sub_note as string | null) ?? null,
     };
   });
 }

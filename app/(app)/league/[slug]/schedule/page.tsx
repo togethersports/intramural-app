@@ -219,7 +219,7 @@ export default async function SchedulePage({
                               <option value="forfeit">Forfeit</option>
                             </select>
                           </label>
-                          <button className="min-h-11 rounded-control bg-ink px-3 text-xs font-bold text-surface">
+                          <button className="min-h-11 rounded-control bg-ink px-3 text-xs font-bold text-on-ink">
                             Save + notify
                           </button>
                         </form>
@@ -283,7 +283,7 @@ export default async function SchedulePage({
                           <form action={deleteGame}>
                             <input type="hidden" name="game_id" value={g.id} />
                             <input type="hidden" name="slug" value={slug} />
-                            <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent hover:bg-tint">
+                            <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-ink hover:bg-tint">
                               Delete
                             </button>
                           </form>
@@ -295,7 +295,7 @@ export default async function SchedulePage({
                   (g.status === "scheduled" || g.status === "live") ? (
                     <Link
                       href={`/league/${slug}/game/${g.id}/live`}
-                      className="flex min-h-11 items-center justify-center rounded-control bg-ink text-sm font-semibold text-surface hover:bg-black"
+                      className="flex min-h-11 items-center justify-center rounded-control bg-ink text-sm font-semibold text-on-ink hover:opacity-90"
                     >
                       {g.status === "live" ? "Resume the live console" : "Start game"}
                     </Link>

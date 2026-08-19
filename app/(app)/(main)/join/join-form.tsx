@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { joinLeague, type ActionState } from "../actions";
+import { joinLeague, type ActionState } from "../../actions";
 import { Button, Field, FormError, Input } from "@/components/ui";
 
 const initial: ActionState = { error: null };

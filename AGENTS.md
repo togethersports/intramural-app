@@ -26,13 +26,25 @@ Phase 1 is the draft room.
 
 **The brand is `docs/BRANDBOOK.html` (v1.0); `docs/DESIGN.md` maps it onto
 the code. Read DESIGN.md before building UI.** Tokens in `app/globals.css`
-(`@theme`), primitives in `components/ui.tsx`, the mark in
-`components/mark.tsx`, living reference at `/design`.
+(`@theme` = the light Sideline preset), palette maths in `@core/theme`,
+primitives in `components/ui.tsx`, the shell in `components/shell/shell.tsx`,
+the mark in `components/mark.tsx`, living references at `/design`,
+`/design/league`, `/design/identity`, `/design/dashboard`, `/design/live`.
 
-In short: cream cards on the Court Blue ground, **flat — shadow only on
-floating overlays**; Outfit for anything human, JetBrains Mono (`.num`,
-`.label`) for anything counted; pill buttons with **one red button per
-view**; no green, no amber, **no emoji ever**; team colours only in
-`TeamBadge` and bracket rows, never in chrome; errors name the fix; ≥44px
-touch targets. Commissioner surfaces are desktop-dense; player surfaces are
+**Every colour is a runtime variable — never write a hex.** Leagues restyle
+themselves (Console → Appearance) and people override that for themselves
+(Profile → Colours); a literal is a colour they cannot change. Default is
+the dark **Court** preset; **Sideline** is the cream-on-Court-Blue original.
+
+In short: cards on the ground, **flat — shadow only on floating overlays**;
+Outfit for anything human, JetBrains Mono (`.num`, `.label`) for anything
+counted; pill buttons with **one accent button per view**; pair `bg-ink` with
+`text-on-ink`, `bg-accent` with `text-on-accent`, and use `text-accent-ink`
+when the accent is type; `positive`/`caution` are for the availability scale
+only, never chrome; **no emoji ever**; team colours only in `TeamBadge`,
+badges and bracket rows, never in chrome; errors name the fix; ≥44px touch
+targets. Commissioner surfaces are desktop-dense; player surfaces are
 mobile-first.
+
+Navigation and screen copy are data in `lib/nav.ts`, not per-page markup —
+add a destination there, not in a layout.

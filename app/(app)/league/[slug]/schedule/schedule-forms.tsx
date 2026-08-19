@@ -42,17 +42,17 @@ export function GenerateScheduleForm({
       </form>
       <FormError message={state.error} />
       {state.notice ? (
-        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-white">
+        <p className="rounded-control bg-ink px-4 py-2.5 text-sm font-medium text-on-ink">
           {state.notice}
         </p>
       ) : null}
       {state.conflicts && state.conflicts.length > 0 ? (
         <div className="rounded-panel bg-tint p-4">
-          <p className="mb-2 text-sm font-bold text-accent">
+          <p className="mb-2 text-sm font-bold text-accent-ink">
             Conflict report — {state.conflicts.length} matchup
             {state.conflicts.length > 1 ? "s" : ""} could not be placed
           </p>
-          <ul className="space-y-1 text-sm text-accent">
+          <ul className="space-y-1 text-sm text-accent-ink">
             {state.conflicts.map((c, i) => (
               <li key={i}>
                 <span className="font-semibold">{c.matchup}:</span> {c.reason}

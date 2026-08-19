@@ -30,8 +30,14 @@ export interface LeagueContext {
   slug: string;
   sport: string;
   primary_color: string;
+  logo_url: string | null;
   join_code: string;
-  settings: { email_domain?: string; trade_approval?: "auto" | "commissioner" };
+  settings: {
+    email_domain?: string;
+    trade_approval?: "auto" | "commissioner";
+    /** The league's palette, set by a commissioner in the Console. */
+    appearance?: { preset?: string; accent?: string };
+  };
   is_demo: boolean;
   role: LeagueRole;
 }
@@ -43,7 +49,7 @@ export const getLeague = cache(
     const { data } = await supabase
       .from("leagues")
       .select(
-        "id, name, slug, sport, primary_color, join_code, settings, is_demo, deleted_at",
+        "id, name, slug, sport, primary_color, logo_url, join_code, settings, is_demo, deleted_at",
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -136,7 +142,7 @@ export async function getTeams(
   const supabase = await createClient();
   let query = supabase
     .from("teams")
-    .select("id, season_id, name, abbrev, color, captain_id, is_external")
+    .select("id, season_id, name, abbrev, color, logo_url, captain_id, is_external")
     .eq("season_id", seasonId)
     .order("created_at");
   if (!includeExternal) query = query.eq("is_external", false);
@@ -153,7 +159,7 @@ export async function getTeamById(teamId: string): Promise<TeamRow | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("teams")
-    .select("id, season_id, name, abbrev, color, captain_id, is_external")
+    .select("id, season_id, name, abbrev, color, logo_url, captain_id, is_external")
     .eq("id", teamId)
     .maybeSingle();
   return (data as TeamRow) ?? null;
@@ -173,7 +179,7 @@ export async function getTeamsWithRosters(
       : await supabase
           .from("team_members")
           .select(
-            "id, team_id, user_id, jersey_number, is_captain, left_at, profile:profiles(full_name)",
+            "id, team_id, user_id, jersey_number, is_captain, position, lineup_role, lineup_order, left_at, profile:profiles(full_name, avatar_url)",
           )
           .in("team_id", teams.map((t) => t.id))
           .is("left_at", null);
@@ -187,19 +193,31 @@ export async function getTeamsWithRosters(
   for (const m of members ?? []) {
     const team = byTeam.get(m.team_id as string);
     if (!team) continue;
-    const profile = m.profile as unknown as { full_name: string } | null;
+    const profile = m.profile as unknown as {
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
     team.roster.push({
       id: m.id as string,
       user_id: m.user_id as string,
       full_name: profile?.full_name || "Unnamed",
+      avatar_url: profile?.avatar_url ?? null,
       jersey_number: (m.jersey_number as number | null) ?? null,
       is_captain: Boolean(m.is_captain),
+      position: (m.position as string | null) ?? null,
+      lineup_role: m.lineup_role === "starter" ? "starter" : "reserve",
+      lineup_order: (m.lineup_order as number | null) ?? null,
     });
   }
   for (const t of byTeam.values()) {
-    t.roster.sort((a, b) =>
-      Number(b.is_captain) - Number(a.is_captain) ||
-      a.full_name.localeCompare(b.full_name),
+    // Starters first in the captain's own order, then everyone else — the
+    // roster reads as the lineup rather than as an alphabetical list.
+    t.roster.sort(
+      (a, b) =>
+        Number(b.lineup_role === "starter") - Number(a.lineup_role === "starter") ||
+        (a.lineup_order ?? 99) - (b.lineup_order ?? 99) ||
+        Number(b.is_captain) - Number(a.is_captain) ||
+        a.full_name.localeCompare(b.full_name),
     );
   }
   return [...byTeam.values()];
@@ -209,12 +227,19 @@ export async function getTeamsWithRosters(
 export async function getFreeAgents(
   leagueId: string,
   seasonId: string,
-): Promise<{ user_id: string; full_name: string; grade: number | null }[]> {
+): Promise<
+  {
+    user_id: string;
+    full_name: string;
+    avatar_url: string | null;
+    grade: number | null;
+  }[]
+> {
   const supabase = await createClient();
   const [{ data: members }, rostered] = await Promise.all([
     supabase
       .from("league_members")
-      .select("user_id, role, profile:profiles(full_name, grade)")
+      .select("user_id, role, profile:profiles(full_name, avatar_url, grade)")
       .eq("league_id", leagueId)
       .eq("status", "active")
       .in("role", ["player", "captain"]),
@@ -228,11 +253,13 @@ export async function getFreeAgents(
     .map((m) => {
       const profile = m.profile as unknown as {
         full_name: string;
+        avatar_url: string | null;
         grade: number | null;
       } | null;
       return {
         user_id: m.user_id as string,
         full_name: profile?.full_name || "Unnamed",
+        avatar_url: profile?.avatar_url ?? null,
         grade: profile?.grade ?? null,
       };
     })
@@ -393,7 +420,9 @@ export async function getLineups(gameId: string): Promise<LineupRow[]> {
 
 export async function getSeasonPlayerStats(
   seasonId: string,
-): Promise<(PlayerGameStatRow & { user_id: string })[]> {
+): Promise<
+  (PlayerGameStatRow & { user_id: string; avatar_url: string | null })[]
+> {
   const supabase = await createClient();
   const { data: games } = await supabase
     .from("games")
@@ -404,16 +433,21 @@ export async function getSeasonPlayerStats(
   if (ids.length === 0) return [];
   const { data } = await supabase
     .from("player_game_stats")
-    .select("*, profile:profiles(full_name)")
+    .select("*, profile:profiles(full_name, avatar_url)")
     .in("game_id", ids)
     // guest lines belong to one game only — they have no season identity
     .not("user_id", "is", null);
-  return (data ?? []).map((r) => ({
-    ...(r as unknown as PlayerGameStatRow & { user_id: string }),
-    full_name:
-      (r.profile as unknown as { full_name: string } | null)?.full_name ||
-      "Unnamed",
-  }));
+  return (data ?? []).map((r) => {
+    const profile = r.profile as unknown as {
+      full_name: string;
+      avatar_url: string | null;
+    } | null;
+    return {
+      ...(r as unknown as PlayerGameStatRow & { user_id: string }),
+      full_name: profile?.full_name || "Unnamed",
+      avatar_url: profile?.avatar_url ?? null,
+    };
+  });
 }
 
 export async function getPlayerGameLog(
@@ -463,6 +497,22 @@ export async function getTrades(seasonId: string): Promise<TradeRow[]> {
     }),
   }));
 }
+
+/**
+ * How many trades are still waiting on somebody. Head-only count so the
+ * sidebar badge costs a number rather than every trade's items.
+ */
+export const getOpenTradeCount = cache(
+  async (seasonId: string): Promise<number> => {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from("trades")
+      .select("id", { count: "exact", head: true })
+      .eq("season_id", seasonId)
+      .in("status", ["proposed", "accepted"]);
+    return count ?? 0;
+  },
+);
 
 /* ---------------------------------- feed ---------------------------------- */
 

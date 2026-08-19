@@ -50,6 +50,26 @@ export default function BrandPage() {
         </Link>
       </header>
 
+      {/* The live references — real components against fixture data. */}
+      <nav aria-label="Reference screens" className="card flex flex-wrap gap-2 p-4">
+        {[
+          ["/design/league", "League chrome"],
+          ["/design/dashboard", "Dashboard"],
+          ["/design/identity", "Identity & colours"],
+          ["/design/live", "Live console"],
+          ["/design/pregame", "Pre-game"],
+          ["/design/new-game", "New game"],
+        ].map(([href, label]) => (
+          <Link
+            key={href}
+            href={href}
+            className="inline-flex min-h-11 items-center rounded-full bg-paper px-5 text-[15px] font-semibold transition-colors hover:bg-rule"
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
+
       {/* The mark */}
       <section className="card p-8">
         <p className="label">01 — The mark</p>

@@ -51,7 +51,7 @@ function BoxTable({
               .sort((a, b) => b.pts - a.pts)
               .map((r) => (
                 <tr key={r.userId} className="border-t border-rule">
-                  <td className="sticky left-0 z-10 max-w-[8rem] truncate bg-surface py-2 pr-3">
+                  <td className="sticky-cell sticky left-0 z-10 max-w-[8rem] truncate py-2 pr-3">
                     {r.href ? (
                       <Link href={r.href} className="font-semibold hover:underline">
                         {r.name}
@@ -174,7 +174,7 @@ export default async function GamePage({
             {!game.counts_for_standings ? " · Exhibition" : ""}
           </span>
           {game.status === "live" ? (
-            <span className="inline-flex items-center gap-1.5 font-bold text-accent">
+            <span className="inline-flex items-center gap-1.5 font-bold text-accent-ink">
               <span className="relative flex size-2">
                 <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-60" />
                 <span className="relative size-2 rounded-full bg-accent" />
@@ -217,7 +217,7 @@ export default async function GamePage({
           <div className="mt-4 text-center">
             <Link
               href={`/league/${slug}/game/${gameId}/live`}
-              className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-surface hover:bg-black"
+              className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-on-ink hover:opacity-90"
             >
               {game.status === "live" ? "Resume the live console" : "Open the live console"}
             </Link>

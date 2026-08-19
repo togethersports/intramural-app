@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GameCard } from "@/components/game-card";
 import { Avatar, StatTile, TeamBadge, Panel } from "@/components/ui";
+import { getUser } from "@/lib/auth";
 import {
   getActiveSeason,
   getGames,
@@ -10,7 +11,9 @@ import {
   getSeasonStandings,
   getTeamsWithRosters,
 } from "@/lib/data";
+import { isLeagueAdmin } from "@core/league-constants";
 import { aggregateLines, perGame } from "@core/stats";
+import { LineupEditor, TeamCardEditor } from "./team-editor";
 
 export default async function TeamPage({
   params,
@@ -23,7 +26,8 @@ export default async function TeamPage({
   const season = await getActiveSeason(league.id);
   if (!season) notFound();
 
-  const [teams, games, standings, statRows] = await Promise.all([
+  const [user, teams, games, standings, statRows] = await Promise.all([
+    getUser(),
     getTeamsWithRosters(season.id),
     getGames(season.id),
     getSeasonStandings(season.id),
@@ -31,6 +35,14 @@ export default async function TeamPage({
   ]);
   const team = teams.find((t) => t.id === teamId);
   if (!team) notFound();
+
+  // A captain runs their own team card and lineup; a commissioner can run
+  // any of them. Everyone else sees the same page, read-only.
+  const canManage =
+    isLeagueAdmin(league.role) ||
+    (user != null &&
+      (team.captain_id === user.id ||
+        team.roster.some((m) => m.user_id === user.id && m.is_captain)));
 
   const row = standings.rows.find((r) => r.teamId === teamId);
   const rank = standings.rows.findIndex((r) => r.teamId === teamId) + 1;
@@ -49,7 +61,16 @@ export default async function TeamPage({
     <div className="space-y-5">
       <section className="card flex flex-wrap items-center justify-between gap-4 p-7">
         <div className="flex items-center gap-4">
-          <TeamBadge abbrev={team.abbrev} color={team.color} size={52} />
+          {team.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={team.logo_url}
+              alt=""
+              className="size-[52px] shrink-0 rounded-[14px] object-cover"
+            />
+          ) : (
+            <TeamBadge abbrev={team.abbrev} color={team.color} size={52} />
+          )}
           <div>
             <p className="label">{team.abbrev}</p>
             <h2 className="text-[36px] font-semibold leading-[1.05] tracking-[-0.025em]">
@@ -109,19 +130,31 @@ export default async function TeamPage({
                         href={`/league/${slug}/player/${m.user_id}`}
                         className="flex items-center gap-2.5 font-semibold hover:underline"
                       >
-                        <Avatar name={m.full_name} size={28} />
+                        <Avatar name={m.full_name} src={m.avatar_url} size={28} />
                         <span className="truncate">
                           {m.full_name}
                           {m.is_captain ? (
-                            <span className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
+                            <span className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-on-accent">
                               C
                             </span>
                           ) : null}
                         </span>
+                        {m.position ? (
+                          <span className="num text-xs text-ink-faint">
+                            {m.position}
+                          </span>
+                        ) : null}
                         {m.jersey_number != null ? (
                           <span className="tabular text-xs text-ink-faint">
                             #{m.jersey_number}
                           </span>
+                        ) : null}
+                        {m.lineup_role === "starter" ? (
+                          <span
+                            aria-label="Starter"
+                            title="Starter"
+                            className="size-1.5 shrink-0 rounded-full bg-accent"
+                          />
                         ) : null}
                       </Link>
                     </td>
@@ -154,6 +187,18 @@ export default async function TeamPage({
           )}
         </Panel>
       </div>
+
+      {canManage ? (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <TeamCardEditor slug={slug} leagueId={league.id} team={team} />
+          <LineupEditor
+            slug={slug}
+            sport={league.sport}
+            teamId={team.id}
+            roster={team.roster}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

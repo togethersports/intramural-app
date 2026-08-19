@@ -9,8 +9,11 @@ import {
   getLeague,
   getTeamsWithRosters,
 } from "@/lib/data";
+import { getUser } from "@/lib/auth";
+import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
 import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
+import { SubPool } from "./sub-pool";
 import { CreateTeamForm } from "./team-forms";
 
 export const metadata: Metadata = { title: "Teams" };
@@ -38,10 +41,24 @@ export default async function TeamsPage({
     );
   }
 
-  const [teams, freeAgents] = await Promise.all([
+  const [user, teams, freeAgents, members] = await Promise.all([
+    getUser(),
     getTeamsWithRosters(season.id),
     getFreeAgents(league.id, season.id),
+    getLeagueMembers(league.id),
   ]);
+
+  const subs = members
+    .filter((m) => m.sub_available)
+    .map((m) => ({
+      user_id: m.user_id,
+      full_name: m.full_name,
+      avatar_url: m.avatar_url,
+      grade: m.grade,
+      positions: m.positions,
+      note: m.sub_note,
+    }));
+  const myMembership = members.find((m) => m.user_id === user?.id);
 
   return (
     <div className="space-y-5">
@@ -55,6 +72,20 @@ export default async function TeamsPage({
           />
         </Panel>
       ) : null}
+
+      <SubPool
+        slug={slug}
+        leagueId={league.id}
+        subs={subs}
+        me={
+          myMembership
+            ? {
+                available: myMembership.sub_available,
+                note: myMembership.sub_note ?? "",
+              }
+            : null
+        }
+      />
 
       {teams.length === 0 ? (
         <div className="card p-6">
@@ -92,15 +123,20 @@ export default async function TeamsPage({
                 ) : (
                   team.roster.map((m) => (
                     <li key={m.id} className="flex items-center gap-3 px-2 py-2.5">
-                      <Avatar name={m.full_name} size={34} />
+                      <Avatar name={m.full_name} src={m.avatar_url} size={34} />
                       <Link
                         href={`/league/${slug}/player/${m.user_id}`}
                         className="min-w-0 flex-1 truncate text-sm font-semibold hover:underline"
                       >
                         {m.full_name}
                         {m.is_captain ? (
-                          <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-on-accent">
                             C
+                          </span>
+                        ) : null}
+                        {m.position ? (
+                          <span className="num ml-2 text-[11px] text-ink-faint">
+                            {m.position}
                           </span>
                         ) : null}
                       </Link>
@@ -130,7 +166,7 @@ export default async function TeamsPage({
                         <form action={removeFromTeam}>
                           <input type="hidden" name="member_id" value={m.id} />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent hover:bg-tint">
+                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent-ink hover:bg-tint">
                             Cut
                           </button>
                         </form>
@@ -170,7 +206,7 @@ export default async function TeamsPage({
                   <form action={deleteTeam}>
                     <input type="hidden" name="team_id" value={team.id} />
                     <input type="hidden" name="slug" value={slug} />
-                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent hover:bg-tint">
+                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-ink hover:bg-tint">
                       Delete team
                     </button>
                   </form>
@@ -189,7 +225,7 @@ export default async function TeamsPage({
                 key={f.user_id}
                 className="inline-flex items-center gap-2 rounded-full bg-rule px-3 py-1.5 text-sm font-medium"
               >
-                <Avatar name={f.full_name} size={22} />
+                <Avatar name={f.full_name} src={f.avatar_url} size={22} />
                 {f.full_name}
                 {f.grade ? (
                   <span className="text-xs text-ink-faint">gr {f.grade}</span>

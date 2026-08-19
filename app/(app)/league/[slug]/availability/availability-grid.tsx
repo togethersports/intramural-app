@@ -6,9 +6,9 @@ import type { TimeSlotRow } from "@core/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const OPTIONS = [
-  { value: "yes", label: "In", active: "bg-ink text-white" },
+  { value: "yes", label: "In", active: "bg-ink text-on-ink" },
   { value: "maybe", label: "Maybe", active: "bg-bench text-white" },
-  { value: "no", label: "Out", active: "bg-accent text-white" },
+  { value: "no", label: "Out", active: "bg-accent text-on-accent" },
 ] as const;
 
 type Status = "yes" | "maybe" | "no";

@@ -878,6 +878,124 @@ assert(
   "the exhibition game is invisible to a counts_for_standings filter",
 );
 
+// ------------------------------------------- captains, lineups, sub pool
+console.log("\n— captain powers and the sub pool —");
+
+// User 2 has been deleted by the account-deletion scenario above, so the
+// captain under test here is user 3 (Hawks). Their own team is teamB;
+// teamA is somebody else's.
+await asAuthenticated(3);
+await db.query(`update teams set name = 'Hawks FC', abbrev = 'HFC' where id = $1`, [
+  teamB.id,
+]);
+await asOwner();
+assert(
+  (await one(`select name from teams where id = $1`, [teamB.id])).name === "Hawks FC",
+  "a captain can rename their own team",
+);
+
+// The other team is readable (members read) but not writable, so the update
+// matches nothing rather than raising — assert on the value, not the error.
+await asAuthenticated(3);
+await db.query(`update teams set name = 'Stolen' where id = $1`, [teamA.id]);
+await asOwner();
+assert(
+  (await one(`select name from teams where id = $1`, [teamA.id])).name === "Warriors",
+  "a captain cannot rename somebody else's team",
+);
+
+const hawkRow = await one(
+  `select id from team_members where team_id = $1 and user_id = $2 and left_at is null limit 1`,
+  [teamB.id, uid(3)],
+);
+await asAuthenticated(3);
+await db.query(
+  `update team_members set lineup_role = 'starter', lineup_order = 1, position = 'PG' where id = $1`,
+  [hawkRow.id],
+);
+await asOwner();
+const lineup = await one(
+  `select lineup_role, lineup_order, position from team_members where id = $1`,
+  [hawkRow.id],
+);
+assert(
+  lineup.lineup_role === "starter" && lineup.lineup_order === 1 && lineup.position === "PG",
+  "a captain can set a position and a starting slot on their own roster",
+);
+
+const warriorRow = await one(
+  `select id from team_members where team_id = $1 and left_at is null limit 1`,
+  [teamA.id],
+);
+await asAuthenticated(3);
+await db.query(`update team_members set lineup_role = 'starter' where id = $1`, [
+  warriorRow.id,
+]);
+await asOwner();
+assert(
+  (await one(`select lineup_role from team_members where id = $1`, [warriorRow.id]))
+    .lineup_role === "reserve",
+  "a captain cannot set another team's lineup",
+);
+
+assert(
+  await rejects(`update team_members set lineup_role = 'bench' where id = $1`, [
+    hawkRow.id,
+  ]),
+  "lineup_role only accepts starter or reserve",
+);
+
+// The sub pool: anyone raises their own hand, nobody raises anybody else's.
+await asAuthenticated(4);
+await db.query(
+  `update league_members set sub_available = true, sub_note = 'Free at lunch'
+   where league_id = $1 and user_id = $2`,
+  [league.id, uid(4)],
+);
+await asOwner();
+const sub = await one(
+  `select sub_available, sub_note from league_members where league_id = $1 and user_id = $2`,
+  [league.id, uid(4)],
+);
+assert(
+  sub.sub_available === true && sub.sub_note === "Free at lunch",
+  "a player can put their own hand up as a sub",
+);
+
+await asAuthenticated(4);
+await db.query(
+  `update league_members set sub_available = true where league_id = $1 and user_id = $2`,
+  [league.id, uid(7)],
+);
+await asOwner();
+assert(
+  (await one(
+    `select sub_available from league_members where league_id = $1 and user_id = $2`,
+    [league.id, uid(7)],
+  )).sub_available === false,
+  "a player cannot volunteer somebody else",
+);
+
+// The own-row policy must not become a self-promotion route. Its USING
+// clause matches (it is your row), so the WITH CHECK is what stops it —
+// which surfaces as a raised error rather than as zero rows updated.
+await asAuthenticated(4);
+assert(
+  await rejects(
+    `update league_members set role = 'commissioner' where league_id = $1 and user_id = $2`,
+    [league.id, uid(4)],
+  ),
+  "the sub-flag policy cannot be used to grant yourself a role",
+);
+await asOwner();
+assert(
+  (await one(`select role from league_members where league_id = $1 and user_id = $2`, [
+    league.id,
+    uid(4),
+  ])).role === "player",
+  "the attempt left the role untouched",
+);
+
 // ---------------------------------------------------- league lifecycle
 console.log("\n— league lifecycle —");
 // The demo league from the block above: uid(1) is its commissioner and

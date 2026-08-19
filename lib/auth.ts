@@ -20,26 +20,66 @@ export const getUser = cache(async () => {
   return data.user ?? null;
 });
 
+export interface MyProfile {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+  grade: number | null;
+  height_in: number | null;
+  jersey_pref: number | null;
+  positions: string[];
+  /** Personal palette override; `{}` means "use the league's". */
+  appearance: Record<string, unknown>;
+}
+
 /**
- * The signed-in user's display name. Deduped per request: the app shell
- * needs it for the sidebar and the dashboard needs it for the greeting, and
- * without cache() that was the same row fetched twice on every load.
+ * The signed-in user's own profile row. Deduped per request: the shell needs
+ * the name, photo and palette, and the page under it often needs the same
+ * row — without cache() that was three round trips for one row.
  */
-export const getMyName = cache(async (): Promise<string> => {
+export const getMyProfile = cache(async (): Promise<MyProfile | null> => {
   const user = await getUser();
-  if (!user) return "Player";
+  if (!user) return null;
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select(
+      "id, full_name, avatar_url, grade, height_in, jersey_pref, positions, appearance",
+    )
     .eq("id", user.id)
     .maybeSingle();
-  return (
-    data?.full_name ||
+  const fallbackName =
     (user.user_metadata?.full_name as string | undefined) ||
     user.email ||
-    "Player"
-  );
+    "Player";
+  if (!data) {
+    return {
+      id: user.id,
+      full_name: fallbackName,
+      avatar_url: null,
+      grade: null,
+      height_in: null,
+      jersey_pref: null,
+      positions: [],
+      appearance: {},
+    };
+  }
+  return {
+    id: user.id,
+    full_name: (data.full_name as string) || fallbackName,
+    avatar_url: (data.avatar_url as string | null) ?? null,
+    grade: (data.grade as number | null) ?? null,
+    height_in: (data.height_in as number | null) ?? null,
+    jersey_pref: (data.jersey_pref as number | null) ?? null,
+    positions: (data.positions as string[] | null) ?? [],
+    appearance: (data.appearance as Record<string, unknown> | null) ?? {},
+  };
+});
+
+/** The signed-in user's display name. */
+export const getMyName = cache(async (): Promise<string> => {
+  const profile = await getMyProfile();
+  return profile?.full_name ?? "Player";
 });
 
 /** Gate for authenticated pages. Redirects to /setup when the backend

@@ -8,6 +8,9 @@ import { generateSchedule, slotDateFor } from "@core/scheduler";
 import { computeStandings } from "@core/standings";
 import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { removeUploadedImage, uploadImage } from "@/lib/uploads";
+import { isValidPosition } from "@core/league-constants";
+import { normalizeHex } from "@core/theme";
 
 export type ActionState = { error: string | null; notice?: string | null };
 
@@ -23,19 +26,41 @@ function revalidateLeague(slug: string) {
 
 /* --------------------------------- console --------------------------------- */
 
+/** The whole settings blob, so a partial write can be merged into it. */
+async function readLeagueSettings(slug: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("leagues")
+    .select("id, settings, logo_url")
+    .eq("slug", slug)
+    .maybeSingle();
+  return {
+    id: (data?.id as string | undefined) ?? null,
+    settings: (data?.settings as Record<string, unknown> | null) ?? {},
+    logoUrl: (data?.logo_url as string | null) ?? null,
+  };
+}
+
 export async function updateLeagueSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
   const slug = str(formData, "slug");
+  const name = str(formData, "name");
+  if (!name) return { error: "Give the league a name — it can't be blank." };
+
   const supabase = await createClient();
+  // Merge rather than replace: appearance lives in the same blob, and
+  // overwriting it here silently reset every league's palette.
+  const { settings } = await readLeagueSettings(slug);
   const { error } = await supabase
     .from("leagues")
     .update({
-      name: str(formData, "name") || undefined,
+      name,
       primary_color: str(formData, "color") || undefined,
       settings: {
+        ...settings,
         email_domain: str(formData, "email_domain") || undefined,
         trade_approval:
           str(formData, "trade_approval") === "auto" ? "auto" : "commissioner",
@@ -45,6 +70,74 @@ export async function updateLeagueSettings(
   if (error) return { error: error.message };
   revalidateLeague(slug);
   return { error: null, notice: "Settings saved." };
+}
+
+/** The league crest. Commissioners and admins, any time. */
+export async function updateLeagueLogo(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const slug = str(formData, "slug");
+  const { id, logoUrl } = await readLeagueSettings(slug);
+  if (!id) return { error: "League not found." };
+
+  const supabase = await createClient();
+
+  if (str(formData, "intent") === "remove") {
+    const { error } = await supabase
+      .from("leagues")
+      .update({ logo_url: null })
+      .eq("id", id);
+    if (error) return { error: error.message };
+    await removeUploadedImage("badges", logoUrl);
+    revalidateLeague(slug);
+    return { error: null, notice: "Logo removed." };
+  }
+
+  const file = formData.get("logo");
+  if (!(file instanceof File)) return { error: "Choose an image first." };
+  const uploaded = await uploadImage("badges", id, "league", file);
+  if (uploaded.error) return { error: uploaded.error };
+
+  const { error } = await supabase
+    .from("leagues")
+    .update({ logo_url: uploaded.url })
+    .eq("id", id);
+  if (error) {
+    await removeUploadedImage("badges", uploaded.url);
+    return { error: error.message };
+  }
+  await removeUploadedImage("badges", logoUrl);
+  revalidateLeague(slug);
+  return { error: null, notice: "Logo updated." };
+}
+
+/** The palette everyone in the league sees, unless they override it. */
+export async function updateLeagueAppearance(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const slug = str(formData, "slug");
+  const preset = str(formData, "preset");
+  if (preset !== "court" && preset !== "sideline") {
+    return { error: "Pick one of the two themes." };
+  }
+  const accent = normalizeHex(str(formData, "accent"));
+  if (!accent) {
+    return { error: "Give the accent as a hex colour, like #FF5C48." };
+  }
+
+  const { settings } = await readLeagueSettings(slug);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("leagues")
+    .update({ settings: { ...settings, appearance: { preset, accent } } })
+    .eq("slug", slug);
+  if (error) return { error: error.message };
+  revalidateLeague(slug);
+  return { error: null, notice: "League colours updated for everyone." };
 }
 
 export async function createSeason(
@@ -214,6 +307,160 @@ export async function setJersey(formData: FormData) {
     .from("team_members")
     .update({ jersey_number: Number.isFinite(n) ? n : null })
     .eq("id", str(formData, "member_id"));
+  revalidateLeague(str(formData, "slug"));
+}
+
+/* ------------------------- team identity & lineups -------------------------
+   These are the captain's own surface. RLS decides who may write (migration
+   0014 grants a captain update rights on their own team and its roster
+   rows); the actions themselves stay thin so there is exactly one place
+   where "who is allowed" is answered. */
+
+export async function updateTeamCard(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const teamId = str(formData, "team_id");
+  const name = str(formData, "name");
+  if (name.length < 2) {
+    return { error: "Team names need at least two characters." };
+  }
+  const abbrev = (str(formData, "abbrev") || name.slice(0, 3))
+    .toUpperCase()
+    .slice(0, 3);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("teams")
+    .update({ name: name.slice(0, 40), abbrev, color: str(formData, "color") || undefined })
+    .eq("id", teamId);
+  if (error) {
+    return {
+      error: `${error.message}. Only the team's captain or a commissioner can rename it.`,
+    };
+  }
+  revalidateLeague(str(formData, "slug"));
+  return { error: null, notice: "Team card saved." };
+}
+
+export async function updateTeamBadge(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const teamId = str(formData, "team_id");
+  const leagueId = str(formData, "league_id");
+
+  const supabase = await createClient();
+  const { data: team } = await supabase
+    .from("teams")
+    .select("logo_url")
+    .eq("id", teamId)
+    .maybeSingle();
+  const previous = (team?.logo_url as string | null) ?? null;
+
+  if (str(formData, "intent") === "remove") {
+    const { error } = await supabase
+      .from("teams")
+      .update({ logo_url: null })
+      .eq("id", teamId);
+    if (error) return { error: error.message };
+    await removeUploadedImage("badges", previous);
+    revalidateLeague(str(formData, "slug"));
+    return { error: null, notice: "Badge removed." };
+  }
+
+  const file = formData.get("badge");
+  if (!(file instanceof File)) return { error: "Choose an image first." };
+  // Filed under the league so one storage policy covers every team in it.
+  const uploaded = await uploadImage("badges", leagueId, `team-${teamId}`, file);
+  if (uploaded.error) return { error: uploaded.error };
+
+  const { error } = await supabase
+    .from("teams")
+    .update({ logo_url: uploaded.url })
+    .eq("id", teamId);
+  if (error) {
+    await removeUploadedImage("badges", uploaded.url);
+    return { error: error.message };
+  }
+  await removeUploadedImage("badges", previous);
+  revalidateLeague(str(formData, "slug"));
+  return { error: null, notice: "Badge updated." };
+}
+
+/**
+ * The whole roster in one submit: each player's position, jersey, and
+ * whether they start. Saved together because a lineup is a shape — five
+ * starters — and saving one row at a time lets a captain leave it invalid.
+ */
+export async function updateLineup(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const teamId = str(formData, "team_id");
+  const sport = str(formData, "sport") || "basketball";
+  const memberIds = formData.getAll("member_id").map((m) => String(m));
+
+  const supabase = await createClient();
+  const starters = new Set(
+    formData.getAll("starter").map((s) => String(s)),
+  );
+
+  let order = 0;
+  for (const memberId of memberIds) {
+    const isStarter = starters.has(memberId);
+    const position = str(formData, `position:${memberId}`);
+    const jersey = Number.parseInt(str(formData, `jersey:${memberId}`), 10);
+    if (isStarter) order += 1;
+    const { error } = await supabase
+      .from("team_members")
+      .update({
+        lineup_role: isStarter ? "starter" : "reserve",
+        lineup_order: isStarter ? order : null,
+        position: position && isValidPosition(sport, position) ? position : null,
+        jersey_number:
+          Number.isFinite(jersey) && jersey >= 0 && jersey <= 99 ? jersey : null,
+      })
+      .eq("id", memberId)
+      .eq("team_id", teamId);
+    if (error) {
+      return {
+        error: `${error.message}. Only this team's captain or a commissioner can set the lineup.`,
+      };
+    }
+  }
+
+  revalidateLeague(str(formData, "slug"));
+  return {
+    error: null,
+    notice: `Lineup saved — ${starters.size} starting, ${
+      memberIds.length - starters.size
+    } in reserve.`,
+  };
+}
+
+/* -------------------------------- the sub pool ------------------------------
+   A player putting their own hand up to fill in for any team that is short.
+   Separate from availability, which is about which periods they are free —
+   this is about whether they want the call at all. */
+
+export async function setSubAvailability(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return;
+  const available = str(formData, "available") === "1";
+  await supabase
+    .from("league_members")
+    .update({
+      sub_available: available,
+      sub_note: available ? str(formData, "note").slice(0, 140) || null : null,
+    })
+    .eq("league_id", str(formData, "league_id"))
+    .eq("user_id", userRes.user.id);
   revalidateLeague(str(formData, "slug"));
 }
 
