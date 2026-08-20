@@ -157,18 +157,15 @@ final class Store: ObservableObject {
   }
 
   func refreshSeasonExtras(seasonId: String) async {
-    if let p = try? await api.openPolls(seasonId: seasonId) {
+    let fetched = try? await api.openPolls(seasonId: seasonId)
+    if let p = fetched {
       polls = p
       let ids = p.flatMap { $0.options.map(\.id) }
       pollVotes = (try? await api.pollVotes(optionIds: ids)) ?? []
     }
     let ids = todaysGames.map(\.id)
     subs = (try? await api.subRequests(gameIds: ids)) ?? []
-    var out: Set<String> = []
-    for id in ids where ((try? await api.myAbsence(gameId: id)) ?? false) {
-      out.insert(id)
-    }
-    absentFrom = out
+    absentFrom = (try? await api.myAbsences(gameIds: ids)) ?? absentFrom
   }
 
   /// Requests this user is the one being asked about — the notification and

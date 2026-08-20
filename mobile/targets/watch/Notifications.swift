@@ -23,9 +23,7 @@
 
 import Foundation
 import UserNotifications
-#if os(watchOS)
-  import WatchKit
-#endif
+import WatchKit
 
 @MainActor
 final class Notifier {
@@ -151,58 +149,54 @@ final class Notifier {
 
 // -------------------------------------------------------- background wake
 
-#if os(watchOS)
+/// Polls for the things the watch cannot derive on its own — a sub request
+/// waiting on this user's decision — and raises a local notice for them.
+///
+/// watchOS grants these sparingly and on its own schedule. Treat it as
+/// "within the hour", never "within the minute"; the Today screen is the
+/// reliable surface and this is the courtesy tap on the wrist.
+final class RefreshDelegate: NSObject, WKApplicationDelegate {
+  /// Set by the app so the background task can reach the same store the UI
+  /// is showing, instead of building a second one that disagrees with it.
+  static var store: Store?
 
-  /// Polls for the things the watch cannot derive on its own — a sub request
-  /// waiting on this user's decision — and raises a local notice for them.
-  ///
-  /// watchOS grants these sparingly and on its own schedule. Treat it as
-  /// "within the hour", never "within the minute"; the Today screen is the
-  /// reliable surface and this is the courtesy tap on the wrist.
-  final class RefreshDelegate: NSObject, WKApplicationDelegate {
-    /// Set by the app so the background task can reach the same store the UI
-    /// is showing, instead of building a second one that disagrees with it.
-    static var store: Store?
+  func applicationDidFinishLaunching() {
+    scheduleNextRefresh()
+  }
 
-    func applicationDidFinishLaunching() {
-      scheduleNextRefresh()
-    }
-
-    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
-      for task in backgroundTasks {
-        guard let refresh = task as? WKApplicationRefreshBackgroundTask else {
-          task.setTaskCompletedWithSnapshot(false)
-          continue
-        }
-        Task { @MainActor in
-          await Self.pollForDecisions()
-          scheduleNextRefresh()
-          refresh.setTaskCompletedWithSnapshot(false)
-        }
+  func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+    for task in backgroundTasks {
+      guard let refresh = task as? WKApplicationRefreshBackgroundTask else {
+        task.setTaskCompletedWithSnapshot(false)
+        continue
       }
-    }
-
-    @MainActor
-    private static func pollForDecisions() async {
-      guard let store = store, let team = store.team else { return }
-      let before = Set(store.decisionsForMe.map(\.id))
-      await store.refreshSeasonExtras(seasonId: team.seasonId)
-      for request in store.decisionsForMe where !before.contains(request.id) {
-        let who = request.fillName ?? "Someone"
-        await Notifier.shared.alert(
-          id: "sub.\(request.id)",
-          title: "A sub needs approving",
-          body: "\(who) is offered for \(request.absentName). Open to approve."
-        )
+      Task { @MainActor in
+        await Self.pollForDecisions()
+        scheduleNextRefresh()
+        refresh.setTaskCompletedWithSnapshot(false)
       }
-    }
-
-    private func scheduleNextRefresh() {
-      WKApplication.shared().scheduleBackgroundRefresh(
-        withPreferredDate: Date().addingTimeInterval(30 * 60),
-        userInfo: nil
-      ) { _ in }
     }
   }
 
-#endif
+  @MainActor
+  private static func pollForDecisions() async {
+    guard let store = store, let team = store.team else { return }
+    let before = Set(store.decisionsForMe.map(\.id))
+    await store.refreshSeasonExtras(seasonId: team.seasonId)
+    for request in store.decisionsForMe where !before.contains(request.id) {
+      let who = request.fillName ?? "Someone"
+      await Notifier.shared.alert(
+        id: "sub.\(request.id)",
+        title: "A sub needs approving",
+        body: "\(who) is offered for \(request.absentName). Open to approve."
+      )
+    }
+  }
+
+  private func scheduleNextRefresh() {
+    WKApplication.shared().scheduleBackgroundRefresh(
+      withPreferredDate: Date().addingTimeInterval(30 * 60),
+      userInfo: nil
+    ) { _ in }
+  }
+}

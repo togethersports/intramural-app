@@ -102,28 +102,78 @@ re-derive the rules, so it cannot disagree with them.
 
 The watch target is **opt-in per build**: without `WITH_WATCH=1` in the
 environment, prebuild produces exactly the project it produced before this
-directory existed.
+directory existed. Two profiles set it, and the phone-only profiles are
+untouched so there is always a way to ship without the watch:
 
-- Try it: `npx eas-cli build -p ios --profile simulator-watch`, then pair a
-  watch simulator (Simulator → Devices) and install.
-- Ship it: add `"WITH_WATCH": "1"` to the `production` profile's `env` in
-  `eas.json`, bump `version` in app.json, build, submit. EAS provisions the
-  extra bundle id automatically.
+| Profile | What it makes |
+|---|---|
+| `simulator-watch` | Release build for a paired watch simulator |
+| `production-watch` | App Store build, iPhone app **with** the watch app inside it |
 
 Never run EAS from the repo root — it must be `mobile/`.
 
+## Checking the Swift without a Mac
+
+`node scripts/check-swift.mjs` parses every file in the target against a
+real Swift grammar and reports syntax errors with line numbers. It needs a
+parser it deliberately does not depend on:
+
+```
+npm i --no-save tree-sitter tree-sitter-swift
+node scripts/check-swift.mjs
+```
+
+It is **not** a compiler — it knows nothing about types, member names or
+platform availability. What it buys is that the first cloud build fails on
+something interesting rather than a missing brace. Run it after any edit
+here.
+
+## Getting it into review
+
+1. `node scripts/check-swift.mjs` — catch the cheap mistakes first.
+2. `npx eas-cli build -p ios --profile simulator-watch` from `mobile/`.
+   **This is the first real compile.** Fix whatever it says.
+3. Install on a paired watch simulator (Simulator → Devices → pair a watch)
+   and walk every screen.
+4. Decide the version in `app.json`. If 1.0.0 has shipped, bump to 1.1.0.
+   If 1.0.0 is still unreleased, leave it — the build number auto-increments
+   and the watch just becomes part of what 1.0.0 is.
+5. `npx eas-cli build -p ios --profile production-watch`
+6. `npx eas-cli submit -p ios --profile production`
+
+EAS provisions the extra bundle id (`app.intramural.ios.watch`)
+automatically — the plugin registers it under
+`extra.eas.build.experimental.ios.appExtensions`.
+
+The watch app carries its **own** `PrivacyInfo.xcprivacy`, because it is its
+own binary and signs the same person into the same account. Its
+`NSPrivacyAccessedAPITypes` is empty and that is a fact rather than an
+oversight: no `UserDefaults` (CA92.1) and no file-timestamp reads (C617.1),
+because the disk cache stamps its own `at` inside the JSON rather than
+asking the filesystem when a file was written.
+
+App Store Connect will also want a watch screenshot for the listing. Take
+it from the simulator in step 3.
+
 ## Honest status
 
-**Swift compiles only on a Mac, and this repo's environment has none.** The
-code is written to watchOS 9 APIs and reviewed against availability by hand
-— that review is what caught `navigationBarTitleDisplayMode`, which is not
-watchOS 9 — but the first `simulator-watch` build is still its first compile.
-Expect small mechanical fixes, not design changes.
+**Swift compiles only on a Mac, and this repo's environment has none.** So:
 
-Two things to check first on a real device rather than a simulator: whether
-the background refresh interval is generous enough to be worth having, and
-whether the stat tapper's targets are big enough with a sleeve over the
-wrist.
+- Every file **parses** against a real Swift grammar — that check found two
+  things by machine that the eye had missed, one of them a genuine compile
+  error (`await` inside a `for … where` clause, which Swift forbids).
+- Availability was reviewed **by hand**, which caught
+  `navigationBarTitleDisplayMode` — an iOS-only modifier used in eight
+  places that would have failed the first build.
+- Nothing has **type-checked**. That is what step 2 above is for, and it is
+  the step that cannot be skipped or simulated.
+
+Expect small mechanical fixes there, not design changes. Paste the error and
+it is usually a one-liner.
+
+Two things only a real device will settle: whether watchOS grants the
+background refresh often enough to be worth having, and whether the stat
+tapper's targets survive a sleeve over the wrist.
 
 ## Still to do
 

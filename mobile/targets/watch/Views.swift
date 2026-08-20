@@ -93,9 +93,7 @@ struct MainView: View {
     .task {
       store.make(api: api)
       guard let s = store.value else { return }
-      #if os(watchOS)
-        RefreshDelegate.store = s
-      #endif
+      RefreshDelegate.store = s
       await Notifier.shared.requestAuthorization()
       await s.refresh()
     }

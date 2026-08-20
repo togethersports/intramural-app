@@ -143,13 +143,18 @@ extension Api {
     )
   }
 
-  func myAbsence(gameId: String) async throws -> Bool {
-    guard let uid = stored?.userId else { return false }
-    struct Row: Codable { let id: String }
+  /// Which of these games this user has flagged out of. One query for the
+  /// whole day rather than one per fixture — the watch is often on a single
+  /// bar of school wifi, and round trips are the thing it cannot afford.
+  func myAbsences(gameIds: [String]) async throws -> Set<String> {
+    guard let uid = stored?.userId, !gameIds.isEmpty else { return [] }
+    struct Row: Codable { let gameId: String }
     let rows: [Row] = try await get("game_absences", [
-      "select": "id", "game_id": "eq.\(gameId)", "user_id": "eq.\(uid)", "limit": "1",
+      "select": "game_id",
+      "game_id": "in.(\(gameIds.joined(separator: ",")))",
+      "user_id": "eq.\(uid)",
     ])
-    return !rows.isEmpty
+    return Set(rows.map(\.gameId))
   }
 
   // ----------------------------------------------------------------- subs
