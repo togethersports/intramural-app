@@ -122,11 +122,15 @@ testing, delete its row.
 
 Games are scheduled into *time slots*, and a slot is one period on one
 weekday — so a period that runs Monday to Thursday is four rows, not one.
-Adding a term's worth through Console → Time slots is a long afternoon.
 
-`supabase/seed/period-slots.sql` does it in one paste. Put your league's slug
-in the two marked places and run it in the SQL editor; it prints the grid it
-produced so you can check it against the timetable.
+`supabase/seed/period-slots.sql` loads them in one paste. Put your league's
+slug in the two marked places and run it in the SQL editor; it prints the
+grid it produced so you can check it against the timetable.
+
+It seeds only the periods a game can actually be played in — FLEX every day,
+and lunch Monday to Thursday. The rest of the day is class, and seeding it
+would only give everyone nine more rows to mark themselves busy in. Console →
+Time slots adds one by hand if a season needs it.
 
 It never deletes. `availability.time_slot_id` cascades, so removing a slot
 takes every player's answer about when they are free with it — which is why
