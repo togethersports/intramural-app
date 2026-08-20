@@ -145,22 +145,38 @@ EAS provisions the extra bundle id (`app.intramural.ios.watch`)
 automatically — the plugin registers it under
 `extra.eas.build.experimental.ios.appExtensions`.
 
-**Do not add a `PrivacyInfo.xcprivacy` to `targets/watch/`.** The watch app
-bundle already receives one, and a second copy fails the build outright:
+**The target name must not be `Intramural`.** It is `IntramuralWatch`, and
+`displayName` carries the human-facing "Intramural". EAS maps provisioning
+profiles to targets **by target name**, so when both targets were called
+`Intramural` the watch's profile was applied to the phone app:
+
+```
+Provisioning profile "…app.intramural.ios.watch AppStore…" has app ID
+"app.intramural.ios.watch", which does not match the bundle ID
+"app.intramural.ios". (in target 'Intramural')
+```
+
+**Adding a `PrivacyInfo.xcprivacy` here previously failed the build:**
 
 ```
 Multiple commands produce .../Release-watchsimulator/Intramural.app/PrivacyInfo.xcprivacy
 ```
 
-That error is also the proof — Xcode can only report *multiple* producers if
-one was already there. The plugin registers the target as an Xcode 16
-synchronized folder group (`PBXFileSystemSynchronizedRootGroup`), so every
-file dropped into this directory becomes a target member automatically; a
-manifest added by hand is therefore a duplicate rather than an addition.
-Declare privacy in `privacyManifests` in **app.json** and the watch inherits
-it.
+Two explanations fit that, and which one is true is not yet settled. Either
+the bundle already receives a manifest and a hand-added one duplicates it, or
+— more likely, given what we now know — both targets were producing a product
+called `Intramural.app` and the build system conflated them. The rename may
+have fixed the underlying cause.
 
-Worth knowing for that declaration: the watch touches none of the
+So: privacy is declared in `privacyManifests` in **app.json**, and the watch
+target carries no manifest of its own. If App Store Connect ever complains
+that the watch binary lacks one, try adding it back — with distinct target
+names it may now simply work. Note that the plugin registers this directory
+as an Xcode 16 synchronized folder group
+(`PBXFileSystemSynchronizedRootGroup`), so anything dropped in here becomes a
+target member automatically.
+
+Worth knowing either way: the watch touches none of the
 required-reason APIs. No `UserDefaults` (CA92.1), and no file-timestamp
 reads (C617.1) — the disk cache stamps its own `at` inside the JSON envelope
 rather than asking the filesystem when a file was written.

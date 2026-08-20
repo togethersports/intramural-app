@@ -10,7 +10,14 @@
  */
 module.exports = {
   type: "watch",
-  name: "Intramural",
+  // The Xcode *target* name, and the product filename — not what anyone
+  // sees. It must differ from the iOS app's target, which is also
+  // "Intramural": EAS maps provisioning profiles to targets by name, so two
+  // targets sharing one gave the watch's profile to the phone app and failed
+  // the build with "app ID app.intramural.ios.watch does not match bundle ID
+  // app.intramural.ios".
+  name: "IntramuralWatch",
+  // What the wearer actually reads, on the watch face and in the app list.
   displayName: "Intramural",
   // Leading dot = appended to the app's bundle id: app.intramural.ios.watch.
   // Apple requires a companion watch app's id to be prefixed by the host's.
