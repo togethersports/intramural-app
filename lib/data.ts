@@ -3,6 +3,7 @@
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/auth";
 import type { LeagueRole } from "@core/league-constants";
 import type {
   AvailabilityRow,
@@ -58,8 +59,11 @@ export const getLeague = cache(
     // dashboard's Archived section — even for the commissioner (whose RLS
     // read access exists precisely so that restore can work).
     if (data.deleted_at) return null;
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return null;
+    // getUser() from lib/auth, not supabase.auth.getUser(): the Supabase call
+    // is a network round trip every time, and this one is on the critical
+    // path of every league page. The cached version has already paid for it.
+    const me = await getUser();
+    if (!me) return null;
     // Must be scoped to me: RLS exposes every member of a league I am in, and
     // maybeSingle() errors on more than one row, so omitting this 404s the
     // entire league the moment it has two members.
@@ -67,7 +71,7 @@ export const getLeague = cache(
       .from("league_members")
       .select("role")
       .eq("league_id", data.id)
-      .eq("user_id", auth.user.id)
+      .eq("user_id", me.id)
       .eq("status", "active")
       .maybeSingle();
     if (!membership) return null;
@@ -897,7 +901,7 @@ export async function getSchedulePolls(
   seasonId: string,
 ): Promise<SchedulePollRow[]> {
   const supabase = await createClient();
-  const [{ data: polls, error }, { data: auth }] = await Promise.all([
+  const [{ data: polls, error }, me] = await Promise.all([
     supabase
       .from("schedule_polls")
       .select(
@@ -906,7 +910,7 @@ export async function getSchedulePolls(
       .eq("season_id", seasonId)
       .neq("status", "cancelled")
       .order("created_at", { ascending: false }),
-    supabase.auth.getUser(),
+    getUser(),
   ]);
   if (error) {
     console.error(`getSchedulePolls(${seasonId}) failed: ${error.message}`);
@@ -926,12 +930,12 @@ export async function getSchedulePolls(
 
   const tally = new Map<string, { yes: number; maybe: number; no: number }>();
   const mine = new Map<string, "yes" | "maybe" | "no">();
-  const me = auth?.user?.id;
+  const meId = me?.id;
   for (const v of votes ?? []) {
     const bucket = tally.get(v.option_id as string) ?? { yes: 0, maybe: 0, no: 0 };
     bucket[v.vote as "yes" | "maybe" | "no"] += 1;
     tally.set(v.option_id as string, bucket);
-    if (me && v.user_id === me) {
+    if (meId && v.user_id === meId) {
       mine.set(v.option_id as string, v.vote as "yes" | "maybe" | "no");
     }
   }

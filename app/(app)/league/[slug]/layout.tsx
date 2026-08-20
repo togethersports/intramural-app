@@ -29,13 +29,17 @@ export default async function LeagueLayout({
   if (!league) notFound();
 
   const admin = isLeagueAdmin(league.role);
-  const [season, profile, unread, jar] = await Promise.all([
-    getActiveSeason(league.id),
+  // The trade count needs the season, so it cannot start until that answers —
+  // but it does not need the profile or the unread count. Chaining it inside
+  // the Promise.all overlaps it with those instead of waiting for all three.
+  const [[season, openTrades], profile, unread, jar] = await Promise.all([
+    getActiveSeason(league.id).then(
+      async (s) => [s, s ? await getOpenTradeCount(s.id) : 0] as const,
+    ),
     getMyProfile(),
     getUnreadCount(),
     cookies(),
   ]);
-  const openTrades = season ? await getOpenTradeCount(season.id) : 0;
 
   // A league sets the palette everyone sees; a person may override it for
   // themselves from /profile. Personal wins, league is the fallback, and the

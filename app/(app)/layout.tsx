@@ -12,6 +12,11 @@ export const viewport: Viewport = {
  * personal rail and `league/[slug]` draws the league's — because each one
  * resolves a different appearance, and a theme has to be emitted once by the
  * surface that knows which one is in force.
+ *
+ * The gate is awaited here rather than inside a streaming child on purpose:
+ * a signed-out visitor gets a redirect before any HTML, instead of a flash of
+ * app chrome they are not entitled to. `loading.tsx` carries the default
+ * palette for the gap this leaves.
  */
 export default async function AppLayout({
   children,
