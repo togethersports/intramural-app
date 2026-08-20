@@ -94,7 +94,11 @@ struct MainView: View {
       store.make(api: api)
       guard let s = store.value else { return }
       RefreshDelegate.store = s
+      RefreshDelegate.api = api
       await Notifier.shared.requestAuthorization()
+      // If Apple already handed a token over before sign-in finished, this
+      // is the moment it can finally be tied to an account.
+      await Push.register(api: api)
       await s.refresh()
     }
   }

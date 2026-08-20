@@ -177,7 +177,13 @@ final class Store: ObservableObject {
   func signOutAndForget() {
     Cache.clear()
     Notifier.shared.cancelAll()
+    // Capture the bearer before dropping it: retiring the push token is an
+    // authenticated call, and signing out first would leave it unable to
+    // authenticate. Sign-out itself stays synchronous so the UI switches to
+    // the login screen on the tap rather than a network round trip later.
+    let bearer = api.currentAccessToken
     api.signOut()
+    if let bearer { Task { await Push.unregister(bearer: bearer) } }
   }
 }
 

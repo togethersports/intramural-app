@@ -163,6 +163,15 @@ final class Api: ObservableObject {
   private var accessToken: String?
   private var accessExpiry = Date.distantPast
 
+  /// The bearer we already hold, or nil if it is missing or stale. Sign-out
+  /// needs this synchronously: retiring the push token is an authenticated
+  /// call, and by the time an async refresh returned, the session it needed
+  /// would already be gone.
+  var currentAccessToken: String? {
+    guard let token = accessToken, Date() < accessExpiry else { return nil }
+    return token
+  }
+
   private static let decoder: JSONDecoder = {
     let d = JSONDecoder()
     d.keyDecodingStrategy = .convertFromSnakeCase

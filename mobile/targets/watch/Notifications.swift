@@ -160,8 +160,29 @@ final class RefreshDelegate: NSObject, WKApplicationDelegate {
   /// is showing, instead of building a second one that disagrees with it.
   static var store: Store?
 
+  /// Same reasoning for the API client: the push callbacks arrive outside
+  /// any view, and minting a second client would mean a second session.
+  static var api: Api?
+
   func applicationDidFinishLaunching() {
     scheduleNextRefresh()
+    Task { @MainActor in Push.start() }
+  }
+
+  // Apple hands the token back here, asynchronously and possibly long after
+  // launch. Registering from this callback rather than from a screen means a
+  // token issued while the app was backgrounded still reaches the server.
+  func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
+    Task { @MainActor in
+      Push.adopt(deviceToken)
+      if let api = Self.api { await Push.register(api: api) }
+    }
+  }
+
+  func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
+    // Simulators have no APNs, and a student may simply have declined.
+    // Neither is worth a word on a 396-point screen: the local tip-off
+    // notices still work, and the Today screen is still the source of truth.
   }
 
   func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
