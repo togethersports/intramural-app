@@ -91,7 +91,9 @@ struct TeamRef: Codable {
   let color: String
 }
 
-struct SlotRef: Codable { let label: String? }
+/// `startTime` is what turns a fixture into an instant — the reminder
+/// times and the countdown both need it, so it rides along with the label.
+struct SlotRef: Codable { let label: String?; let startTime: String? }
 struct VenueRef: Codable { let name: String? }
 
 struct Game: Codable, Identifiable {
@@ -133,7 +135,7 @@ struct AvailabilityRow: Codable {
   let status: String
 }
 
-struct MyTeam {
+struct MyTeam: Codable {
   let teamId: String
   let teamName: String
   let teamAbbrev: String
@@ -228,7 +230,7 @@ final class Api: ObservableObject {
     return try Self.decoder.decode(AuthSession.self, from: data)
   }
 
-  private func validToken() async throws -> String {
+  func validToken() async throws -> String {
     if let token = accessToken, Date() < accessExpiry { return token }
     guard let s = stored else { throw ApiError(message: "Signed out.") }
     do {
@@ -248,7 +250,10 @@ final class Api: ObservableObject {
 
   // ------------------------------------------------------------------ rest
 
-  private func get<T: Decodable>(_ path: String, _ query: [String: String]) async throws -> T {
+  // Internal, not private: the feature files (Live, Season) extend Api from
+  // other files in this module, and Swift's `private` is file-scoped.
+
+  func get<T: Decodable>(_ path: String, _ query: [String: String]) async throws -> T {
     let token = try await validToken()
     var comps = URLComponents(
       url: Supabase.url.appendingPathComponent("rest/v1/\(path)"),
@@ -265,6 +270,60 @@ final class Api: ObservableObject {
     return try Self.decoder.decode(T.self, from: data)
   }
 
+  /// POST a row. `onConflict` turns it into an upsert on that key.
+  ///
+  /// Every write on the watch throws rather than failing quietly. A tap that
+  /// looks like it worked and didn't is worse than an error: the player
+  /// believes their captain knows they are out, and nobody does.
+  func write(
+    _ path: String,
+    _ body: [String: Any],
+    onConflict: String? = nil,
+    failure: String = "That didn't save. Check your connection and tap again."
+  ) async throws {
+    let token = try await validToken()
+    var comps = URLComponents(
+      url: Supabase.url.appendingPathComponent("rest/v1/\(path)"),
+      resolvingAgainstBaseURL: false
+    )!
+    if let key = onConflict {
+      comps.queryItems = [URLQueryItem(name: "on_conflict", value: key)]
+    }
+    var req = URLRequest(url: comps.url!)
+    req.httpMethod = "POST"
+    req.setValue(Supabase.anonKey, forHTTPHeaderField: "apikey")
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue(
+      onConflict == nil ? "return=minimal" : "resolution=merge-duplicates,return=minimal",
+      forHTTPHeaderField: "Prefer"
+    )
+    req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    let (data, resp) = try await URLSession.shared.data(for: req)
+    let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+    guard code == 200 || code == 201 || code == 204 else {
+      throw ApiError(message: Self.postgrestMessage(data) ?? failure)
+    }
+  }
+
+  /// Call a security-definer RPC. The approval and claim rules are
+  /// transitions — "only a proposed request may be approved", "only the
+  /// opposing captain may approve" — which a row policy cannot express, so
+  /// the database exposes them as functions and every client calls them.
+  /// The watch gets the same enforcement as the web app for free.
+  func rpc(_ name: String, _ body: [String: Any]) async throws {
+    try await write("rpc/\(name)", body, failure: "That didn't go through. Try again.")
+  }
+
+  /// PostgREST puts a human-readable reason in `message`; a raise from one of
+  /// our RPCs lands there too. Preferring it means the watch says "Only the
+  /// opposing captain can approve this" instead of a generic failure.
+  private static func postgrestMessage(_ data: Data) -> String? {
+    guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let msg = json["message"] as? String, !msg.isEmpty else { return nil }
+    return msg
+  }
+
   /// Same embedded select as GAME_SELECT in mobile/lib/data.ts, minus the
   /// tracker-only columns a watch never reads.
   private static let gameSelect = """
@@ -272,7 +331,7 @@ final class Api: ObservableObject {
     home_team_id,away_team_id,\
     home_team:teams!games_home_team_id_fkey(name,abbrev,color),\
     away_team:teams!games_away_team_id_fkey(name,abbrev,color),\
-    time_slot:time_slots(label),venue:venues(name)
+    time_slot:time_slots(label,start_time),venue:venues(name)
     """
 
   func myTeam() async throws -> MyTeam? {
@@ -344,26 +403,11 @@ final class Api: ObservableObject {
   /// sees you.
   func setAvailability(seasonId: String, slotId: String, status: String) async throws {
     guard let uid = stored?.userId else { throw ApiError(message: "Signed out.") }
-    let token = try await validToken()
-    var comps = URLComponents(
-      url: Supabase.url.appendingPathComponent("rest/v1/availability"),
-      resolvingAgainstBaseURL: false
-    )!
-    comps.queryItems = [URLQueryItem(name: "on_conflict", value: "user_id,season_id,time_slot_id")]
-    var req = URLRequest(url: comps.url!)
-    req.httpMethod = "POST"
-    req.setValue(Supabase.anonKey, forHTTPHeaderField: "apikey")
-    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    req.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
-    req.httpBody = try JSONSerialization.data(withJSONObject: [
-      "user_id": uid, "season_id": seasonId, "time_slot_id": slotId, "status": status,
-    ])
-    let (_, resp) = try await URLSession.shared.data(for: req)
-    let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-    guard code == 201 || code == 200 || code == 204 else {
-      throw ApiError(message: "That didn't save. Check your connection and tap again.")
-    }
+    try await write(
+      "availability",
+      ["user_id": uid, "season_id": seasonId, "time_slot_id": slotId, "status": status],
+      onConflict: "user_id,season_id,time_slot_id"
+    )
   }
 }
 
