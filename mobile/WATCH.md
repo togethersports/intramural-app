@@ -145,12 +145,25 @@ EAS provisions the extra bundle id (`app.intramural.ios.watch`)
 automatically — the plugin registers it under
 `extra.eas.build.experimental.ios.appExtensions`.
 
-The watch app carries its **own** `PrivacyInfo.xcprivacy`, because it is its
-own binary and signs the same person into the same account. Its
-`NSPrivacyAccessedAPITypes` is empty and that is a fact rather than an
-oversight: no `UserDefaults` (CA92.1) and no file-timestamp reads (C617.1),
-because the disk cache stamps its own `at` inside the JSON rather than
-asking the filesystem when a file was written.
+**Do not add a `PrivacyInfo.xcprivacy` to `targets/watch/`.** The watch app
+bundle already receives one, and a second copy fails the build outright:
+
+```
+Multiple commands produce .../Release-watchsimulator/Intramural.app/PrivacyInfo.xcprivacy
+```
+
+That error is also the proof — Xcode can only report *multiple* producers if
+one was already there. The plugin registers the target as an Xcode 16
+synchronized folder group (`PBXFileSystemSynchronizedRootGroup`), so every
+file dropped into this directory becomes a target member automatically; a
+manifest added by hand is therefore a duplicate rather than an addition.
+Declare privacy in `privacyManifests` in **app.json** and the watch inherits
+it.
+
+Worth knowing for that declaration: the watch touches none of the
+required-reason APIs. No `UserDefaults` (CA92.1), and no file-timestamp
+reads (C617.1) — the disk cache stamps its own `at` inside the JSON envelope
+rather than asking the filesystem when a file was written.
 
 App Store Connect will also want a watch screenshot for the listing. Take
 it from the simulator in step 3.
