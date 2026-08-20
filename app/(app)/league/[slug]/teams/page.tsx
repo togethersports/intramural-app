@@ -2,15 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconUsers } from "@/components/icons";
-import { Avatar, EmptyState, TeamBadge } from "@/components/ui";
+import { Avatar, EmptyState, TeamBadge, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getFreeAgents,
   getLeague,
   getTeamsWithRosters,
 } from "@/lib/data";
+import { getUser } from "@/lib/auth";
+import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
 import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
+import { MyAvailability, StatusChip } from "./my-availability";
+import { SubPool } from "./sub-pool";
 import { CreateTeamForm } from "./team-forms";
 
 export const metadata: Metadata = { title: "Teams" };
@@ -38,26 +42,61 @@ export default async function TeamsPage({
     );
   }
 
-  const [teams, freeAgents] = await Promise.all([
+  const [user, teams, freeAgents, members] = await Promise.all([
+    getUser(),
     getTeamsWithRosters(season.id),
     getFreeAgents(league.id, season.id),
+    getLeagueMembers(league.id),
   ]);
+
+  const subs = members
+    .filter((m) => m.sub_available)
+    .map((m) => ({
+      user_id: m.user_id,
+      full_name: m.full_name,
+      avatar_url: m.avatar_url,
+      grade: m.grade,
+      positions: m.positions,
+      note: m.sub_note,
+    }));
+  const myMembership = members.find((m) => m.user_id === user?.id);
+
+  // Injured and away players are marked on the roster so a captain sees the
+  // hole before the game rather than at it.
+  const statusOf = new Map(
+    members.map((m) => [
+      m.user_id,
+      { status: m.player_status, note: m.status_note, until: m.status_until },
+    ]),
+  );
 
   return (
     <div className="space-y-5">
       {admin ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            Add a team
-          </h2>
+        <Panel eyebrow="Commissioner" title="Add a team">
           <CreateTeamForm
             slug={slug}
             leagueId={league.id}
             seasonId={season.id}
             candidates={freeAgents}
           />
-        </section>
+        </Panel>
       ) : null}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {myMembership ? (
+          <MyAvailability
+            slug={slug}
+            leagueId={league.id}
+            status={myMembership.player_status}
+            statusNote={myMembership.status_note ?? ""}
+            statusUntil={myMembership.status_until ?? ""}
+            subAvailable={myMembership.sub_available}
+            subNote={myMembership.sub_note ?? ""}
+          />
+        ) : null}
+        <SubPool subs={subs} />
+      </div>
 
       {teams.length === 0 ? (
         <div className="card p-6">
@@ -95,18 +134,28 @@ export default async function TeamsPage({
                 ) : (
                   team.roster.map((m) => (
                     <li key={m.id} className="flex items-center gap-3 px-2 py-2.5">
-                      <Avatar name={m.full_name} size={34} />
+                      <Avatar name={m.full_name} src={m.avatar_url} size={34} />
                       <Link
                         href={`/league/${slug}/player/${m.user_id}`}
                         className="min-w-0 flex-1 truncate text-sm font-semibold hover:underline"
                       >
                         {m.full_name}
                         {m.is_captain ? (
-                          <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-on-accent">
                             C
                           </span>
                         ) : null}
+                        {m.position ? (
+                          <span className="num ml-2 text-[11px] text-ink-faint">
+                            {m.position}
+                          </span>
+                        ) : null}
                       </Link>
+                      <StatusChip
+                        status={statusOf.get(m.user_id)?.status ?? "available"}
+                        note={statusOf.get(m.user_id)?.note ?? null}
+                        until={statusOf.get(m.user_id)?.until ?? null}
+                      />
                       {admin ? (
                         <form action={setJersey} className="flex items-center gap-1">
                           <input type="hidden" name="member_id" value={m.id} />
@@ -133,7 +182,7 @@ export default async function TeamsPage({
                         <form action={removeFromTeam}>
                           <input type="hidden" name="member_id" value={m.id} />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent hover:bg-tint">
+                          <button className="min-h-11 rounded-control px-2 text-xs font-semibold text-accent-ink hover:bg-tint">
                             Cut
                           </button>
                         </form>
@@ -173,7 +222,7 @@ export default async function TeamsPage({
                   <form action={deleteTeam}>
                     <input type="hidden" name="team_id" value={team.id} />
                     <input type="hidden" name="slug" value={slug} />
-                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent hover:bg-tint">
+                    <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-ink hover:bg-tint">
                       Delete team
                     </button>
                   </form>
@@ -185,17 +234,14 @@ export default async function TeamsPage({
       )}
 
       {freeAgents.length > 0 ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">
-            Free agents
-          </h2>
+        <Panel eyebrow="Undrafted" title="Free agents">
           <div className="flex flex-wrap gap-2">
             {freeAgents.map((f) => (
               <span
                 key={f.user_id}
                 className="inline-flex items-center gap-2 rounded-full bg-rule px-3 py-1.5 text-sm font-medium"
               >
-                <Avatar name={f.full_name} size={22} />
+                <Avatar name={f.full_name} src={f.avatar_url} size={22} />
                 {f.full_name}
                 {f.grade ? (
                   <span className="text-xs text-ink-faint">gr {f.grade}</span>
@@ -203,7 +249,7 @@ export default async function TeamsPage({
               </span>
             ))}
           </div>
-        </section>
+        </Panel>
       ) : null}
     </div>
   );

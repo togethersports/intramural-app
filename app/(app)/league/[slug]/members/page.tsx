@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
-import { Avatar, PageHeader, RoleBadge } from "@/components/ui";
+import { Avatar, RoleBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getLeagueBySlug,
@@ -24,65 +23,58 @@ export default async function MembersPage({
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Members"
-        subtitle={
-          <>
-            <Link href={`/league/${league.slug}`} className="underline">
-              {league.name}
-            </Link>
-            {" · "}
-            {members.length} active
-          </>
-        }
-      />
-
       {admin ? (
-        <section className="card flex flex-wrap items-center justify-between gap-4 p-5">
-          <div>
-            <p className="text-sm font-medium text-ink-body">
-              Invite with this code
-            </p>
-            <p className="num font-mono text-3xl tracking-[0.3em]">
-              {league.join_code}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <CopyButton text={league.join_code} label="Copy code" />
-            <CopyButton
-              text={league.join_code}
-              getText="invite-link"
-              label="Copy invite link"
-            />
-          </div>
-        </section>
+        <Panel
+          eyebrow="Invite"
+          title="Anyone with this code can join"
+          action={
+            <div className="flex gap-2">
+              <CopyButton text={league.join_code} label="Copy code" />
+              <CopyButton
+                text={league.join_code}
+                getText="invite-link"
+                label="Copy invite link"
+              />
+            </div>
+          }
+        >
+          <p className="num text-[34px] leading-none tracking-[0.3em]">
+            {league.join_code}
+          </p>
+        </Panel>
       ) : null}
 
-      <section className="card divide-y divide-rule p-2 sm:p-3">
-        {members.map((m) => (
-          <div
-            key={m.id}
-            className="flex flex-wrap items-center gap-3 px-3 py-3"
-          >
-            <Avatar name={m.full_name} size={40} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{m.full_name}</p>
-              <p className="text-sm text-ink-body">
-                {m.grade ? `Grade ${m.grade}` : "Grade —"}
-              </p>
+      <Panel
+        eyebrow="Roster"
+        title={`${members.length} ${members.length === 1 ? "member" : "members"}`}
+        flush
+      >
+        <div className="divide-y divide-rule">
+          {members.map((m) => (
+            <div
+              key={m.id}
+              className="flex flex-wrap items-center gap-3 px-5 py-3.5 sm:px-6"
+            >
+              <Avatar name={m.full_name} src={m.avatar_url} size={40} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{m.full_name}</p>
+                <p className="text-sm text-ink-body">
+                  {m.grade ? `Grade ${m.grade}` : "Grade —"}
+                </p>
+              </div>
+              <RoleBadge role={m.role} />
+              {admin ? (
+                <MemberControls
+                  memberId={m.id}
+                  slug={league.slug}
+                  role={m.role}
+                  isSelf={m.user_id === user.id}
+                />
+              ) : null}
             </div>
-            <RoleBadge role={m.role} />
-            {admin ? (
-              <MemberControls
-                memberId={m.id}
-                slug={league.slug}
-                role={m.role}
-                isSelf={m.user_id === user.id}
-              />
-            ) : null}
-          </div>
-        ))}
-      </section>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }

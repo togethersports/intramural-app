@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { IconCalendar } from "@/components/icons";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
@@ -64,33 +64,27 @@ export default async function AvailabilityPage({
 
   const heatColor = (count: number, rosterSize: number) => {
     if (rosterSize === 0) return "bg-rule text-ink-faint";
-    if (count >= 5) return "bg-ink text-white";
+    if (count >= 5) return "bg-ink text-on-ink";
     if (count >= 4) return "bg-bench text-white";
     if (count >= 3) return "bg-bench/50 text-ink";
-    if (count > 0) return "bg-tint text-accent";
+    if (count > 0) return "bg-tint text-accent-ink";
     return "bg-rule text-ink-faint";
   };
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
-          My weekly availability
-        </h2>
-        <p className="mb-4 text-sm text-ink-body">
+      <Panel eyebrow="You" title="My weekly availability">
+        <p className="mb-4 text-[15px] text-ink-body">
           Tap once per slot — the scheduler uses this to place games when your
           team can actually play.
         </p>
         <AvailabilityGrid seasonId={season.id} slots={slots} initial={initial} />
-      </section>
+      </Panel>
 
       {canSeeHeatmap ? (
-        <section className="card p-5 sm:p-6">
+        <Panel eyebrow="Whole league" title="Team heatmap">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">
-                Team heatmap
-              </h2>
               <p className="text-sm text-ink-body">
                 Players available per team per slot (yes + ½ maybe).
               </p>
@@ -152,7 +146,7 @@ export default async function AvailabilityPage({
               </tbody>
             </table>
           </div>
-        </section>
+        </Panel>
       ) : null}
     </div>
   );

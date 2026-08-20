@@ -49,7 +49,7 @@ export function MemberControls({
           <input type="hidden" name="slug" value={slug} />
           <button
             type="submit"
-            className="min-h-11 rounded-control px-3 text-sm font-medium text-accent transition-colors hover:bg-tint"
+            className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-ink transition-colors hover:bg-tint"
           >
             Remove
           </button>

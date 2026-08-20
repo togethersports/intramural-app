@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Avatar, StatTile } from "@/components/ui";
+import { Avatar, StatTile, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getLeague,
@@ -22,7 +22,7 @@ export default async function PlayerPage({
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, grade, positions")
+    .select("full_name, avatar_url, grade, positions")
     .eq("id", userId)
     .maybeSingle();
   if (!profile) notFound();
@@ -35,7 +35,11 @@ export default async function PlayerPage({
   return (
     <div className="space-y-5">
       <section className="card flex flex-wrap items-center gap-4 p-6">
-        <Avatar name={profile.full_name || "?"} size={64} />
+        <Avatar
+          name={profile.full_name || "?"}
+          src={profile.avatar_url as string | null}
+          size={64}
+        />
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-semibold tracking-tight">
             {profile.full_name || "Unnamed player"}
@@ -43,6 +47,9 @@ export default async function PlayerPage({
           <p className="text-sm text-ink-body">
             {myTeam ? myTeam.name : "Free agent"}
             {profile.grade ? ` · Grade ${profile.grade}` : ""}
+            {(profile.positions as string[] | null)?.length
+              ? ` · ${(profile.positions as string[]).join(" / ")}`
+              : ""}
           </p>
         </div>
         {totals.games > 0 ? (
@@ -73,8 +80,7 @@ export default async function PlayerPage({
         </div>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">Game log</h3>
+      <Panel eyebrow="Every game" title="Game log">
         {log.length === 0 ? (
           <p className="text-sm text-ink-faint">
             No games recorded{season ? "" : " — no active season"}.
@@ -132,7 +138,7 @@ export default async function PlayerPage({
             </table>
           </div>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

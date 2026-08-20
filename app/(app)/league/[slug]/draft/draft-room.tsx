@@ -16,6 +16,7 @@ import {
 } from "../actions";
 
 interface EligiblePlayer {
+  avatar_url?: string | null;
   user_id: string;
   full_name: string;
   grade: number | null;
@@ -225,7 +226,7 @@ export function DraftRoom({
                 key={p.user_id}
                 className="flex items-center gap-2 rounded-panel px-2 py-1.5 hover:bg-paper"
               >
-                <Avatar name={p.full_name} size={30} />
+                <Avatar name={p.full_name} src={p.avatar_url} size={30} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {p.full_name}
                   {p.grade ? (
@@ -239,7 +240,7 @@ export function DraftRoom({
                     aria-label={queuedIds.has(p.user_id) ? "Remove from queue" : "Add to queue"}
                     className={`grid size-11 place-items-center rounded-full ${
                       queuedIds.has(p.user_id)
-                        ? "bg-accent text-white"
+                        ? "bg-accent text-on-accent"
                         : "text-ink-faint hover:bg-rule hover:text-ink"
                     }`}
                   >
@@ -250,7 +251,7 @@ export function DraftRoom({
                   <button
                     onClick={() => draftPlayer(p.user_id)}
                     disabled={pending}
-                    className="min-h-11 rounded-control bg-ink px-3 text-xs font-bold text-surface hover:bg-black disabled:opacity-50"
+                    className="min-h-11 rounded-control bg-ink px-3 text-xs font-bold text-on-ink hover:opacity-90 disabled:opacity-50"
                   >
                     Draft
                   </button>
@@ -274,7 +275,7 @@ export function DraftRoom({
                     <span className="min-w-0 flex-1 truncate font-medium">{q.full_name}</span>
                     <button
                       onClick={() => startTransition(async () => { await queueRemove(q.id, slug); })}
-                      className="min-h-11 px-2 text-xs font-semibold text-accent"
+                      className="min-h-11 px-2 text-xs font-semibold text-accent-ink"
                     >
                       Remove
                     </button>
@@ -303,7 +304,7 @@ export function DraftRoom({
                     </span>
                   </span>
                   {team.id === currentTeamId ? (
-                    <span className="label rounded-full bg-accent px-2.5 py-1 !text-[10px] !text-white">
+                    <span className="label rounded-full bg-accent px-2.5 py-1 !text-[10px] !text-on-accent">
                       On the clock
                     </span>
                   ) : (
@@ -317,7 +318,7 @@ export function DraftRoom({
                         {m.full_name}
                       </span>
                       {m.is_captain ? (
-                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">C</span>
+                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-on-accent">C</span>
                       ) : null}
                     </li>
                   ))}

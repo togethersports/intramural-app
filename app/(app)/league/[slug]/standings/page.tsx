@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { IconTrophy } from "@/components/icons";
 import { StandingsTable } from "@/components/standings-table";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import { getActiveSeason, getLeague, getSeasonStandings } from "@/lib/data";
 import { DEFAULT_TIEBREAKERS, TIEBREAKER_LABELS } from "@core/standings";
 
@@ -32,10 +32,7 @@ export default async function StandingsPage({
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          {season.name} standings
-        </h2>
+      <Panel eyebrow={season.name} title="Standings">
         {rows.length === 0 ? (
           <EmptyState
             icon={<IconTrophy size={26} />}
@@ -45,19 +42,16 @@ export default async function StandingsPage({
         ) : (
           <StandingsTable rows={rows} slug={slug} full />
         )}
-        <p className="mt-4 text-xs text-ink-faint">
+        <p className="mt-4 border-t border-rule pt-3.5 text-[12.5px] text-ink-muted">
           Ties break in order:{" "}
           {DEFAULT_TIEBREAKERS.map((t) => TIEBREAKER_LABELS[t]).join(" → ")}.
         </p>
-      </section>
+      </Panel>
 
       {explanations.length > 0 ? (
-        <section className="card p-5 sm:p-6">
-          <h3 className="mb-2 text-lg font-semibold tracking-tight">
-            Why this order?
-          </h3>
+        <Panel eyebrow="Tiebreakers" title="Why this order?">
           <TiebreakNotes slug={slug} notes={explanations} rows={rows} />
-        </section>
+        </Panel>
       ) : null}
     </div>
   );

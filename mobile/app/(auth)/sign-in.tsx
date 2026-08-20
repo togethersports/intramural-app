@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import { GoogleButton } from "@/components/GoogleButton";
 import { Lockup } from "@/components/Mark";
 import { Button, Card, ErrorNote, Field, H1, Input } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -55,6 +56,7 @@ export default function SignIn() {
             <ErrorNote message="The backend isn't configured in this build. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY." />
           ) : null}
           <ErrorNote message={error} />
+          <GoogleButton label="Continue with Google" />
           <Field label="Email">
             <Input
               value={email}

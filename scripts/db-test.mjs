@@ -672,6 +672,620 @@ assert(
   "adding user_id narrows it to exactly one row — what maybeSingle() needs",
 );
 
+// ------------------------------------------------------ demo league RPCs
+// league_members and trades have no direct insert policy for authenticated
+// users at all (RPC-only, per the comments in 0001/0005) — the demo
+// generator needs two narrow RPCs to bulk-enroll ghost players and to
+// fast-track a trade past the captain-acceptance step. Both must refuse to
+// touch anything that isn't flagged is_demo, and both must still require
+// the caller to be that league's admin.
+await asOwner();
+for (let n = 20; n <= 23; n++) {
+  await db.query(
+    `insert into auth.users (id, email, raw_user_meta_data)
+     values ($1, $2, jsonb_build_object('full_name', $3::text))`,
+    [uid(n), `ghost${n}@demo.invalid`, `Ghost Player ${n}`],
+  );
+}
+assert(
+  (await one(`select count(*)::int as c from profiles where id in ($1,$2,$3,$4)`,
+    [uid(20), uid(21), uid(22), uid(23)])).c === 4,
+  "profile bootstrap trigger fired for the 4 ghost users too",
+);
+
+await asAuthenticated(1);
+const demoSlug = (await one(
+  `select create_league('Demo Test League', 'basketball', '#c8232c', null) as s`,
+)).s;
+const demoLeague = await one(`select * from leagues where slug = $1`, [demoSlug]);
+assert(demoLeague.is_demo === false, "a freshly created league is not a demo league");
+
+assert(
+  await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  ),
+  "seed_demo_roster refuses a league that isn't flagged is_demo",
+);
+
+await asOwner();
+await db.query(`update leagues set is_demo = true where id = $1`, [demoLeague.id]);
+
+await asAuthenticated(6); // a real user, but not this league's admin
+assert(
+  await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  ),
+  "seed_demo_roster refuses a caller who isn't the league's admin",
+);
+
+await asAuthenticated(1);
+assert(
+  !(await rejects(
+    `select seed_demo_roster($1, array[$2,$3,$4,$5]::uuid[])`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  )),
+  "the demo league's admin can seed the ghost roster",
+);
+await asOwner();
+assert(
+  (await one(
+    `select count(*)::int as c from league_members
+     where league_id = $1 and user_id in ($2,$3,$4,$5) and role = 'player'`,
+    [demoLeague.id, uid(20), uid(21), uid(22), uid(23)],
+  )).c === 4,
+  "all 4 ghost players landed as league members",
+);
+
+// The is_league_admin NULL hole affected shipped RPCs too, not just the new
+// ones above — pin the fix against the real thing: a user who shares no
+// league at all with the original draft should not be able to undo a pick
+// in it. uid(20) is a member of the new demo league only.
+const picksBeforeOutsider = (
+  await one(`select count(*)::int as c from draft_picks where draft_id = $1`, [draft.id])
+).c;
+await asAuthenticated(20);
+assert(
+  await rejects(`select undo_last_pick($1)`, [draft.id]),
+  "undo_last_pick refuses a caller who shares no league with the draft at all",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from draft_picks where draft_id = $1`, [draft.id])).c ===
+    picksBeforeOutsider,
+  "the outsider's call did not actually undo anything",
+);
+
+// teams + rosters for the trade RPC to move
+await asAuthenticated(1);
+const demoSeason = await one(
+  `insert into seasons (league_id, name, starts_on, ends_on, num_weeks)
+   values ($1, 'Demo Season', '2026-01-05', '2026-03-01', 9) returning *`,
+  [demoLeague.id],
+);
+const demoTeamA = await one(
+  `insert into teams (season_id, name, abbrev) values ($1, 'Ghost A', 'GHA') returning *`,
+  [demoSeason.id],
+);
+const demoTeamB = await one(
+  `insert into teams (season_id, name, abbrev) values ($1, 'Ghost B', 'GHB') returning *`,
+  [demoSeason.id],
+);
+await db.query(
+  `insert into team_members (team_id, user_id) values
+     ($1, $3), ($1, $4), ($2, $5), ($2, $6)`,
+  [demoTeamA.id, demoTeamB.id, uid(20), uid(21), uid(22), uid(23)],
+);
+
+assert(
+  await rejects(
+    // the ORIGINAL non-demo league's teams — the gate must hold even
+    // though this caller genuinely is that league's admin.
+    `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[])`,
+    [season.id, teamA.id, teamB.id, uid(4), uid(7)],
+  ),
+  "seed_demo_trade refuses a real (non-demo) league even for its own admin",
+);
+
+await asAuthenticated(6);
+assert(
+  await rejects(
+    `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[])`,
+    [demoSeason.id, demoTeamA.id, demoTeamB.id, uid(20), uid(22)],
+  ),
+  "seed_demo_trade refuses a caller who isn't the demo league's admin",
+);
+
+await asAuthenticated(1);
+const demoTradeId = (await one(
+  `select seed_demo_trade($1, $2, $3, array[$4]::uuid[], array[$5]::uuid[]) as id`,
+  [demoSeason.id, demoTeamA.id, demoTeamB.id, uid(20), uid(22)],
+)).id;
+await asOwner();
+assert(
+  (await one(`select status from trades where id = $1`, [demoTradeId])).status === "executed",
+  "seed_demo_trade proposes and executes in one call — no captain acceptance needed",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from team_members
+     where team_id = $1 and user_id = $2 and left_at is null`,
+    [demoTeamB.id, uid(20)],
+  )).c === 1,
+  "the traded ghost actually moved rosters",
+);
+
+// ------------------------------------------------- ad-hoc games and guests
+console.log("\n— ad-hoc games and guests —");
+await asOwner();
+await actAs(1);
+const extTeam = await one(
+  `insert into teams (season_id, name, abbrev, color, is_external)
+   values ($1, 'Faculty All-Stars', 'FAC', '#5A6472', true) returning *`,
+  [season.id],
+);
+const adhoc = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, status,
+                      is_adhoc, counts_for_standings, rules_override, scorekeeper_id)
+   values ($1, 2, $2, $3, 'live', true, false, '{"period_minutes":6}'::jsonb, $4)
+   returning *`,
+  [season.id, teamA.id, extTeam.id, uid(1)],
+);
+const guest = await one(
+  `insert into game_guests (game_id, team_id, display_name)
+   values ($1, $2, 'Coach Rivera') returning *`,
+  [adhoc.id, extTeam.id],
+);
+await db.query(
+  `insert into game_events (game_id, seq, period, type, guest_id, team_id, created_by, client_uuid, value)
+   values ($1, 1, 1, 'fg2_made', $2, $3, $4, $5, 2)`,
+  [adhoc.id, guest.id, extTeam.id, uid(1), crypto.randomUUID()],
+);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1 and guest_id = $2`, [adhoc.id, guest.id])).c === 1,
+  "a guest can be credited with an event (guest_id, no auth user)",
+);
+assert(
+  await rejects(
+    `insert into game_events (game_id, seq, period, type, user_id, guest_id, team_id, created_by, client_uuid)
+     values ($1, 2, 1, 'stl', $2, $3, $4, $5, $6)`,
+    [adhoc.id, uid(4), guest.id, extTeam.id, uid(1), crypto.randomUUID()],
+  ),
+  "an event cannot claim both an auth user AND a guest",
+);
+await db.query(
+  `insert into player_game_stats (game_id, guest_id, team_id, pts) values ($1, $2, $3, 2)`,
+  [adhoc.id, guest.id, extTeam.id],
+);
+assert(
+  (await one(`select pts from player_game_stats where game_id = $1 and guest_id = $2`, [adhoc.id, guest.id])).pts === 2,
+  "a guest stat line materializes with guest_id in place of user_id",
+);
+assert(
+  await rejects(
+    `insert into player_game_stats (game_id, team_id, pts) values ($1, $2, 4)`,
+    [adhoc.id, extTeam.id],
+  ),
+  "a stat line must belong to exactly one of user/guest",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from games
+     where season_id = $1 and is_playoff = false and counts_for_standings = true and id = $2`,
+    [season.id, adhoc.id],
+  )).c === 0,
+  "the exhibition game is invisible to a counts_for_standings filter",
+);
+
+// ------------------------------------------- captains, lineups, sub pool
+console.log("\n— captain powers and the sub pool —");
+
+// User 2 has been deleted by the account-deletion scenario above, so the
+// captain under test here is user 3 (Hawks). Their own team is teamB;
+// teamA is somebody else's.
+await asAuthenticated(3);
+await db.query(`update teams set name = 'Hawks FC', abbrev = 'HFC' where id = $1`, [
+  teamB.id,
+]);
+await asOwner();
+assert(
+  (await one(`select name from teams where id = $1`, [teamB.id])).name === "Hawks FC",
+  "a captain can rename their own team",
+);
+
+// The other team is readable (members read) but not writable, so the update
+// matches nothing rather than raising — assert on the value, not the error.
+await asAuthenticated(3);
+await db.query(`update teams set name = 'Stolen' where id = $1`, [teamA.id]);
+await asOwner();
+assert(
+  (await one(`select name from teams where id = $1`, [teamA.id])).name === "Warriors",
+  "a captain cannot rename somebody else's team",
+);
+
+const hawkRow = await one(
+  `select id from team_members where team_id = $1 and user_id = $2 and left_at is null limit 1`,
+  [teamB.id, uid(3)],
+);
+await asAuthenticated(3);
+await db.query(
+  `update team_members set lineup_role = 'starter', lineup_order = 1, position = 'PG' where id = $1`,
+  [hawkRow.id],
+);
+await asOwner();
+const lineup = await one(
+  `select lineup_role, lineup_order, position from team_members where id = $1`,
+  [hawkRow.id],
+);
+assert(
+  lineup.lineup_role === "starter" && lineup.lineup_order === 1 && lineup.position === "PG",
+  "a captain can set a position and a starting slot on their own roster",
+);
+
+const warriorRow = await one(
+  `select id from team_members where team_id = $1 and left_at is null limit 1`,
+  [teamA.id],
+);
+await asAuthenticated(3);
+await db.query(`update team_members set lineup_role = 'starter' where id = $1`, [
+  warriorRow.id,
+]);
+await asOwner();
+assert(
+  (await one(`select lineup_role from team_members where id = $1`, [warriorRow.id]))
+    .lineup_role === "reserve",
+  "a captain cannot set another team's lineup",
+);
+
+assert(
+  await rejects(`update team_members set lineup_role = 'bench' where id = $1`, [
+    hawkRow.id,
+  ]),
+  "lineup_role only accepts starter or reserve",
+);
+
+// The sub pool: anyone raises their own hand, nobody raises anybody else's.
+await asAuthenticated(4);
+await db.query(
+  `update league_members set sub_available = true, sub_note = 'Free at lunch'
+   where league_id = $1 and user_id = $2`,
+  [league.id, uid(4)],
+);
+await asOwner();
+const sub = await one(
+  `select sub_available, sub_note from league_members where league_id = $1 and user_id = $2`,
+  [league.id, uid(4)],
+);
+assert(
+  sub.sub_available === true && sub.sub_note === "Free at lunch",
+  "a player can put their own hand up as a sub",
+);
+
+await asAuthenticated(4);
+await db.query(
+  `update league_members set sub_available = true where league_id = $1 and user_id = $2`,
+  [league.id, uid(7)],
+);
+await asOwner();
+assert(
+  (await one(
+    `select sub_available from league_members where league_id = $1 and user_id = $2`,
+    [league.id, uid(7)],
+  )).sub_available === false,
+  "a player cannot volunteer somebody else",
+);
+
+// The own-row policy must not become a self-promotion route. Its USING
+// clause matches (it is your row), so the WITH CHECK is what stops it —
+// which surfaces as a raised error rather than as zero rows updated.
+await asAuthenticated(4);
+assert(
+  await rejects(
+    `update league_members set role = 'commissioner' where league_id = $1 and user_id = $2`,
+    [league.id, uid(4)],
+  ),
+  "the sub-flag policy cannot be used to grant yourself a role",
+);
+await asOwner();
+assert(
+  (await one(`select role from league_members where league_id = $1 and user_id = $2`, [
+    league.id,
+    uid(4),
+  ])).role === "player",
+  "the attempt left the role untouched",
+);
+
+// -------------------------------------------- subs, approval and polls
+console.log("\n— sub approval and scheduling polls —");
+
+// Fresh fixtures: this section is about who may approve what, so it should
+// not depend on which roster the trade scenarios above left people on.
+await asOwner();
+const subSeason = await one(
+  `insert into seasons (league_id, name, starts_on, ends_on, num_weeks, status)
+   values ($1, 'Sub Season', current_date, current_date + 60, 6, 'active') returning *`,
+  [league.id],
+);
+const redTeam = await one(
+  `insert into teams (season_id, name, abbrev, captain_id) values ($1, 'Reds', 'RED', $2) returning *`,
+  [subSeason.id, uid(4)],
+);
+const blueTeam = await one(
+  `insert into teams (season_id, name, abbrev, captain_id) values ($1, 'Blues', 'BLU', $2) returning *`,
+  [subSeason.id, uid(3)],
+);
+await db.query(
+  `insert into team_members (team_id, user_id, is_captain) values ($1, $2, true), ($3, $4, true)`,
+  [redTeam.id, uid(4), blueTeam.id, uid(3)],
+);
+const subGame = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, scheduled_date)
+   values ($1, 1, $2, $3, current_date + 3) returning *`,
+  [subSeason.id, redTeam.id, blueTeam.id],
+);
+
+// The Reds' captain opens a hole and puts a name to it.
+await asAuthenticated(4);
+const subRequest = await one(
+  `insert into sub_requests (game_id, team_id, requested_by, absent_user_id, scope, note)
+   values ($1, $2, $3, $3, 'league', 'Away at a meet') returning *`,
+  [subGame.id, redTeam.id, uid(4)],
+);
+assert(subRequest.status === "open", "a captain can open a sub request for their own team");
+
+// A league member who plays for neither team volunteers. This goes through
+// an RPC, not a plain update: at policy time the volunteer is not yet on the
+// row, so no row policy could ever let them claim it.
+await asAuthenticated(9);
+await db.query(`select claim_sub_request($1)`, [subRequest.id]);
+await asOwner();
+assert(
+  (await one(`select status, fill_user_id from sub_requests where id = $1`, [subRequest.id]))
+    .status === "proposed",
+  "any league member can volunteer for a league-wide request",
+);
+
+// THE RULE: the team that asked cannot sign off on its own sub.
+await asAuthenticated(4);
+assert(
+  await rejects(`select decide_sub_request($1, true)`, [subRequest.id]),
+  "the requesting team's own captain cannot approve their sub",
+);
+await asOwner();
+assert(
+  (await one(`select status from sub_requests where id = $1`, [subRequest.id])).status ===
+    "proposed",
+  "the refused approval left the request untouched",
+);
+
+// Nor can the person who volunteered wave themselves through.
+await asAuthenticated(9);
+assert(
+  await rejects(`select decide_sub_request($1, true)`, [subRequest.id]),
+  "the volunteer cannot approve themselves",
+);
+
+// The opposing captain can.
+await asAuthenticated(3);
+await db.query(`select decide_sub_request($1, true, 'Fine by us')`, [subRequest.id]);
+await asOwner();
+const decided = await one(
+  `select status, approved_by, decision_note from sub_requests where id = $1`,
+  [subRequest.id],
+);
+assert(
+  decided.status === "approved" && decided.approved_by === uid(3),
+  "the opposing captain can approve a sub",
+);
+assert(decided.decision_note === "Fine by us", "the decision note is kept");
+assert(
+  (await one(
+    `select count(*)::int as c from team_members
+     where team_id = $1 and user_id = $2 and left_at is null`,
+    [redTeam.id, uid(9)],
+  )).c === 1,
+  "an approved sub lands on the roster so the box score can credit them",
+);
+
+// A decided request is finished — it cannot be flipped back.
+await asAuthenticated(3);
+assert(
+  await rejects(`select decide_sub_request($1, false)`, [subRequest.id]),
+  "an already-decided request cannot be decided again",
+);
+
+// An admin can approve on either side's behalf.
+await asAuthenticated(4);
+const secondRequest = await one(
+  `insert into sub_requests (game_id, team_id, requested_by, fill_user_id, scope, status)
+   values ($1, $2, $3, $4, 'league', 'proposed') returning *`,
+  [subGame.id, redTeam.id, uid(4), uid(6)],
+);
+await asAuthenticated(1);
+await db.query(`select decide_sub_request($1, false, 'Ineligible this week')`, [
+  secondRequest.id,
+]);
+await asOwner();
+assert(
+  (await one(`select status from sub_requests where id = $1`, [secondRequest.id]))
+    .status === "declined",
+  "a league admin can decide a sub on either side's behalf",
+);
+
+// A sub request must name somebody before it can be decided at all.
+await asOwner();
+assert(
+  await rejects(
+    `insert into sub_requests (game_id, team_id, requested_by, scope, status)
+     values ($1, $2, $3, 'league', 'approved')`,
+    [subGame.id, redTeam.id, uid(4)],
+  ),
+  "a request cannot be approved without naming who is filling in",
+);
+
+// ---- scheduling polls ----
+
+await asAuthenticated(4);
+const poll = await one(
+  `insert into schedule_polls (season_id, game_id, home_team_id, away_team_id, created_by, title)
+   values ($1, $2, $3, $4, $5, 'Week 1') returning *`,
+  [subSeason.id, subGame.id, redTeam.id, blueTeam.id, uid(4)],
+);
+const optionA = await one(
+  `insert into schedule_poll_options (poll_id, scheduled_date) values ($1, current_date + 5) returning *`,
+  [poll.id],
+);
+const optionB = await one(
+  `insert into schedule_poll_options (poll_id, scheduled_date) values ($1, current_date + 6) returning *`,
+  [poll.id],
+);
+assert(poll.status === "open", "a captain can open a scheduling poll for their own game");
+
+// Votes are own-row only.
+await asAuthenticated(9);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionB.id, uid(9)],
+);
+assert(
+  await rejects(
+    `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+    [optionB.id, uid(6)],
+  ),
+  "nobody can cast somebody else's vote",
+);
+
+await asAuthenticated(6);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionB.id, uid(6)],
+);
+await asAuthenticated(3);
+await db.query(
+  `insert into schedule_poll_votes (option_id, user_id, vote) values ($1, $2, 'yes')`,
+  [optionA.id, uid(3)],
+);
+
+// Locking with no option named picks the winner by weight, and writes it
+// onto the game — which is what hands it to the reminder sender.
+await asAuthenticated(4);
+await db.query(`select lock_schedule_poll($1)`, [poll.id]);
+await asOwner();
+const lockedPoll = await one(`select status, locked_option_id from schedule_polls where id = $1`, [
+  poll.id,
+]);
+assert(
+  lockedPoll.status === "locked" && lockedPoll.locked_option_id === optionB.id,
+  "the option with the most votes wins the lock",
+);
+const lockedGame = await one(`select scheduled_date from games where id = $1`, [subGame.id]);
+assert(
+  String(lockedGame.scheduled_date).slice(0, 10) ===
+    String((await one(`select (current_date + 6) as d`)).d).slice(0, 10),
+  "locking writes the winning date onto the game",
+);
+
+// Somebody with no standing in the game cannot lock it.
+await asAuthenticated(9);
+assert(
+  await rejects(`select lock_schedule_poll($1)`, [poll.id]),
+  "a player who captains neither team cannot lock a poll",
+);
+
+// ---- the tip-off view ----
+await asOwner();
+const tipOff = await one(
+  `select starts_at, timezone, league_slug from game_schedule where game_id = $1`,
+  [subGame.id],
+);
+assert(
+  tipOff && tipOff.starts_at !== null,
+  "game_schedule resolves a date and a slot into a real instant",
+);
+assert(
+  tipOff.timezone === "America/New_York",
+  "the tip-off instant is computed in the league's own timezone",
+);
+
+// ---- reminder idempotency ----
+await db.query(
+  `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'email')`,
+  [subGame.id, uid(4)],
+);
+assert(
+  await rejects(
+    `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'email')`,
+    [subGame.id, uid(4)],
+  ),
+  "the same reminder cannot be logged twice — a double-fired cron sends once",
+);
+await db.query(
+  `insert into reminder_log (game_id, user_id, kind, channel) values ($1, $2, 'hour', 'sms')`,
+  [subGame.id, uid(4)],
+);
+assert(
+  (await one(
+    `select count(*)::int as c from reminder_log where game_id = $1 and user_id = $2`,
+    [subGame.id, uid(4)],
+  )).c === 2,
+  "the same reminder on a different channel is a different send",
+);
+
+// ---------------------------------------------------- league lifecycle
+console.log("\n— league lifecycle —");
+// The demo league from the block above: uid(1) is its commissioner and
+// ghost uid(20) is an ordinary member.
+await asAuthenticated(20);
+assert(
+  await rejects(
+    `update leagues set deleted_at = now() where id = $1`,
+    [demoLeague.id],
+  ),
+  "a non-commissioner cannot soft-delete the league",
+);
+await asAuthenticated(1);
+await db.query(`update leagues set deleted_at = now() where id = $1`, [demoLeague.id]);
+await asAuthenticated(20);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 0,
+  "a deleted league disappears for ordinary members",
+);
+await asAuthenticated(1);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 1,
+  "the commissioner still sees it through the recovery window",
+);
+await db.query(`update leagues set deleted_at = null where id = $1`, [demoLeague.id]);
+await asAuthenticated(20);
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 1,
+  "restoring brings it back for everyone",
+);
+
+// purge respects the 30-day window
+await asAuthenticated(1);
+await db.query(`update leagues set deleted_at = now() where id = $1`, [demoLeague.id]);
+assert(
+  (await one(`select purge_expired_leagues() as n`)).n === 0,
+  "purge leaves a league inside its 30-day window alone",
+);
+await asOwner();
+await db.query(
+  `update leagues set deleted_at = now() - interval '40 days' where id = $1`,
+  [demoLeague.id],
+);
+await asAuthenticated(1);
+assert(
+  (await one(`select purge_expired_leagues() as n`)).n === 1,
+  "purge hard-deletes once the window has expired",
+);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from leagues where id = $1`, [demoLeague.id])).c === 0,
+  "the purged league is really gone (cascade took its children)",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

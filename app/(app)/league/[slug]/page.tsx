@@ -3,14 +3,16 @@ import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { GameCard } from "@/components/game-card";
 import { IconArrowRight, IconBall, IconCalendar, IconTrophy } from "@/components/icons";
+import { PlayerOfWeekCard } from "@/components/recap-card";
 import { StandingsTable } from "@/components/standings-table";
-import { Avatar, EmptyState } from "@/components/ui";
+import { Avatar, EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
   getGames,
   getLeague,
   getPosts,
+  getLatestAward,
   getSeasonPlayerStats,
   getSeasonStandings,
   getTeams,
@@ -63,12 +65,13 @@ export default async function LeagueOverviewPage({
     );
   }
 
-  const [games, teams, posts, statRows, standings] = await Promise.all([
+  const [games, teams, posts, statRows, standings, award] = await Promise.all([
     getGames(season.id),
     getTeams(season.id),
     getPosts(league.id, 12),
     getSeasonPlayerStats(season.id),
     getSeasonStandings(season.id),
+    getLatestAward(season.id),
   ]);
 
   const week = currentWeek(season.starts_on, season.num_weeks);
@@ -99,18 +102,18 @@ export default async function LeagueOverviewPage({
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="space-y-5 lg:col-span-2">
         {/* This week */}
-        <section className="card p-5 sm:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">
-              {weekGames.length > 0 ? `Week ${week}` : "Upcoming games"}
-            </h2>
+        <Panel
+          eyebrow={weekGames.length > 0 ? `Week ${week} of ${season.num_weeks}` : "Coming up"}
+          title={weekGames.length > 0 ? "This week" : "Upcoming games"}
+          action={
             <Link
               href={`/league/${slug}/schedule`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body hover:text-ink"
             >
               Full schedule <IconArrowRight size={16} />
             </Link>
-          </div>
+          }
+        >
           {displayGames.length === 0 ? (
             <EmptyState
               icon={<IconCalendar size={26} />}
@@ -128,13 +131,10 @@ export default async function LeagueOverviewPage({
               ))}
             </div>
           )}
-        </section>
+        </Panel>
 
         {/* Feed */}
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            League feed
-          </h2>
+        <Panel eyebrow="The wire" title="League feed">
           {admin || captainTeam ? (
             <div className="mb-4">
               <FeedComposer
@@ -155,7 +155,7 @@ export default async function LeagueOverviewPage({
               {posts.map((p) => (
                 <li key={p.id} className="flex gap-3 rounded-panel bg-paper p-3.5">
                   {p.kind === "auto" ? (
-                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-accent">
+                    <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-tint text-accent-ink">
                       <IconBall size={16} />
                     </span>
                   ) : (
@@ -179,39 +179,43 @@ export default async function LeagueOverviewPage({
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
       </div>
 
       <div className="space-y-5">
         {/* Standings snapshot */}
-        <section className="card p-5">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">Standings</h2>
+        <Panel
+          title="Standings"
+          action={
             <Link
               href={`/league/${slug}/standings`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body hover:text-ink"
             >
               Full <IconArrowRight size={16} />
             </Link>
-          </div>
+          }
+        >
           {standings.rows.length === 0 ? (
             <p className="text-sm text-ink-faint">No teams yet.</p>
           ) : (
             <StandingsTable rows={standings.rows.slice(0, 5)} slug={slug} />
           )}
-        </section>
+        </Panel>
+
+        {award ? <PlayerOfWeekCard award={award} slug={slug} /> : null}
 
         {/* Scoring leaders */}
-        <section className="card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">Top scorers</h2>
+        <Panel
+          title="Top scorers"
+          action={
             <Link
               href={`/league/${slug}/stats`}
-              className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-ink-body hover:text-ink"
+              className="inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold text-ink-body hover:text-ink"
             >
               Stats <IconArrowRight size={16} />
             </Link>
-          </div>
+          }
+        >
           {leaders.length === 0 ? (
             <p className="text-sm text-ink-faint">
               Leaders appear after the first final.
@@ -238,13 +242,10 @@ export default async function LeagueOverviewPage({
               ))}
             </ol>
           )}
-        </section>
+        </Panel>
 
         {/* Season / invite */}
-        <section className="card p-5">
-          <h2 className="mb-2 text-lg font-semibold tracking-tight">
-            {season.name}
-          </h2>
+        <Panel eyebrow="Season" title={season.name}>
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between">
               <dt className="text-ink-body">Week</dt>
@@ -279,12 +280,12 @@ export default async function LeagueOverviewPage({
           {season.status === "playoffs" || season.status === "complete" ? (
             <Link
               href={`/league/${slug}/playoffs`}
-              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent text-[15px] font-medium text-white"
+              className="mt-3 flex min-h-11 items-center justify-center gap-2 rounded-control bg-accent text-[15px] font-medium text-on-accent"
             >
               <IconTrophy size={18} /> View bracket
             </Link>
           ) : null}
-        </section>
+        </Panel>
       </div>
     </div>
   );

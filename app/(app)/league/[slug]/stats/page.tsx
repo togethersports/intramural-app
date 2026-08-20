@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconChart } from "@/components/icons";
-import { Avatar, EmptyState, Meter } from "@/components/ui";
+import { Avatar, EmptyState, Meter, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getLeague,
@@ -22,6 +22,7 @@ export const metadata: Metadata = { title: "Stats" };
 interface PlayerSeason {
   userId: string;
   name: string;
+  avatarUrl: string | null;
   teamName: string;
   teamColor: string;
   totals: SeasonTotals;
@@ -50,16 +51,25 @@ export default async function StatsPage({
   ]);
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
-  const byPlayer = new Map<string, { name: string; teamId: string; lines: typeof rows }>();
+  const byPlayer = new Map<
+    string,
+    { name: string; avatarUrl: string | null; teamId: string; lines: typeof rows }
+  >();
   for (const r of rows) {
     if (!byPlayer.has(r.user_id))
-      byPlayer.set(r.user_id, { name: r.full_name ?? "Unnamed", teamId: r.team_id, lines: [] });
+      byPlayer.set(r.user_id, {
+        name: r.full_name ?? "Unnamed",
+        avatarUrl: r.avatar_url ?? null,
+        teamId: r.team_id,
+        lines: [],
+      });
     byPlayer.get(r.user_id)!.lines.push(r);
   }
   const players: PlayerSeason[] = [...byPlayer.entries()].map(
-    ([userId, { name, teamId, lines }]) => ({
+    ([userId, { name, avatarUrl, teamId, lines }]) => ({
       userId,
       name,
+      avatarUrl,
       teamName: teamById.get(teamId)?.name ?? "—",
       teamColor: teamById.get(teamId)?.color ?? "#54749b",
       totals: aggregateLines(lines),
@@ -102,8 +112,7 @@ export default async function StatsPage({
             .slice(0, 5);
           const max = top.length > 0 ? cat.value(top[0]) : 0;
           return (
-            <section key={cat.key} className="card p-5">
-              <h3 className="mb-3 font-semibold tracking-tight">{cat.label}</h3>
+            <Panel key={cat.key} eyebrow="Leaders" title={cat.label}>
               <ol className="space-y-2.5">
                 {top.map((p) => (
                   <li key={p.userId}>
@@ -111,7 +120,7 @@ export default async function StatsPage({
                       href={`/league/${slug}/player/${p.userId}`}
                       className="flex items-center gap-2.5 hover:underline"
                     >
-                      <Avatar name={p.name} size={26} />
+                      <Avatar name={p.name} src={p.avatarUrl} size={26} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold leading-tight">
                           {p.name}
@@ -129,16 +138,13 @@ export default async function StatsPage({
                   </li>
                 ))}
               </ol>
-            </section>
+            </Panel>
           );
         })}
       </div>
 
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">
-          All players — season totals
-        </h3>
-        <div className="scroll-x">
+      <Panel eyebrow="Every player" title="Season totals" flush>
+        <div className="scroll-x px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-ink-faint">
@@ -156,7 +162,7 @@ export default async function StatsPage({
                 .sort((a, b) => b.totals.pts - a.totals.pts)
                 .map((p) => (
                   <tr key={p.userId} className="border-t border-rule">
-                    <td className="sticky left-0 z-10 max-w-[9rem] truncate bg-surface py-2.5 pr-3">
+                    <td className="sticky-cell sticky left-0 z-10 max-w-[9rem] truncate py-2.5 pr-3">
                       <Link
                         href={`/league/${slug}/player/${p.userId}`}
                         className="font-semibold hover:underline"
@@ -192,7 +198,7 @@ export default async function StatsPage({
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import CourtHero from "@/components/court-hero";
+import SeasonRail from "@/components/season-rail";
 import {
   DraftBoardClock,
   LiveScoreCell,
@@ -92,75 +94,16 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      {/* Hero — the court is the canvas */}
-      <section className="relative px-4 pt-12 sm:px-6 sm:pt-16">
-        {/* Court lines: center line, circle, and the two keys */}
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="lp-sweep absolute inset-y-0 left-1/2 w-px bg-white/30" />
-          <div
-            className="lp-court absolute left-1/2 top-1/2 aspect-square w-[min(46vw,600px)] rounded-full border border-white/30"
-            style={delay(0.1)}
-          />
-          <div
-            className="lp-court absolute left-1/2 top-1/2 aspect-square w-[min(16vw,180px)] rounded-full border border-white/30"
-            style={delay(0.22)}
-          />
-          <div
-            className="lp-fade absolute -left-px bottom-[22%] top-[22%] w-[min(15vw,200px)] rounded-r border border-l-0 border-white/25"
-            style={delay(0.35)}
-          />
-          <div
-            className="lp-fade absolute -right-px bottom-[22%] top-[22%] w-[min(15vw,200px)] rounded-l border border-r-0 border-white/25"
-            style={delay(0.35)}
-          />
-        </div>
+      {/* Hero — the clipboard tumbles over the RUN YOUR LEAGUE marquee */}
+      <h1 className="sr-only">Intramural — Run Your League</h1>
+      <CourtHero startHref={startHref} joinHref={joinHref} />
 
+      <section className="relative px-4 sm:px-6">
         <div className="relative mx-auto w-full max-w-7xl">
-          <p
-            className="label lp-rise flex items-center justify-center gap-4 !text-white/90"
-            style={delay(0.05)}
-          >
-            <span className="hidden h-px w-[clamp(28px,12vw,170px)] bg-white/45 sm:block" />
-            <span className="whitespace-nowrap">School intramural sports</span>
-            <span className="hidden h-px w-[clamp(28px,12vw,170px)] bg-white/45 sm:block" />
-          </p>
-
-          <h1 className="mt-6 text-center text-[clamp(52px,11vw,150px)] font-semibold leading-[0.85] tracking-[-0.045em] text-white">
-            <span className="lp-rise block" style={delay(0.15)}>
-              Run<span className="lp-dot text-accent">.</span>
-            </span>
-            <span className="lp-rise block" style={delay(0.27)}>
-              Your<span className="lp-dot text-accent" style={{ animationDelay: "3.2s" }}>.</span>
-            </span>
-            <span className="lp-rise block" style={delay(0.39)}>
-              League<span className="lp-dot text-accent" style={{ animationDelay: "3.4s" }}>.</span>
-            </span>
-          </h1>
-
-          <p
-            className="lp-rise mx-auto mt-7 max-w-[52ch] text-center text-[clamp(17px,1.5vw,20px)] font-medium leading-[1.5] text-white"
-            style={delay(0.52)}
-          >
-            Captains draft teams. Games fit into lunch and free periods. Stats
-            are tracked live from the sideline. Playoffs settle it.
-          </p>
-
+          {/* Docked scoreboard — first thing after the hero releases */}
           <div
-            className="lp-rise mt-8 flex flex-wrap justify-center gap-3"
-            style={delay(0.64)}
-          >
-            <ButtonLink href={startHref} variant="accent">
-              Start a league
-            </ButtonLink>
-            <ButtonLink href={joinHref} variant="canvas">
-              I have a join code
-            </ButtonLink>
-          </div>
-
-          {/* Docked scoreboard — floats up over the fold */}
-          <div
-            className="lp-dock relative mx-auto mt-16 grid sm:mt-24 max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
-            style={delay(0.8)}
+            className="lp-dock relative mx-auto mt-14 grid max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-t-card bg-ink/10 shadow-float lg:grid-cols-4"
+            style={delay(0.15)}
           >
             <div className="bg-surface p-5 sm:p-6">
               <LiveScoreCell />
@@ -210,155 +153,8 @@ export default async function LandingPage() {
         </div>
       </div>
 
-      {/* Features — bento */}
-      <section id="season" className="px-4 py-20 sm:px-6 sm:py-24">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-            <h2 className="lp-reveal max-w-[24ch] text-[clamp(34px,4.4vw,64px)] font-semibold leading-[0.98] tracking-[-0.03em] text-white">
-              Everything a season needs
-            </h2>
-            <p className="label pb-2 !text-white/80">06 systems · one league</p>
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-12">
-            {/* 01 Draft — wide cream */}
-            <article className="card lp-reveal lp-lift flex flex-col gap-5 p-7 sm:p-8 lg:col-span-7">
-              <p className="label !text-accent">01 · Draft</p>
-              <h3 className="text-[clamp(24px,2.4vw,34px)] font-semibold leading-tight tracking-[-0.025em]">
-                A real draft room
-              </h3>
-              <p className="max-w-[52ch] text-[17px] leading-[1.55] text-ink-body">
-                Snake or linear, pick timer, auto-pick from your queue, rosters
-                filling live. Fully usable from a phone in the hallway.
-              </p>
-              <div className="mt-auto space-y-2">
-                {[
-                  ["1.01", "J. Carter", "Warriors", false],
-                  ["1.02", "M. Brooks", "Titans", false],
-                  ["1.03", "On the clock…", "Hawks", true],
-                ].map(([no, player, team, live]) => (
-                  <div
-                    key={no as string}
-                    className={`grid grid-cols-[56px_1fr_auto] items-center gap-3 rounded-row px-4 py-3.5 ${
-                      live ? "bg-tint text-accent" : "bg-paper"
-                    }`}
-                  >
-                    <span className="num text-[14px] opacity-70">{no}</span>
-                    <span className="text-[17px] font-medium">{player}</span>
-                    <span className="text-[15px] opacity-70">{team}</span>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            {/* 02 Live stats — dark */}
-            <article className="lp-reveal lp-lift flex flex-col gap-5 rounded-card bg-ink p-7 text-white sm:p-8 lg:col-span-5">
-              <p className="label !text-blush">02 · Live stats</p>
-              <h3 className="text-[clamp(22px,2vw,30px)] font-semibold leading-tight tracking-[-0.025em]">
-                Courtside stat tracking
-              </h3>
-              <p className="text-[16.5px] leading-[1.55] text-white/70">
-                Two taps per event, undo anything. Works offline on gym Wi-Fi
-                and syncs when you are back. Plus/minus computes itself.
-              </p>
-              <div className="num mt-auto grid grid-cols-4 gap-2 text-[13px]">
-                {["2PT", "3PT", "REB", "AST", "STL", "BLK", "TO", "PF"].map(
-                  (e, i) => (
-                    <span
-                      key={e}
-                      className={`rounded-[10px] py-3 text-center ${
-                        i === 7
-                          ? "bg-accent text-white"
-                          : "border border-white/20 text-white/90"
-                      }`}
-                    >
-                      {e}
-                    </span>
-                  ),
-                )}
-              </div>
-            </article>
-
-            {/* 03 Scheduling */}
-            <article className="card lp-reveal lp-lift flex flex-col gap-4 p-7 lg:col-span-4">
-              <p className="label !text-accent">03 · Scheduling</p>
-              <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">
-                Knows the school day
-              </h3>
-              <p className="text-[16px] leading-[1.55] text-ink-body">
-                Games go into named slots — Lunch A, Free Period 6, After
-                School — matched to when both teams actually have players free.
-              </p>
-              <div className="mt-auto flex flex-wrap gap-2">
-                {["Lunch A · Gym 1", "Free 6 · Gym 2"].map((s) => (
-                  <span key={s} className="chip !py-2 !text-[14px]">
-                    {s}
-                  </span>
-                ))}
-                <span className="inline-flex items-center rounded-full bg-ink/8 px-4 py-2 text-[14px] font-medium">
-                  3:30 · Half-court
-                </span>
-              </div>
-            </article>
-
-            {/* 04 Leaders */}
-            <article className="card lp-reveal lp-lift flex flex-col gap-4 p-7 lg:col-span-4">
-              <p className="label !text-accent">04 · Leaders</p>
-              <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">
-                Stats worth arguing about
-              </h3>
-              <p className="text-[16px] leading-[1.55] text-ink-body">
-                Box scores, shooting splits, leaderboards, career totals —
-                updated the moment a game goes final.
-              </p>
-              <div className="mt-auto space-y-3">
-                {[
-                  ["Carter", 78],
-                  ["Brooks", 64],
-                  ["Reed", 51],
-                ].map(([name, v]) => (
-                  <div key={name as string} className="flex items-center gap-4">
-                    <span className="num w-14 text-[14px]">{name}</span>
-                    <div className="h-[7px] flex-1 rounded-full bg-tint">
-                      <div
-                        className="lp-bar h-full rounded-full bg-accent"
-                        style={{ width: `${((v as number) / 80) * 100}%` }}
-                      />
-                    </div>
-                    <span className="num w-8 text-right text-[14px]">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            {/* 05+06 Trades & Playoffs */}
-            <article className="card lp-reveal lp-lift flex flex-col gap-4 p-7 lg:col-span-4">
-              <p className="label !text-accent">05 · Trades &amp; playoffs</p>
-              <h3 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">
-                Receipts, then a trophy
-              </h3>
-              <p className="text-[16px] leading-[1.55] text-ink-body">
-                Propose, counter, accept — commissioner approval, a locking
-                deadline, a public log. Then seeded brackets and season awards.
-              </p>
-              <div className="mt-auto space-y-2.5">
-                <p className="rounded-row bg-paper px-4 py-3 text-[15px] leading-relaxed">
-                  Warriors send Carter to Hawks for Brooks and Reed.
-                </p>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5">
-                  <span className="rounded-row bg-paper px-3.5 py-2.5 text-[15px] font-medium">
-                    <span className="num mr-2 text-ink-faint">1</span>Warriors
-                  </span>
-                  <span aria-hidden className="h-px w-3 bg-accent" />
-                  <span className="rounded-row bg-tint px-3.5 py-2.5 text-center text-[15px] font-medium text-accent">
-                    Championship
-                  </span>
-                </div>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
+      {/* Features — the pinned season rail */}
+      <SeasonRail />
 
       {/* Draft board — the dark panel */}
       <section id="board" className="px-4 pb-20 sm:px-6 sm:pb-24">

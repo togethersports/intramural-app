@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
+import { Panel } from "@/components/ui";
 import { notFound, redirect } from "next/navigation";
 import {
   getActiveSeason,
   getLeague,
+  getLeagueFootprint,
   getSeasons,
   getTimeSlots,
   getVenues,
 } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
+import { DEFAULT_APPEARANCE, parseAppearance } from "@core/theme";
 import { deleteTimeSlot, deleteVenue, setSeasonStatus } from "../actions";
 import {
   AddTimeSlotForm,
   AddVenueForm,
   CreateSeasonForm,
+  LeagueAppearanceForm,
+  LeagueLogoForm,
   LeagueSettingsForm,
 } from "./console-forms";
+import { DangerZone } from "./danger-zone";
 
 export const metadata: Metadata = { title: "Console" };
 
@@ -43,30 +49,55 @@ export default async function ConsolePage({
   if (!league) notFound();
   if (!isLeagueAdmin(league.role)) redirect(`/league/${slug}`);
 
-  const [seasons, activeSeason, slots, venues] = await Promise.all([
+  const commissioner = league.role === "commissioner";
+  const appearance = parseAppearance(league.settings?.appearance, DEFAULT_APPEARANCE);
+  const [seasons, activeSeason, slots, venues, footprint] = await Promise.all([
     getSeasons(league.id),
     getActiveSeason(league.id),
     getTimeSlots(league.id),
     getVenues(league.id),
+    commissioner ? getLeagueFootprint(league.id) : Promise.resolve(null),
   ]);
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          League settings
-        </h2>
-        <LeagueSettingsForm
-          slug={slug}
-          name={league.name}
-          color={league.primary_color}
-          emailDomain={league.settings?.email_domain ?? ""}
-          tradeApproval={league.settings?.trade_approval ?? "commissioner"}
-        />
-      </section>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel eyebrow="Identity" title="Logo">
+          <LeagueLogoForm
+            slug={slug}
+            name={league.name}
+            color={league.primary_color}
+            logoUrl={league.logo_url}
+          />
+        </Panel>
+        <Panel eyebrow="Identity" title="League settings">
+          <LeagueSettingsForm
+            slug={slug}
+            name={league.name}
+            color={league.primary_color}
+            emailDomain={league.settings?.email_domain ?? ""}
+            tradeApproval={league.settings?.trade_approval ?? "commissioner"}
+          />
+        </Panel>
+      </div>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Seasons</h2>
+      <Panel
+        eyebrow="Appearance"
+        title="How the league looks"
+        action={
+          <p className="max-w-xs text-right text-[13px] text-ink-body">
+            Anyone can override this for themselves from their profile.
+          </p>
+        }
+      >
+        <LeagueAppearanceForm
+          slug={slug}
+          preset={appearance.preset}
+          accent={appearance.accent}
+        />
+      </Panel>
+
+      <Panel eyebrow="Calendar" title="Seasons">
         <p className="mb-4 text-sm text-ink-body">
           The newest season is the active one everywhere in the app.
         </p>
@@ -81,7 +112,7 @@ export default async function ConsolePage({
                   <p className="font-semibold">
                     {s.name}
                     {activeSeason?.id === s.id ? (
-                      <span className="ml-2 rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-surface">
+                      <span className="ml-2 rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-on-ink">
                         current
                       </span>
                     ) : null}
@@ -108,10 +139,9 @@ export default async function ConsolePage({
           </ul>
         ) : null}
         <CreateSeasonForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Time slots</h2>
+      <Panel eyebrow="When games fit" title="Time slots">
         <p className="mb-4 text-sm text-ink-body">
           Named school periods that games are scheduled into — the scheduler
           only uses these.
@@ -133,7 +163,7 @@ export default async function ConsolePage({
                 <form action={deleteTimeSlot}>
                   <input type="hidden" name="slot_id" value={s.id} />
                   <input type="hidden" name="slug" value={slug} />
-                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent hover:bg-tint">
+                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-ink hover:bg-tint">
                     Remove
                   </button>
                 </form>
@@ -141,15 +171,14 @@ export default async function ConsolePage({
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm font-medium text-accent">
+          <p className="mb-4 text-sm font-medium text-accent-ink">
             No slots yet — the scheduler needs at least one.
           </p>
         )}
         <AddTimeSlotForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Venues</h2>
+      <Panel eyebrow="Where they're played" title="Venues">
         <p className="mb-4 text-sm text-ink-body">
           One game per venue per slot, or two when splittable.
         </p>
@@ -171,7 +200,7 @@ export default async function ConsolePage({
                 <form action={deleteVenue}>
                   <input type="hidden" name="venue_id" value={v.id} />
                   <input type="hidden" name="slug" value={slug} />
-                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent hover:bg-tint">
+                  <button className="min-h-11 rounded-control px-3 text-sm font-medium text-accent-ink hover:bg-tint">
                     Remove
                   </button>
                 </form>
@@ -179,12 +208,20 @@ export default async function ConsolePage({
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm font-medium text-accent">
+          <p className="mb-4 text-sm font-medium text-accent-ink">
             No venues yet — add your gym.
           </p>
         )}
         <AddVenueForm slug={slug} leagueId={league.id} />
-      </section>
+      </Panel>
+
+      {commissioner && footprint ? (
+        <DangerZone
+          leagueId={league.id}
+          leagueName={league.name}
+          counts={footprint}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TeamBadge } from "@/components/ui";
+import { RecapCard } from "@/components/recap-card";
+import { TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
+  getGameAbsences,
   getGameEvents,
+  getGameGuests,
+  getGameRecap,
   getLeague,
   getLineups,
+  getSubRequests,
   getTeamsWithRosters,
 } from "@/lib/data";
+import { SubPanel } from "../../subs/sub-panel";
 import { isLeagueAdmin } from "@core/league-constants";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -25,7 +31,7 @@ function BoxTable({
   title: string;
   abbrev: string;
   color: string;
-  rows: (StatLine & { name: string; userId: string; href: string })[];
+  rows: (StatLine & { name: string; userId: string; href: string | null })[];
 }) {
   return (
     <section className="card overflow-hidden">
@@ -50,10 +56,14 @@ function BoxTable({
               .sort((a, b) => b.pts - a.pts)
               .map((r) => (
                 <tr key={r.userId} className="border-t border-rule">
-                  <td className="sticky left-0 z-10 max-w-[8rem] truncate bg-surface py-2 pr-3">
-                    <Link href={r.href} className="font-semibold hover:underline">
-                      {r.name}
-                    </Link>
+                  <td className="sticky-cell sticky left-0 z-10 max-w-[8rem] truncate py-2 pr-3">
+                    {r.href ? (
+                      <Link href={r.href} className="font-semibold hover:underline">
+                        {r.name}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold">{r.name}</span>
+                    )}
                   </td>
                   <td className="tabular px-1.5 py-2 text-right font-semibold">{r.pts}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.reb}</td>
@@ -89,21 +99,50 @@ export default async function GamePage({
   const game = await getGame(gameId);
   if (!game) notFound();
 
-  const [events, lineups, teams] = await Promise.all([
-    getGameEvents(gameId),
-    getLineups(gameId),
-    getTeamsWithRosters(game.season_id),
-  ]);
+  const [events, lineups, teams, guests, recap, subRequests, absences] =
+    await Promise.all([
+      getGameEvents(gameId),
+      getLineups(gameId),
+      getTeamsWithRosters(game.season_id),
+      getGameGuests(gameId),
+      getGameRecap(gameId),
+      getSubRequests(gameId),
+      getGameAbsences(gameId),
+    ]);
+
+  // Which side the viewer is on decides what the sub panel offers them —
+  // you flag your own absence, you volunteer for the other side's hole only
+  // if it went league-wide, and you approve only the OTHER team's sub.
+  const myTeam = teams.find(
+    (t) =>
+      (t.id === game.home_team_id || t.id === game.away_team_id) &&
+      t.roster.some((r) => r.user_id === user.id),
+  );
+  const captainOf = teams
+    .filter(
+      (t) =>
+        (t.id === game.home_team_id || t.id === game.away_team_id) &&
+        (t.captain_id === user.id ||
+          t.roster.some((r) => r.user_id === user.id && r.is_captain)),
+    )
+    .map((t) => t.id);
 
   const nameOf = new Map<string, string>();
   for (const t of teams)
     for (const r of t.roster) nameOf.set(r.user_id, r.full_name);
+  const guestIds = new Set(guests.map((g) => g.id));
+  for (const g of guests) nameOf.set(g.id, g.display_name);
 
-  // Final games read from materialized stats; live games compute from events.
+  // Final (and abandoned) games read from materialized stats; live games
+  // compute from events.
   let lines: (StatLine & { userId: string; teamId: string })[] = [];
   let homeScore = game.home_score;
   let awayScore = game.away_score;
-  if (game.status === "final" || game.status === "forfeit") {
+  if (
+    game.status === "final" ||
+    game.status === "forfeit" ||
+    game.status === "abandoned"
+  ) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("player_game_stats")
@@ -111,7 +150,8 @@ export default async function GamePage({
       .eq("game_id", gameId);
     lines = ((data as unknown as PlayerGameStatRow[]) ?? []).map((r) => ({
       ...r,
-      userId: r.user_id,
+      // exactly one of user_id/guest_id is set (DB check constraint)
+      userId: (r.user_id ?? r.guest_id)!,
       teamId: r.team_id,
     }));
   } else {
@@ -133,13 +173,15 @@ export default async function GamePage({
       .map((l) => ({
         ...l,
         name: nameOf.get(l.userId) ?? "Unnamed",
-        href: `/league/${slug}/player/${l.userId}`,
+        // guests have no player page — their stats live with this game only
+        href: guestIds.has(l.userId) ? null : `/league/${slug}/player/${l.userId}`,
       }));
 
   const canTrack =
     (isLeagueAdmin(league.role) || game.scorekeeper_id === user.id) &&
     game.status !== "final" &&
-    game.status !== "forfeit";
+    game.status !== "forfeit" &&
+    game.status !== "abandoned";
 
   const visibleEvents = [...events].filter((e) => !e.voided).reverse();
 
@@ -154,15 +196,19 @@ export default async function GamePage({
             Week {game.week}
             {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
             {game.venue?.name ? ` · ${game.venue.name}` : ""}
+            {game.is_adhoc ? " · Pickup" : ""}
+            {!game.counts_for_standings ? " · Exhibition" : ""}
           </span>
           {game.status === "live" ? (
-            <span className="inline-flex items-center gap-1.5 font-bold text-accent">
+            <span className="inline-flex items-center gap-1.5 font-bold text-accent-ink">
               <span className="relative flex size-2">
                 <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-60" />
                 <span className="relative size-2 rounded-full bg-accent" />
               </span>
               LIVE · P{game.period}
             </span>
+          ) : game.status === "abandoned" ? (
+            <span className="font-bold uppercase">Incomplete</span>
           ) : (
             <span className="font-bold uppercase">{game.status}</span>
           )}
@@ -196,10 +242,10 @@ export default async function GamePage({
         {canTrack ? (
           <div className="mt-4 text-center">
             <Link
-              href={`/league/${slug}/game/${gameId}/track`}
-              className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-surface hover:bg-black"
+              href={`/league/${slug}/game/${gameId}/live`}
+              className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-6 text-sm font-semibold text-on-ink hover:opacity-90"
             >
-              {game.status === "live" ? "Resume tracking" : "Open tracker"}
+              {game.status === "live" ? "Resume the live console" : "Open the live console"}
             </Link>
           </div>
         ) : null}
@@ -222,11 +268,31 @@ export default async function GamePage({
         </div>
       ) : null}
 
+      {recap ? <RecapCard recap={recap} /> : null}
+
+      <SubPanel
+        slug={slug}
+        gameId={gameId}
+        homeTeamId={game.home_team_id}
+        awayTeamId={game.away_team_id}
+        teamNames={{
+          [game.home_team_id]: game.home_team?.name ?? "Home",
+          [game.away_team_id]: game.away_team?.name ?? "Away",
+        }}
+        requests={subRequests}
+        absences={absences}
+        viewer={{
+          userId: user.id,
+          myTeamId: myTeam?.id ?? null,
+          captainOf,
+          isAdmin: isLeagueAdmin(league.role),
+          isAbsent: absences.some((a) => a.user_id === user.id),
+        }}
+        locked={game.status === "final" || game.status === "forfeit"}
+      />
+
       {/* Play-by-play */}
-      <section className="card p-5 sm:p-6">
-        <h3 className="mb-3 text-lg font-semibold tracking-tight">
-          Play-by-play
-        </h3>
+      <Panel eyebrow="Every possession" title="Play-by-play">
         {visibleEvents.length === 0 ? (
           <p className="text-sm text-ink-faint">
             Nothing yet — events stream in live once tracking starts.
@@ -269,7 +335,7 @@ export default async function GamePage({
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

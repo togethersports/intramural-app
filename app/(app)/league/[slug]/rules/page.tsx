@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import { getLeague, getLeagueRules, getRuleFiles } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
 import { createClient } from "@/lib/supabase/server";
@@ -53,10 +53,7 @@ export default async function RulesPage({
 
   return (
     <div className="space-y-5">
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
-          League rules
-        </h2>
+      <Panel eyebrow="On the record" title="League rules">
         <p className="mb-4 text-sm text-ink-muted">
           {admin
             ? "What you write here is what players see. Keep it on the record."
@@ -85,12 +82,9 @@ export default async function RulesPage({
             ))}
           </div>
         )}
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">
-          Rule documents
-        </h2>
+      <Panel eyebrow="Files" title="Rule documents">
         <p className="mb-4 text-sm text-ink-muted">
           Official documents — rulebooks, waivers, code of conduct.
         </p>
@@ -123,7 +117,7 @@ export default async function RulesPage({
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-black"
+                      className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-on-ink hover:opacity-90"
                     >
                       Open
                     </a>
@@ -132,7 +126,7 @@ export default async function RulesPage({
                     <form action={deleteRuleFile}>
                       <input type="hidden" name="file_id" value={f.id} />
                       <input type="hidden" name="slug" value={slug} />
-                      <button className="min-h-11 rounded-full px-3 text-sm font-medium text-accent hover:bg-tint">
+                      <button className="min-h-11 rounded-full px-3 text-sm font-medium text-accent-ink hover:bg-tint">
                         Remove
                       </button>
                     </form>
@@ -143,7 +137,7 @@ export default async function RulesPage({
           </ul>
         )}
         {admin ? <RuleFileUpload slug={slug} leagueId={league.id} /> : null}
-      </section>
+      </Panel>
     </div>
   );
 }

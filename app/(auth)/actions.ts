@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthApiError } from "@supabase/supabase-js";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
@@ -91,6 +92,61 @@ export async function signUp(
     error: null,
     notice: "Check your email for a confirmation link, then sign in.",
   };
+}
+
+/**
+ * Hand off to Google.
+ *
+ * Supabase mints the consent URL and we redirect the browser to it; Google
+ * sends the person back to /auth/callback, which already knows how to
+ * exchange the PKCE `code` for a session — the same route the email
+ * confirmation links use.
+ *
+ * Account linking is Supabase's, not ours: when the Google account's email
+ * is verified and matches an existing user, it attaches as an identity on
+ * that user rather than creating a second one. That behaviour is on by
+ * default; turning off "Confirm email" in the dashboard would break it,
+ * because an unverified match is exactly the account-takeover case linking
+ * must refuse.
+ */
+export async function signInWithGoogle(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+
+  const next = String(formData.get("next") ?? "/dashboard");
+  // The redirect has to be absolute and has to match an entry in Supabase's
+  // allow-list, so derive it from the request rather than from an env var
+  // that would be wrong on every preview deploy.
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "https";
+  if (!host) return { error: UNREACHABLE };
+  const origin = `${proto}://${host}`;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      // Ask for a refresh token so a long-lived session survives without
+      // bouncing the person back through consent.
+      queryParams: { access_type: "offline", prompt: "consent" },
+    },
+  });
+
+  if (error) {
+    if (error instanceof AuthApiError && error.message.includes("provider is not enabled")) {
+      return {
+        error:
+          "Google sign-in isn't switched on for this league yet. The commissioner enables it in Supabase under Authentication → Providers → Google.",
+      };
+    }
+    return { error: authErrorMessage(error) };
+  }
+  if (!data.url) return { error: UNREACHABLE };
+  redirect(data.url);
 }
 
 export async function signOut() {

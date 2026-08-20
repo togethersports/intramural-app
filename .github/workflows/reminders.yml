@@ -1,0 +1,71 @@
+#
+# Pings the reminder job on a schedule.
+#
+# Needed on Vercel's Hobby plan, whose cron runs at most once a day — not
+# often enough for "an hour before tip-off", and which rejects the whole
+# deployment if `vercel.json` asks for more. `vercel.json` therefore keeps a
+# daily backstop and this workflow drives the real five-minute cadence.
+#
+# On Pro, set the reminders cron in `vercel.json` to `*/5 * * * *` and delete
+# this file. Until then running both is harmless: sends are claimed against a
+# unique index before they go out, so a double ping cannot double-send.
+#
+# GitHub's scheduler is best-effort and is regularly 5–20 minutes late under
+# load. The morning notice (90-minute catch-up window) and the one-hour
+# notice (20 minutes) survive that; the ten-minute notice (8 minutes) will
+# sometimes be missed. If the ten-minute one matters, use a dedicated pinger
+# like cron-job.org, or Vercel Pro.
+#
+# Setup: repo Settings → Secrets and variables → Actions → New repository
+# secret, named CRON_SECRET, matching the one in Vercel. Then set SITE_URL
+# below to the production domain.
+#
+# SITE_URL must be the domain Vercel treats as canonical, apex or www. If it
+# is the one that *redirects*, this job gets a 401: curl drops the
+# Authorization header across a redirect to a different host, and
+# `www.example.com` is a different host from `example.com`.
+#
+name: Game reminders
+
+on:
+  schedule:
+    # Every five minutes. GitHub's minimum interval.
+    - cron: "*/5 * * * *"
+  # Lets you fire one by hand from the Actions tab to test the wiring.
+  workflow_dispatch:
+
+# A slow run must not stack up behind the next tick.
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due reminders
+        env:
+          SITE_URL: https://www.intramural.app
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not set on this repository — the job refuses to run unauthenticated."
+            echo "Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # -f makes curl exit non-zero on a 4xx/5xx so a broken secret or a
+          # failed deploy shows up as a red run rather than a silent no-op.
+          response=$(curl -sS -f --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/cron/reminders")
+
+          echo "$response"
+
+          # The route answers 200 with ok:false when it is configured but
+          # cannot proceed (no service-role key, for instance).
+          echo "$response" | grep -q '"ok":true' || {
+            echo "The job answered, but reported a problem. See the body above."
+            exit 1
+          }

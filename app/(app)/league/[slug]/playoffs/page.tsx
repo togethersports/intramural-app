@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconTrophy } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import {
   getActiveSeason,
   getBracketNodes,
@@ -62,7 +62,7 @@ function NodeCard({
     return (
       <div
         className={`flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm ${
-          winner ? "bg-ink text-surface font-bold" : "bg-paper font-medium"
+          winner ? "bg-ink text-on-ink font-bold" : "bg-paper font-medium"
         }`}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -168,18 +168,17 @@ export default async function PlayoffsPage({
     <div className="space-y-5">
       {champion ? (
         <section className="card flex items-center justify-center gap-4 bg-ink p-8 text-center">
-          <IconTrophy size={40} className="text-accent" />
+          <IconTrophy size={40} className="text-accent-ink" />
           <div>
-            <p className="text-sm font-medium text-surface/60">Champions</p>
-            <p className="text-3xl font-semibold tracking-tight text-surface">
+            <p className="text-sm font-medium text-on-ink/60">Champions</p>
+            <p className="text-3xl font-semibold tracking-tight text-on-ink">
               {teams.get(champion)?.name ?? "?"}
             </p>
           </div>
         </section>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-5 text-lg font-semibold tracking-tight">Bracket</h2>
+      <Panel eyebrow="Single elimination" title="Bracket">
         <div className="scroll-x -mx-1 flex gap-8 px-1 pb-2">
           {rounds.map((round) => (
             <div key={round} className="flex flex-col gap-4">
@@ -204,11 +203,11 @@ export default async function PlayoffsPage({
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-ink-faint">
+        <p className="mt-4 border-t border-rule pt-3.5 text-[12.5px] text-ink-muted">
           Winners advance automatically when playoff games go final. Playoff
           games are scheduled from the Schedule tab like any other game.
         </p>
-      </section>
+      </Panel>
     </div>
   );
 }

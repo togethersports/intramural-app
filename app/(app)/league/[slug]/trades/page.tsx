@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { IconUsers } from "@/components/icons";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getActiveSeason,
@@ -21,12 +21,12 @@ import { TradeForm } from "./trade-form";
 export const metadata: Metadata = { title: "Trades" };
 
 const STATUS_TONE: Record<TradeRow["status"], string> = {
-  proposed: "bg-tint text-accent",
+  proposed: "bg-tint text-accent-ink",
   accepted: "bg-bench text-white",
-  executed: "bg-ink text-white",
+  executed: "bg-ink text-on-ink",
   declined: "bg-rule text-ink-faint",
   cancelled: "bg-rule text-ink-faint",
-  vetoed: "bg-tint text-accent",
+  vetoed: "bg-tint text-accent-ink",
 };
 
 export default async function TradesPage({
@@ -75,18 +75,12 @@ export default async function TradesPage({
   return (
     <div className="space-y-5">
       {myTeam ? (
-        <section className="card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">
-            Build a trade
-          </h2>
+        <Panel eyebrow="Captain" title="Build a trade">
           <TradeForm slug={slug} seasonId={season.id} myTeam={myTeam} teams={teams} />
-        </section>
+        </Panel>
       ) : null}
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          Open trades
-        </h2>
+      <Panel eyebrow="Awaiting a decision" title="Open trades">
         {open.length === 0 ? (
           <p className="text-sm text-ink-faint">Nothing on the table.</p>
         ) : (
@@ -121,7 +115,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="accept" value="true" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-white">
+                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-on-ink">
                             Accept
                           </button>
                         </form>
@@ -141,7 +135,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="approve" value="true" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-surface">
+                          <button className="min-h-11 rounded-control bg-ink px-4 text-sm font-semibold text-on-ink">
                             Approve + execute
                           </button>
                         </form>
@@ -149,7 +143,7 @@ export default async function TradesPage({
                           <input type="hidden" name="trade_id" value={t.id} />
                           <input type="hidden" name="approve" value="false" />
                           <input type="hidden" name="slug" value={slug} />
-                          <button className="min-h-11 rounded-control bg-tint px-4 text-sm font-semibold text-accent">
+                          <button className="min-h-11 rounded-control bg-tint px-4 text-sm font-semibold text-accent-ink">
                             Veto
                           </button>
                         </form>
@@ -170,12 +164,9 @@ export default async function TradesPage({
             })}
           </ul>
         )}
-      </section>
+      </Panel>
 
-      <section className="card p-5 sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold tracking-tight">
-          Transaction log
-        </h2>
+      <Panel eyebrow="Public record" title="Transaction log">
         {history.length === 0 ? (
           <p className="text-sm text-ink-faint">No completed trades yet.</p>
         ) : (
@@ -190,10 +181,10 @@ export default async function TradesPage({
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
       {!myTeam && !admin ? (
-        <p className="text-center text-sm text-white/70">
+        <p className="text-center text-sm text-ink-faint">
           Only team captains can propose trades — talk to yours.
         </p>
       ) : null}
