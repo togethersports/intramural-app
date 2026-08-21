@@ -86,6 +86,7 @@ export function ReviewRoom({
   serverEvents,
   job,
   missingConsents,
+  calibration,
 }: {
   slug: string;
   recording: RecordingRow;
@@ -96,6 +97,7 @@ export function ReviewRoom({
   serverEvents: DetectedEventRow[];
   job: VisionJobRow | null;
   missingConsents: { user_id: string; full_name: string }[];
+  calibration: { threshold: number; accuracy: number; samples: number };
 }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -455,6 +457,7 @@ export function ReviewRoom({
             recording={recording}
             filmUrl={filmUrl}
             hasPending={queue.length > 0}
+            calibration={calibration}
           />
 
           <section className="card p-5">
