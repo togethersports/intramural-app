@@ -13,10 +13,22 @@
  */
 
 import { NextResponse } from "next/server";
+import { bearerFrom, createBearerClient } from "@/lib/supabase/bearer";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 /** Apple hands back 32 bytes as hex; reject anything that isn't that. */
 const TOKEN = /^[0-9a-fA-F]{64}$/;
+
+/**
+ * The watch and phone authenticate with a Bearer header; a future web caller
+ * would arrive with cookies. Serve both — a cookie client shown a header-only
+ * request reports "signed out" for someone who isn't, which is exactly the
+ * bug this replaces.
+ */
+async function clientFor(request: Request) {
+  const bearer = bearerFrom(request);
+  return bearer ? createBearerClient(bearer) : await createClient();
+}
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
@@ -47,7 +59,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await clientFor(request);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -89,7 +101,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: false, error: "token required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await clientFor(request);
   const {
     data: { user },
   } = await supabase.auth.getUser();

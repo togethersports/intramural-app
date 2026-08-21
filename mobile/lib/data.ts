@@ -34,7 +34,9 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
   if (!auth.user) return [];
   const { data } = await supabase
     .from("league_members")
-    .select("role, league:leagues(id, name, slug, sport, primary_color)")
+    .select(
+      "role, league:leagues(id, name, slug, sport, primary_color, archived_at, deleted_at)",
+    )
     // Scope to MY memberships. RLS makes every member of a league I belong to
     // visible — rosters need that — so without this the league comes back once
     // per member, giving the Me tab duplicate rows with duplicate React keys.
@@ -46,8 +48,19 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
     .order("created_at", { ascending: true });
   return (data ?? [])
     .map((r) => {
-      const l = r.league as unknown as Omit<LeagueSummary, "role"> | null;
-      return l ? { ...l, role: r.role as string } : null;
+      const l = r.league as unknown as
+        | (Omit<LeagueSummary, "role"> & {
+            archived_at: string | null;
+            deleted_at: string | null;
+          })
+        | null;
+      // RLS hides a deleted league from members, but deliberately not from
+      // its admins — that read access is what makes restore possible. Which
+      // means the filter has to happen here too, or the commissioner's own
+      // phone keeps listing every league they ever deleted.
+      if (!l || l.archived_at || l.deleted_at) return null;
+      const { archived_at: _a, deleted_at: _d, ...league } = l;
+      return { ...league, role: r.role as string };
     })
     .filter((r): r is LeagueSummary => r !== null);
 }
@@ -78,7 +91,7 @@ export async function getMyTeams(userId: string): Promise<MyTeam[]> {
   const { data } = await supabase
     .from("team_members")
     .select(
-      "team:teams(id, name, color, abbrev, season:seasons(id, league:leagues(id, slug, name)))",
+      "team:teams(id, name, color, abbrev, season:seasons(id, league:leagues(id, slug, name, archived_at, deleted_at)))",
     )
     .eq("user_id", userId)
     .is("left_at", null);
@@ -86,9 +99,19 @@ export async function getMyTeams(userId: string): Promise<MyTeam[]> {
     .map((row) => {
       const t = row.team as unknown as {
         id: string; name: string; color: string; abbrev: string;
-        season: { id: string; league: { id: string; slug: string; name: string } | null } | null;
+        season: {
+          id: string;
+          league: {
+            id: string; slug: string; name: string;
+            archived_at: string | null; deleted_at: string | null;
+          } | null;
+        } | null;
       } | null;
+      // Same reasoning as getMyLeagues: admins can still read their deleted
+      // leagues (for restore), so the lifecycle filter must happen here or a
+      // deleted league's team keeps driving the schedule and standings tabs.
       if (!t?.season?.league) return null;
+      if (t.season.league.archived_at || t.season.league.deleted_at) return null;
       return {
         team_id: t.id,
         team_name: t.name,

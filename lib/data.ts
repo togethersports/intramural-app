@@ -79,6 +79,39 @@ export const getLeague = cache(
   },
 );
 
+export interface AnnouncementRow {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  author_name: string | null;
+}
+
+export async function getAnnouncements(
+  leagueId: string,
+  limit = 5,
+): Promise<AnnouncementRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("id, title, body, created_at, author:profiles!announcements_author_profile_fkey(full_name)")
+    .eq("league_id", leagueId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error(`getAnnouncements(${leagueId}) failed: ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    body: r.body as string,
+    created_at: r.created_at as string,
+    author_name:
+      (r.author as unknown as { full_name: string } | null)?.full_name ?? null,
+  }));
+}
+
 export const getActiveSeason = cache(
   async (leagueId: string): Promise<SeasonRow | null> => {
     const supabase = await createClient();

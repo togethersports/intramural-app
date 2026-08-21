@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Lockup } from "@/components/Mark";
 import { Avatar, Button, Card, ErrorNote, H2, Label } from "@/components/ui";
@@ -79,6 +79,25 @@ export default function Profile() {
                 <Text style={[type.bodyMedium, { color: color.ink }]} numberOfLines={1}>{l.name}</Text>
                 <Label>{l.role}</Label>
               </View>
+              {l.role === "commissioner" || l.role === "admin" ? (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/league/announce",
+                      params: { leagueId: l.id, leagueName: l.name },
+                    })
+                  }
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    backgroundColor: color.paper,
+                  }}
+                >
+                  <Text style={[type.small, { color: color.ink, fontWeight: "600" }]}>Announce</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))
         )}
