@@ -7,12 +7,19 @@ import {
   getActiveSeason,
   getFreeAgents,
   getLeague,
+  getTeams,
   getTeamsWithRosters,
 } from "@/lib/data";
 import { getUser } from "@/lib/auth";
 import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
-import { addPlayerToTeam, deleteTeam, removeFromTeam, setJersey } from "../actions";
+import {
+  addPlayerToTeam,
+  adoptExternalTeam,
+  deleteTeam,
+  removeFromTeam,
+  setJersey,
+} from "../actions";
 import { MyAvailability, StatusChip } from "./my-availability";
 import { SubPool } from "./sub-pool";
 import { CreateTeamForm } from "./team-forms";
@@ -42,12 +49,16 @@ export default async function TeamsPage({
     );
   }
 
-  const [user, teams, freeAgents, members] = await Promise.all([
+  const [user, teams, freeAgents, members, allTeams] = await Promise.all([
     getUser(),
     getTeamsWithRosters(season.id),
     getFreeAgents(league.id, season.id),
     getLeagueMembers(league.id),
+    getTeams(season.id, { includeExternal: true }),
   ]);
+
+  // Visiting teams are the ones getTeamsWithRosters filters out.
+  const visiting = allTeams.filter((t) => !teams.some((r) => r.id === t.id));
 
   const subs = members
     .filter((m) => m.sub_available)
@@ -249,6 +260,39 @@ export default async function TeamsPage({
               </span>
             ))}
           </div>
+        </Panel>
+      ) : null}
+
+      {/* Visiting teams — the free-text opponents a pickup game invented.
+          They carry stats already; adopting one makes it a league team, so
+          its games can count in the standings. */}
+      {admin && visiting.length > 0 ? (
+        <Panel title="Visiting teams">
+          <p className="mb-4 max-w-[62ch] text-sm text-ink-muted">
+            Teams typed into a pickup game. Their results stay out of the
+            standings until you add them to the league.
+          </p>
+          <ul className="space-y-2">
+            {visiting.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center gap-3 rounded-panel bg-paper px-4 py-3"
+              >
+                <TeamBadge abbrev={t.abbrev} color={t.color} size={30} />
+                <span className="min-w-0 flex-1 truncate font-semibold">{t.name}</span>
+                <form action={adoptExternalTeam}>
+                  <input type="hidden" name="team_id" value={t.id} />
+                  <input type="hidden" name="slug" value={slug} />
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-11 items-center rounded-full bg-paper px-4 text-sm font-semibold text-ink ring-1 ring-rule transition-colors hover:bg-rule"
+                  >
+                    Add to the league
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
         </Panel>
       ) : null}
     </div>

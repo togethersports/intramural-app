@@ -16,7 +16,7 @@ import {
   getTeamsWithRosters,
 } from "@/lib/data";
 import { SubPanel } from "../../subs/sub-panel";
-import { deleteGame, setGameCounts } from "../../actions";
+import { adoptExternalTeam, deleteGame, setGameCounts } from "../../actions";
 import { isLeagueAdmin } from "@core/league-constants";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -297,9 +297,15 @@ export default async function GamePage({
           both directions. Only games between two league teams can count. */}
       {isLeagueAdmin(league.role)
         ? (() => {
-            const bothInLeague =
-              teams.some((t) => t.id === game.home_team_id) &&
-              teams.some((t) => t.id === game.away_team_id);
+            // getTeams filters external teams out, so a side missing from
+            // the season list is a visiting (free-text) opponent.
+            const outsideSides = (
+              [
+                { id: game.home_team_id, name: game.home_team?.name ?? "The home team" },
+                { id: game.away_team_id, name: game.away_team?.name ?? "The away team" },
+              ] as const
+            ).filter((side) => !teams.some((t) => t.id === side.id));
+            const bothInLeague = outsideSides.length === 0;
             const played =
               game.status !== "scheduled" && game.status !== "postponed";
             return (
@@ -338,11 +344,27 @@ export default async function GamePage({
                             </Button>
                           </form>
                         ) : (
-                          <p className="text-sm text-ink-faint">
-                            Cannot be made official — one side is an outside
-                            team, and standings only count games between
-                            league teams.
-                          </p>
+                          // Errors name the fix: the outside sides get an
+                          // "add them to the league" button right here rather
+                          // than a sentence about why this cannot happen.
+                          <div className="space-y-3">
+                            <p className="text-sm text-ink-body">
+                              {outsideSides.length === 1
+                                ? `${outsideSides[0].name} is a visiting team, so this game can't count yet. Add them to the league and it can.`
+                                : "Both sides are visiting teams, so this game can't count yet. Add them to the league and it can."}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {outsideSides.map((side) => (
+                                <form key={side.id} action={adoptExternalTeam}>
+                                  <input type="hidden" name="team_id" value={side.id} />
+                                  <input type="hidden" name="slug" value={slug} />
+                                  <Button type="submit" variant="quiet">
+                                    Add {side.name} to the league
+                                  </Button>
+                                </form>
+                              ))}
+                            </div>
+                          </div>
                         )}
                         <ConfirmForm
                           action={deleteGame}
