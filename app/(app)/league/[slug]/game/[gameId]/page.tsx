@@ -16,7 +16,12 @@ import {
   getTeamsWithRosters,
 } from "@/lib/data";
 import { SubPanel } from "../../subs/sub-panel";
-import { adoptExternalTeam, deleteGame, setGameCounts } from "../../actions";
+import {
+  adoptExternalTeam,
+  deleteGame,
+  reassignGameTeams,
+  setGameCounts,
+} from "../../actions";
 import { isLeagueAdmin } from "@core/league-constants";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -306,6 +311,13 @@ export default async function GamePage({
               ] as const
             ).filter((side) => !teams.some((t) => t.id === side.id));
             const bothInLeague = outsideSides.length === 0;
+            // The swap picker offers every league team, plus whoever is
+            // currently on the game, so the side you are not changing keeps
+            // its value.
+            const selectableTeams = [
+              ...teams.map((t) => ({ id: t.id, name: t.name })),
+              ...outsideSides.map((s) => ({ id: s.id, name: `${s.name} (visiting)` })),
+            ];
             const played =
               game.status !== "scheduled" && game.status !== "postponed";
             return (
@@ -364,6 +376,50 @@ export default async function GamePage({
                                 </form>
                               ))}
                             </div>
+                            {/* Or the other repair: the placeholder was
+                                standing in for a team that already exists.
+                                Swapping moves its recorded events across. */}
+                            {teams.length > 0 ? (
+                              <form
+                                action={reassignGameTeams}
+                                className="flex flex-wrap items-end gap-2 border-t border-rule pt-3"
+                              >
+                                <input type="hidden" name="game_id" value={game.id} />
+                                <input type="hidden" name="slug" value={slug} />
+                                {(
+                                  [
+                                    ["home_team_id", "Home", game.home_team_id],
+                                    ["away_team_id", "Away", game.away_team_id],
+                                  ] as const
+                                ).map(([name, label, current]) => (
+                                  <label
+                                    key={name}
+                                    className="text-xs font-medium text-ink-body"
+                                  >
+                                    {label}
+                                    <select
+                                      name={name}
+                                      defaultValue={current}
+                                      className="mt-1 block h-11 w-40 rounded-control border border-rule bg-paper px-2 text-[17px]"
+                                    >
+                                      {selectableTeams.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                          {t.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                ))}
+                                <Button type="submit" variant="quiet">
+                                  Swap in a league team
+                                </Button>
+                                <p className="w-full text-sm text-ink-faint">
+                                  Replacing a side moves its recorded stats onto
+                                  the team you pick, so the box score survives
+                                  the fix.
+                                </p>
+                              </form>
+                            ) : null}
                           </div>
                         )}
                         <ConfirmForm

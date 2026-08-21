@@ -423,13 +423,24 @@ export function DashboardView({
                       href={`/league/${l.slug}`}
                       className="card db-tile group flex h-full items-center gap-4 p-4"
                     >
-                      <span
-                        aria-hidden
-                        className="grid size-12 shrink-0 place-items-center rounded-[14px] text-[19px] font-semibold text-white"
-                        style={{ backgroundColor: l.primary_color }}
-                      >
-                        {l.name.slice(0, 1).toUpperCase()}
-                      </span>
+                      {l.logo_url ? (
+                        // Supabase public bucket; next/image would need the
+                        // project ref pinned for a 48px thumbnail.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={l.logo_url}
+                          alt=""
+                          className="size-12 shrink-0 rounded-[14px] object-cover"
+                        />
+                      ) : (
+                        <span
+                          aria-hidden
+                          className="grid size-12 shrink-0 place-items-center rounded-[14px] text-[19px] font-semibold text-white"
+                          style={{ backgroundColor: l.primary_color }}
+                        >
+                          {l.name.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[17px] font-semibold tracking-[-0.01em]">
                           {l.name}
