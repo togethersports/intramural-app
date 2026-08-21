@@ -35,6 +35,8 @@ export default async function TeamsPage({
   const league = await getLeague(slug);
   if (!league) notFound();
   const admin = isLeagueAdmin(league.role);
+  // Leagues that do not hand out shirts hide numbers rather than show blanks.
+  const jerseys = league.settings?.jersey_numbers !== false;
   const season = await getActiveSeason(league.id);
 
   if (!season) {
@@ -167,7 +169,7 @@ export default async function TeamsPage({
                         note={statusOf.get(m.user_id)?.note ?? null}
                         until={statusOf.get(m.user_id)?.until ?? null}
                       />
-                      {admin ? (
+                      {jerseys && admin ? (
                         <form action={setJersey} className="flex items-center gap-1">
                           <input type="hidden" name="member_id" value={m.id} />
                           <input type="hidden" name="slug" value={slug} />
@@ -184,11 +186,11 @@ export default async function TeamsPage({
                             Set
                           </button>
                         </form>
-                      ) : (
+                      ) : jerseys ? (
                         <span className="tabular text-sm text-ink-body">
                           {m.jersey_number != null ? `#${m.jersey_number}` : ""}
                         </span>
-                      )}
+                      ) : null}
                       {admin && !m.is_captain ? (
                         <form action={removeFromTeam}>
                           <input type="hidden" name="member_id" value={m.id} />

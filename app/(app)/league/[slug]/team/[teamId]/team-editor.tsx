@@ -161,11 +161,14 @@ export function LineupEditor({
   sport,
   teamId,
   roster,
+  jerseys = true,
 }: {
   slug: string;
   sport: string;
   teamId: string;
   roster: RosterEntry[];
+  /** Off in leagues that don't hand out shirts — see the Console setting. */
+  jerseys?: boolean;
 }) {
   const [state, action, pending] = useActionState(updateLineup, EMPTY);
   const options = positionsFor(sport);
@@ -235,7 +238,7 @@ export function LineupEditor({
                       ) : null}
                     </span>
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className={jerseys ? "flex items-center gap-2" : "hidden"}>
                     <span className="label !text-[10px]">No.</span>
                     <Input
                       name={`jersey:${m.id}`}

@@ -25,6 +25,7 @@ export default async function TeamPage({
   if (!league) notFound();
   const season = await getActiveSeason(league.id);
   if (!season) notFound();
+  const jerseys = league.settings?.jersey_numbers !== false;
 
   const [user, teams, games, standings, statRows] = await Promise.all([
     getUser(),
@@ -144,7 +145,7 @@ export default async function TeamPage({
                             {m.position}
                           </span>
                         ) : null}
-                        {m.jersey_number != null ? (
+                        {jerseys && m.jersey_number != null ? (
                           <span className="tabular text-xs text-ink-faint">
                             #{m.jersey_number}
                           </span>
@@ -196,6 +197,7 @@ export default async function TeamPage({
             sport={league.sport}
             teamId={team.id}
             roster={team.roster}
+            jerseys={jerseys}
           />
         </div>
       ) : null}

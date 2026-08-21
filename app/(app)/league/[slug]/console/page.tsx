@@ -81,6 +81,7 @@ export default async function ConsolePage({
             color={league.primary_color}
             emailDomain={league.settings?.email_domain ?? ""}
             tradeApproval={league.settings?.trade_approval ?? "commissioner"}
+            jerseyNumbers={league.settings?.jersey_numbers !== false}
           />
         </Panel>
       </div>

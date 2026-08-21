@@ -11,11 +11,11 @@ import {
 } from "@/lib/data";
 import {
   aggregateLines,
-  formatPct,
   pct,
   perGame,
   type SeasonTotals,
 } from "@core/stats";
+import { SeasonTable } from "./season-table";
 
 export const metadata: Metadata = { title: "Stats" };
 
@@ -143,61 +143,17 @@ export default async function StatsPage({
         })}
       </div>
 
-      <Panel eyebrow="Every player" title="Season totals" flush>
-        <div className="scroll-x px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-ink-faint">
-                <th className="py-1.5 pr-2 font-medium">Player</th>
-                <th className="py-1.5 pr-2 font-medium">Team</th>
-                {["GP", "PTS", "REB", "AST", "STL", "BLK", "TO", "FG%", "3P%", "FT%", "+/−"].map((h) => (
-                  <th key={h} className="tabular px-2 py-1.5 text-right font-medium">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[...players]
-                .sort((a, b) => b.totals.pts - a.totals.pts)
-                .map((p) => (
-                  <tr key={p.userId} className="border-t border-rule">
-                    <td className="sticky-cell sticky left-0 z-10 max-w-[9rem] truncate py-2.5 pr-3">
-                      <Link
-                        href={`/league/${slug}/player/${p.userId}`}
-                        className="font-semibold hover:underline"
-                      >
-                        {p.name}
-                      </Link>
-                    </td>
-                    <td className="py-2.5 pr-2">
-                      <span className="flex max-w-[7rem] items-center gap-1.5 truncate text-xs font-medium text-ink-body">
-                        <span
-                          aria-hidden
-                          className="size-2.5 rounded-full"
-                          style={{ backgroundColor: p.teamColor }}
-                        />
-                        {p.teamName}
-                      </span>
-                    </td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.games}</td>
-                    <td className="tabular px-2 py-2.5 text-right font-semibold">{p.totals.pts}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.reb}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.ast}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.stl}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.blk}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{p.totals.tov}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{formatPct(pct(p.totals.fgm, p.totals.fga))}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{formatPct(pct(p.totals.tpm, p.totals.tpa))}</td>
-                    <td className="tabular px-2 py-2.5 text-right">{formatPct(pct(p.totals.ftm, p.totals.fta))}</td>
-                    <td className="tabular px-2 py-2.5 text-right">
-                      {p.totals.plus_minus > 0 ? `+${p.totals.plus_minus}` : p.totals.plus_minus}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+      <Panel title="Season totals" flush>
+        <SeasonTable
+          slug={slug}
+          rows={players.map((p) => ({
+            userId: p.userId,
+            name: p.name,
+            teamName: p.teamName,
+            teamColor: p.teamColor,
+            totals: p.totals,
+          }))}
+        />
       </Panel>
     </div>
   );
