@@ -306,7 +306,9 @@ export function Shell({
               <IconMenu size={20} />
             </button>
             <div className="min-w-0">
-              <p className="label !text-[10.5px]">{meta.crumb}</p>
+              {/* The crumb ("You", "Commissioner · Run today") came out: the
+                  sidebar already shows where you are, so it was a header
+                  repeating the navigation in grey. */}
               {/* Detail routes leave the title empty: their own hero names
                   the team or the player better than a generic word would. */}
               {meta.title ? (

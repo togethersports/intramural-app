@@ -253,14 +253,11 @@ export function Panel({
           )}
         >
           <div className="min-w-0">
-            {eyebrow ? <p className="label !text-[11px]">{eyebrow}</p> : null}
+            {/* The eyebrow prop is still accepted but no longer rendered —
+                the grey category labels ("How you show up") said less than
+                the titles under them, so the titles stand alone now. */}
             {title ? (
-              <h2
-                className={cx(
-                  "truncate text-[17px] font-semibold tracking-[-0.01em]",
-                  eyebrow ? "mt-1" : null,
-                )}
-              >
+              <h2 className="truncate text-[17px] font-semibold tracking-[-0.01em]">
                 {title}
               </h2>
             ) : null}
