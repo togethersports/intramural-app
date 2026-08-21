@@ -11,6 +11,8 @@ import {
   IconLogout,
   IconMenu,
 } from "@/components/icons";
+import { Mark } from "@/components/mark";
+import { NavIcon } from "@/components/nav-icon";
 import { Avatar } from "@/components/ui";
 import {
   isNavActive,
@@ -29,6 +31,9 @@ export interface ShellIdentity {
   eyebrow: string;
   logoUrl: string | null;
   color: string;
+  /** The product tile wears the Bracket mark; a league without a logo wears
+      its initial on its own colour, the way TeamBadge does. */
+  mark?: boolean;
 }
 
 export interface ShellUser {
@@ -113,6 +118,13 @@ export function Shell({
             alt=""
             className="size-[38px] shrink-0 rounded-[12px] object-cover"
           />
+        ) : identity.mark ? (
+          <span
+            aria-hidden
+            className="grid size-[38px] shrink-0 place-items-center rounded-[12px] bg-paper text-ink"
+          >
+            <Mark size={21} tone="theme" />
+          </span>
         ) : (
           <span
             aria-hidden
@@ -182,8 +194,12 @@ export function Shell({
                       : "flex min-h-11 items-center gap-2.5 rounded-[11px] px-2.5 text-[15px] font-medium text-ink-muted transition-colors hover:bg-paper hover:text-ink"
                   }
                 >
-                  <span className="num w-[18px] shrink-0 text-[10px] opacity-70">
-                    {item.tag}
+                  <span
+                    className={
+                      active ? "shrink-0 text-ink" : "shrink-0 text-ink-faint"
+                    }
+                  >
+                    <NavIcon name={item.icon} />
                   </span>
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {count > 0 ? (

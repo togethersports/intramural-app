@@ -9,10 +9,35 @@
 // Pure data with no imports, so the sidebar (client) and the layouts (server)
 // read the same source.
 
+/** Icon key, resolved to a glyph by components/nav-icon.tsx. A key rather
+    than a component because this file is pure data with no imports — the
+    server layouts and the client sidebar both read it. */
+export type NavIconName =
+  | "home"
+  | "calendar"
+  | "clock"
+  | "list"
+  | "chart"
+  | "trophy"
+  | "users"
+  | "queue"
+  | "swap"
+  | "members"
+  | "book"
+  | "console"
+  | "film"
+  | "grid"
+  | "bell"
+  | "user"
+  | "ticket"
+  | "plus";
+
 export interface NavItem {
   href: string;
   label: string;
-  /** Two-digit rail marker — the mono tick down the left of the sidebar. */
+  /** The glyph that carries this destination in the rail. */
+  icon: NavIconName;
+  /** Two-digit rail marker — kept for the numbered reference at /design. */
   tag: string;
   /** Match only this exact path (used for the league root). */
   exact?: boolean;
@@ -48,25 +73,26 @@ export function leagueNav(
   { admin, mode }: { admin: boolean; mode: Mode },
 ): NavGroup[] {
   const b = `/league/${slug}`;
-  const overview = { href: b, label: "Overview", exact: true };
-  const schedule = { href: `${b}/schedule`, label: "Schedule" };
+  const overview = { href: b, label: "Overview", icon: "home" as const, exact: true };
+  const schedule = { href: `${b}/schedule`, label: "Schedule", icon: "calendar" as const };
   const availability = {
     href: `${b}/availability`,
     label: "Availability",
+    icon: "clock" as const,
     badge: "availability",
   };
-  const standings = { href: `${b}/standings`, label: "Standings" };
-  const stats = { href: `${b}/stats`, label: "Stat leaders" };
-  const playoffs = { href: `${b}/playoffs`, label: "Playoffs" };
-  const teams = { href: `${b}/teams`, label: "Teams" };
-  const draft = { href: `${b}/draft`, label: "Draft" };
-  const trades = { href: `${b}/trades`, label: "Trades", badge: "trades" };
-  const members = { href: `${b}/members`, label: "Members" };
-  const rules = { href: `${b}/rules`, label: "Rules" };
-  const console = { href: `${b}/console`, label: "Console" };
+  const standings = { href: `${b}/standings`, label: "Standings", icon: "list" as const };
+  const stats = { href: `${b}/stats`, label: "Stat leaders", icon: "chart" as const };
+  const playoffs = { href: `${b}/playoffs`, label: "Playoffs", icon: "trophy" as const };
+  const teams = { href: `${b}/teams`, label: "Teams", icon: "users" as const };
+  const draft = { href: `${b}/draft`, label: "Draft", icon: "queue" as const };
+  const trades = { href: `${b}/trades`, label: "Trades", icon: "swap" as const, badge: "trades" };
+  const members = { href: `${b}/members`, label: "Members", icon: "members" as const };
+  const rules = { href: `${b}/rules`, label: "Rules", icon: "book" as const };
+  const console = { href: `${b}/console`, label: "Console", icon: "console" as const };
   // Admin-only: RLS hides every recording from players, so the page would be
   // an empty room for them — the destination only exists in admin rails.
-  const film = { href: `${b}/film`, label: "Film" };
+  const film = { href: `${b}/film`, label: "Film", icon: "film" as const };
 
   if (mode === "commish" && admin) {
     return numbered([
@@ -95,16 +121,16 @@ export function mainNav(): NavGroup[] {
     {
       label: "You",
       items: [
-        { href: "/dashboard", label: "Leagues" },
-        { href: "/inbox", label: "Inbox", badge: "inbox" },
-        { href: "/profile", label: "Profile" },
+        { href: "/dashboard", label: "Leagues", icon: "grid" as const },
+        { href: "/inbox", label: "Inbox", icon: "bell" as const, badge: "inbox" },
+        { href: "/profile", label: "Profile", icon: "user" as const },
       ],
     },
     {
       label: "Add a league",
       items: [
-        { href: "/join", label: "Join with a code" },
-        { href: "/leagues/new", label: "Start a league" },
+        { href: "/join", label: "Join with a code", icon: "ticket" as const },
+        { href: "/leagues/new", label: "Start a league", icon: "plus" as const },
       ],
     },
   ]);
