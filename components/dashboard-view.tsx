@@ -11,8 +11,9 @@
  *   5. where they belong (leagues), then archived, quiet, at the bottom.
  */
 import Link from "next/link";
-import { purgeLeague, restoreLeague, unarchiveLeague } from "@/app/(app)/actions";
+import { restoreLeague, unarchiveLeague } from "@/app/(app)/actions";
 import { DemoLeagueButton } from "@/components/demo-league-button";
+import { PurgeLeagueForm } from "@/components/purge-league-form";
 import {
   IconArrowRight,
   IconCalendar,
@@ -508,26 +509,7 @@ export function DashboardView({
                           {l.deleted_at ? "Restore" : "Unarchive"}
                         </Button>
                       </form>
-                      {/* The dialog is a courtesy; the commissioner-only
-                          guarantee is the RLS delete policy. */}
-                      <form
-                        action={purgeLeague}
-                        onSubmit={(e) => {
-                          const typed = window.prompt(
-                            `This deletes ${l.name} and every season, game and stat in it, immediately and permanently. Type the league name to confirm:`,
-                          );
-                          if (typed !== l.name) e.preventDefault();
-                        }}
-                      >
-                        <input type="hidden" name="league_id" value={l.id} />
-                        <Button
-                          type="submit"
-                          variant="quiet"
-                          className="!min-h-10 !px-4 !py-2 !text-[14px] !text-caution"
-                        >
-                          Delete forever
-                        </Button>
-                      </form>
+                      <PurgeLeagueForm leagueId={l.id} leagueName={l.name} />
                     </div>
                   )
                 ) : null}
