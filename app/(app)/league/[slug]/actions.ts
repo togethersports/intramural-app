@@ -1061,11 +1061,50 @@ export async function rescheduleGame(formData: FormData) {
 export async function deleteGame(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();
+  const gameId = str(formData, "game_id");
+  // A scheduled game can always be deleted (nothing happened yet). A played
+  // one only if it is an exhibition — official finals are the ledger, but a
+  // scrimmage's box score belongs to the commissioner to keep or not.
+  const { data: game } = await supabase
+    .from("games")
+    .select("status, counts_for_standings")
+    .eq("id", gameId)
+    .maybeSingle();
+  if (!game) return;
+  if (game.status !== "scheduled" && game.counts_for_standings) return;
+  await supabase.from("games").delete().eq("id", gameId);
+  const slug = str(formData, "slug");
+  revalidateLeague(slug);
+  // The game page no longer exists — land somewhere that does.
+  redirect(`/league/${slug}/schedule`);
+}
+
+/** Flip a game between exhibition and official. Promotion is refused when
+    either side is an external (free-text) team — standings can only count
+    games between two teams that are actually in the season. */
+export async function setGameCounts(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const gameId = str(formData, "game_id");
+  const counts = str(formData, "counts") === "true";
+  if (counts) {
+    const { data: game } = await supabase
+      .from("games")
+      .select("home_team_id, away_team_id")
+      .eq("id", gameId)
+      .maybeSingle();
+    if (!game) return;
+    const { data: external } = await supabase
+      .from("teams")
+      .select("id")
+      .in("id", [game.home_team_id, game.away_team_id])
+      .eq("is_external", true);
+    if ((external ?? []).length > 0) return;
+  }
   await supabase
     .from("games")
-    .delete()
-    .eq("id", str(formData, "game_id"))
-    .eq("status", "scheduled");
+    .update({ counts_for_standings: counts })
+    .eq("id", gameId);
   revalidateLeague(str(formData, "slug"));
 }
 
