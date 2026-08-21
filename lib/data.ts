@@ -1202,3 +1202,36 @@ export async function getFilmUrl(
     .createSignedUrl(storagePath, expiresIn);
   return data?.signedUrl ?? null;
 }
+
+/** Every reviewed scanner call in the league, as calibration fodder — the
+    self-tuning loop reads these to re-draw the make/miss line for this gym
+    (see calibrateMakeMiss in @core/vision). Admin-only via RLS, like every
+    other detected_events read. */
+export async function getLeagueReviewedShots(
+  leagueId: string,
+): Promise<{ type: string; status: string; source: string; payload: Record<string, unknown> | null }[]> {
+  const supabase = await createClient();
+  const { data: seasons } = await supabase
+    .from("seasons")
+    .select("id")
+    .eq("league_id", leagueId);
+  const seasonIds = (seasons ?? []).map((s) => s.id as string);
+  if (seasonIds.length === 0) return [];
+
+  const { data: games } = await supabase
+    .from("games")
+    .select("id")
+    .in("season_id", seasonIds);
+  const gameIds = (games ?? []).map((g) => g.id as string);
+  if (gameIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("detected_events")
+    .select("type, status, source, payload")
+    .in("game_id", gameIds)
+    .eq("status", "confirmed")
+    .eq("source", "model");
+  return (
+    (data as { type: string; status: string; source: string; payload: Record<string, unknown> | null }[]) ?? []
+  );
+}

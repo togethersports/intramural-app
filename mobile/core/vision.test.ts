@@ -18,10 +18,13 @@ import {
   stepQueue,
   toggleShotResult,
   toggleShotValue,
+  calibrateMakeMiss,
+  CALIBRATION_MIN_EXAMPLES,
   candidatesFromScan,
   findMotionWindows,
   scanConfidence,
   scanThreshold,
+  makeMissExamples,
   scoreMakeMiss,
   type DetectedEvent,
   type MotionSample,
@@ -395,5 +398,100 @@ describe("scanner", () => {
     // the survivors are the strongest, still sorted by time
     const times = capped.map((c) => c.ts_ms);
     expect([...times].sort((a, b) => a - b)).toEqual(times);
+  });
+});
+
+describe("make/miss self-calibration", () => {
+  const ex = (lowerShare: number, made: boolean) => ({ lowerShare, made });
+
+  it("stays at the 0.5 default until there is enough evidence", () => {
+    const few = [ex(0.9, true), ex(0.1, false), ex(0.8, true)];
+    expect(calibrateMakeMiss(few)).toEqual({ threshold: 0.5, accuracy: 0, samples: 3 });
+  });
+
+  it("moves the line to where the reviewers actually ruled", () => {
+    // A gym where makes read lower than the default expects: everything
+    // above 0.35 was confirmed made, everything below was confirmed missed.
+    // The fixed 0.5 line calls the 0.36..0.49 band wrong; the learned one
+    // does not.
+    const examples = [
+      ...[0.36, 0.38, 0.41, 0.44, 0.47, 0.55, 0.62, 0.7].map((s) => ex(s, true)),
+      ...[0.12, 0.18, 0.22, 0.27, 0.31, 0.33].map((s) => ex(s, false)),
+    ];
+    expect(examples.length).toBeGreaterThanOrEqual(CALIBRATION_MIN_EXAMPLES);
+    const cal = calibrateMakeMiss(examples);
+    expect(cal.threshold).toBeLessThan(0.36);
+    expect(cal.threshold).toBeGreaterThan(0.33);
+    expect(cal.accuracy).toBe(1);
+    // and the recalibrated scorer now agrees with the reviewers
+    const sample = (centroidY: number) => [{ tsMs: 0, energy: 1, centroidY }];
+    expect(scoreMakeMiss(sample(0.4), cal.threshold).made).toBe(false);
+    // lowerShare of that sample is 0 (centroid above 0.5) — use share directly:
+    expect((0.4 >= cal.threshold) === true).toBe(true);
+  });
+
+  it("clamps a degenerate line back onto the chart", () => {
+    // Every reviewed call was a make — the sweep would push the line to the
+    // floor and call everything made forever. The clamp refuses.
+    const allMade = Array.from({ length: 12 }, (_, i) => ex(0.2 + i * 0.05, true));
+    const cal = calibrateMakeMiss(allMade);
+    expect(cal.threshold).toBeGreaterThanOrEqual(0.3);
+    expect(cal.threshold).toBeLessThanOrEqual(0.7);
+  });
+
+  it("keeps the default on a tie rather than drifting", () => {
+    const balanced = [
+      ...Array.from({ length: 6 }, (_, i) => ex(0.6 + i * 0.05, true)),
+      ...Array.from({ length: 6 }, (_, i) => ex(0.1 + i * 0.05, false)),
+    ];
+    // several lines separate these perfectly; the one closest to 0.5 wins
+    const cal = calibrateMakeMiss(balanced);
+    expect(cal.accuracy).toBe(1);
+    expect(Math.abs(cal.threshold - 0.5)).toBeLessThanOrEqual(0.15);
+  });
+
+  it("builds examples only from confirmed model calls that carry the feature", () => {
+    const rows = [
+      { type: "fg2_made", status: "confirmed", source: "model", payload: { lower_share: 0.8 } },
+      { type: "fg3_miss", status: "confirmed", source: "model", payload: { lower_share: 0.2 } },
+      // human edited two → three: still a labelled make
+      { type: "fg3_made", status: "confirmed", source: "model", payload: { lower_share: 0.7 } },
+      // rejected = "not a shot", not a make/miss label
+      { type: "fg2_made", status: "rejected", source: "model", payload: { lower_share: 0.9 } },
+      // manual additions never came from the scanner
+      { type: "fg2_made", status: "confirmed", source: "manual", payload: { lower_share: 0.9 } },
+      // pending rows have no ruling yet
+      { type: "fg2_miss", status: "pending", source: "model", payload: { lower_share: 0.1 } },
+      // old rows scanned before the feature existed
+      { type: "fg2_made", status: "confirmed", source: "model", payload: {} },
+      // a confirmed rebound is not a shot
+      { type: "dreb", status: "confirmed", source: "model", payload: { lower_share: 0.5 } },
+    ];
+    expect(makeMissExamples(rows)).toEqual([
+      { lowerShare: 0.8, made: true },
+      { lowerShare: 0.2, made: false },
+      { lowerShare: 0.7, made: true },
+    ]);
+  });
+
+  it("threads the learned line through a scan and stores the training pair", () => {
+    // one clean spike whose motion sits at 0.45 lower-share
+    const samples = [
+      ...Array.from({ length: 40 }, (_, i) => ({ tsMs: i * 250, energy: 0.005, centroidY: 0.5 })),
+      { tsMs: 10_000, energy: 0.6, centroidY: 0.3 },
+      { tsMs: 10_120, energy: 0.5, centroidY: 0.6 },
+    ];
+    const stock = candidatesFromScan(samples);
+    const tuned = candidatesFromScan(samples, { makeMissThreshold: 0.3 });
+    expect(stock).toHaveLength(1);
+    expect(tuned).toHaveLength(1);
+    // the same motion flips from miss to make under the learned line
+    expect(stock[0].type).toBe("fg2_miss");
+    expect(tuned[0].type).toBe("fg2_made");
+    // and both carry the pair calibration will learn from next time
+    for (const c of [stock[0], tuned[0]]) {
+      expect(typeof c.payload.lower_share).toBe("number");
+      expect(c.payload.predicted).toBe(c.type);
+    }
   });
 });

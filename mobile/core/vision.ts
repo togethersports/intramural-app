@@ -350,6 +350,8 @@ export interface ScanOptions {
   mergeGapMs?: number;
   /** Keep only the strongest N — a threshold gone wrong must not flood the queue. */
   maxCandidates?: number;
+  /** The learned make/miss line for this league's gym — see calibrateMakeMiss. */
+  makeMissThreshold?: number;
 }
 
 const SCAN_DEFAULTS: Required<ScanOptions> = {
@@ -357,6 +359,7 @@ const SCAN_DEFAULTS: Required<ScanOptions> = {
   energyFloor: 0.02,
   mergeGapMs: 1500,
   maxCandidates: 250,
+  makeMissThreshold: 0.5,
 };
 
 function median(values: number[]): number {
@@ -417,16 +420,28 @@ export function findMotionWindows(
 
 /** Made or missed, from where the motion lived in the rim box. The net hangs
     in the lower half, so a make concentrates difference-energy low; a rim-out
-    keeps it high. Crude on purpose — the reviewer flips it with one key. */
-export function scoreMakeMiss(samples: MotionSample[]): {
+    keeps it high. Crude on purpose — the reviewer flips it with one key, and
+    every flip becomes a labelled example that re-draws the line (see
+    calibrateMakeMiss below). */
+export function scoreMakeMiss(
+  samples: MotionSample[],
+  threshold = 0.5,
+): {
   made: boolean;
   lean: number; // 0 (coin flip) .. 1 (unambiguous)
+  /** Share of difference-energy in the lower half of the rim box, 0..1.
+      Stored with each candidate — it is the feature calibration learns on. */
+  lowerShare: number;
 } {
   const total = samples.reduce((sum, s) => sum + s.energy, 0);
-  if (total <= 0) return { made: false, lean: 0 };
+  if (total <= 0) return { made: false, lean: 0, lowerShare: 0 };
   const lowerShare =
     samples.reduce((sum, s) => sum + (s.centroidY >= 0.5 ? s.energy : 0), 0) / total;
-  return { made: lowerShare >= 0.5, lean: Math.min(1, Math.abs(lowerShare - 0.5) * 2) };
+  return {
+    made: lowerShare >= threshold,
+    lean: Math.min(1, Math.abs(lowerShare - threshold) * 2),
+    lowerShare,
+  };
 }
 
 /** How sure the scan is, 0..1. Grows with how far the peak cleared the
@@ -455,7 +470,7 @@ export function candidatesFromScan(
   samples: MotionSample[],
   opts: ScanOptions = {},
 ): ScanCandidate[] {
-  const { maxCandidates } = { ...SCAN_DEFAULTS, ...opts };
+  const { maxCandidates, makeMissThreshold } = { ...SCAN_DEFAULTS, ...opts };
   const threshold = scanThreshold(samples, opts);
   const windows = findMotionWindows(samples, opts);
   const strongest = [...windows]
@@ -465,9 +480,10 @@ export function candidatesFromScan(
   return strongest
     .sort((a, b) => a.peakMs - b.peakMs)
     .map((w) => {
-      const { made, lean } = scoreMakeMiss(w.samples);
+      const { made, lean, lowerShare } = scoreMakeMiss(w.samples, makeMissThreshold);
+      const type = made ? ("fg2_made" as const) : ("fg2_miss" as const);
       return {
-        type: made ? ("fg2_made" as const) : ("fg2_miss" as const),
+        type,
         ts_ms: Math.round(w.peakMs),
         confidence: scanConfidence(w.peak, threshold, lean),
         payload: {
@@ -475,9 +491,97 @@ export function candidatesFromScan(
           peak_energy: Math.round(w.peak * 1000) / 1000,
           window_ms: [Math.round(w.startMs), Math.round(w.endMs)],
           samples: w.samples.length,
+          // The training pair: what the scanner saw, and what it guessed.
+          // The reviewer's final ruling on the row is the truth label.
+          lower_share: Math.round(lowerShare * 1000) / 1000,
+          predicted: type,
         },
       };
     });
+}
+
+/* ------------------------------------------------------------- calibration --
+   The self-tuning loop. Every reviewed call carries the scan's lower_share
+   and the human's final ruling; this re-draws the made/missed line where the
+   reviewers actually put it. A gym with a deep net reads different from a
+   gym with a stiff one — the fixed 0.5 is only the day-one default. */
+
+export interface MakeMissExample {
+  lowerShare: number;
+  made: boolean;
+}
+
+/** Don't move off the default until the line has this much evidence. */
+export const CALIBRATION_MIN_EXAMPLES = 10;
+
+/** The learned line stays on the chart: a run of one-sided games must not
+    push it somewhere every future call comes out the same. */
+export const CALIBRATION_CLAMP: readonly [number, number] = [0.3, 0.7];
+
+/** Reviewed candidate rows → training examples. Only model-sourced calls a
+    human confirmed count: the final type is the truth, the stored
+    lower_share is the feature. Rejected rows are excluded — "not a shot at
+    all" says nothing about made versus missed. */
+export function makeMissExamples(
+  rows: {
+    type: string;
+    status: string;
+    source: string;
+    payload: Record<string, unknown> | null;
+  }[],
+): MakeMissExample[] {
+  return rows.flatMap((r) => {
+    if (r.status !== "confirmed" || r.source !== "model") return [];
+    if (!isShot(r.type)) return [];
+    const share = r.payload?.lower_share;
+    if (typeof share !== "number" || !Number.isFinite(share)) return [];
+    return [{ lowerShare: share, made: r.type.endsWith("_made") }];
+  });
+}
+
+export interface MakeMissCalibration {
+  threshold: number;
+  /** Fraction of the examples the chosen line reproduces, 0..1. */
+  accuracy: number;
+  samples: number;
+}
+
+export function calibrateMakeMiss(examples: MakeMissExample[]): MakeMissCalibration {
+  if (examples.length < CALIBRATION_MIN_EXAMPLES) {
+    return { threshold: 0.5, accuracy: 0, samples: examples.length };
+  }
+
+  const accuracyAt = (t: number) =>
+    examples.filter((e) => (e.lowerShare >= t) === e.made).length / examples.length;
+
+  // Candidate lines: midpoints between neighbouring observed values, plus
+  // the default. A 1-D sweep — the feature space is tiny and exact beats
+  // clever here.
+  const shares = [...new Set(examples.map((e) => e.lowerShare))].sort((a, b) => a - b);
+  const candidates = [0.5];
+  for (let i = 1; i < shares.length; i++) {
+    candidates.push((shares[i - 1] + shares[i]) / 2);
+  }
+
+  let best = 0.5;
+  let bestAccuracy = accuracyAt(0.5);
+  for (const t of candidates) {
+    const a = accuracyAt(t);
+    // Strictly better wins; a tie keeps whichever line sits closer to the
+    // default, so the calibration never drifts without evidence.
+    if (a > bestAccuracy || (a === bestAccuracy && Math.abs(t - 0.5) < Math.abs(best - 0.5))) {
+      best = t;
+      bestAccuracy = a;
+    }
+  }
+
+  const [lo, hi] = CALIBRATION_CLAMP;
+  const threshold = Math.min(hi, Math.max(lo, best));
+  return {
+    threshold: Math.round(threshold * 1000) / 1000,
+    accuracy: Math.round(accuracyAt(threshold) * 1000) / 1000,
+    samples: examples.length,
+  };
 }
 
 /* --------------------------------------------------------------- language -- */

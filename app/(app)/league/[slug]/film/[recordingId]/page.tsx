@@ -7,6 +7,7 @@ import {
   getGame,
   getGameGuests,
   getLeague,
+  getLeagueReviewedShots,
   getMissingConsents,
   getRecording,
   getTeamById,
@@ -14,6 +15,7 @@ import {
   getVisionJob,
 } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
+import { calibrateMakeMiss, makeMissExamples } from "@core/vision";
 import { ReviewRoom, type ReviewSide } from "./review-room";
 
 export const metadata: Metadata = { title: "Review film" };
@@ -33,14 +35,20 @@ export default async function ReviewPage({
   const game = await getGame(recording.game_id);
   if (!game) notFound();
 
-  const [events, teams, guests, job, filmUrl, missing] = await Promise.all([
-    getDetectedEvents(recordingId),
-    getTeamsWithRosters(game.season_id),
-    getGameGuests(game.id),
-    getVisionJob(recordingId),
-    getFilmUrl(recording.storage_path),
-    getMissingConsents(recordingId),
-  ]);
+  const [events, teams, guests, job, filmUrl, missing, reviewedShots] =
+    await Promise.all([
+      getDetectedEvents(recordingId),
+      getTeamsWithRosters(game.season_id),
+      getGameGuests(game.id),
+      getVisionJob(recordingId),
+      getFilmUrl(recording.storage_path),
+      getMissingConsents(recordingId),
+      getLeagueReviewedShots(league.id),
+    ]);
+
+  // The self-tuning loop: every call an admin has ever confirmed or flipped
+  // re-draws the scanner's make/miss line before the next scan runs.
+  const calibration = calibrateMakeMiss(makeMissExamples(reviewedShots));
 
   // An ad-hoc game's external opponent isn't in the season team list; its
   // roster is guests only. Same shape as the live console.
@@ -114,6 +122,7 @@ export default async function ReviewPage({
         serverEvents={events}
         job={job}
         missingConsents={missing}
+        calibration={calibration}
       />
     </div>
   );
