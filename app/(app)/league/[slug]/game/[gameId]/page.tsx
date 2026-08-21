@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConfirmForm } from "@/components/confirm-form";
 import { RecapCard } from "@/components/recap-card";
-import { TeamBadge, Panel } from "@/components/ui";
+import { Button, TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   getGame,
@@ -15,6 +16,7 @@ import {
   getTeamsWithRosters,
 } from "@/lib/data";
 import { SubPanel } from "../../subs/sub-panel";
+import { deleteGame, setGameCounts } from "../../actions";
 import { isLeagueAdmin } from "@core/league-constants";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
@@ -290,6 +292,89 @@ export default async function GamePage({
         }}
         locked={game.status === "final" || game.status === "forfeit"}
       />
+
+      {/* Exhibition or official — the commissioner's call, reversible in
+          both directions. Only games between two league teams can count. */}
+      {isLeagueAdmin(league.role)
+        ? (() => {
+            const bothInLeague =
+              teams.some((t) => t.id === game.home_team_id) &&
+              teams.some((t) => t.id === game.away_team_id);
+            const played =
+              game.status !== "scheduled" && game.status !== "postponed";
+            return (
+              <Panel title="Game controls">
+                <div className="space-y-4">
+                  <p className="text-sm text-ink-body">
+                    {game.counts_for_standings
+                      ? "Official — the result counts in both teams' records."
+                      : "Exhibition — the result stays out of the standings for both teams."}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {game.counts_for_standings ? (
+                      game.is_playoff ? (
+                        <p className="text-sm text-ink-faint">
+                          Playoff games always count — the bracket depends on them.
+                        </p>
+                      ) : (
+                        <form action={setGameCounts}>
+                          <input type="hidden" name="game_id" value={game.id} />
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="counts" value="false" />
+                          <Button type="submit" variant="quiet">
+                            Make it an exhibition
+                          </Button>
+                        </form>
+                      )
+                    ) : (
+                      <>
+                        {bothInLeague ? (
+                          <form action={setGameCounts}>
+                            <input type="hidden" name="game_id" value={game.id} />
+                            <input type="hidden" name="slug" value={slug} />
+                            <input type="hidden" name="counts" value="true" />
+                            <Button type="submit" variant="quiet">
+                              Count it as official
+                            </Button>
+                          </form>
+                        ) : (
+                          <p className="text-sm text-ink-faint">
+                            Cannot be made official — one side is an outside
+                            team, and standings only count games between
+                            league teams.
+                          </p>
+                        )}
+                        <ConfirmForm
+                          action={deleteGame}
+                          message={
+                            played
+                              ? "Delete this exhibition game and its box score permanently?"
+                              : "Delete this exhibition game?"
+                          }
+                          hidden={{ game_id: game.id, slug }}
+                        >
+                          <Button
+                            type="submit"
+                            variant="quiet"
+                            className="!text-caution"
+                          >
+                            Delete this game
+                          </Button>
+                        </ConfirmForm>
+                      </>
+                    )}
+                  </div>
+                  {!game.counts_for_standings && bothInLeague ? (
+                    <p className="text-sm text-ink-faint">
+                      Counting it as official adds this result to the
+                      standings for both teams the moment you click.
+                    </p>
+                  ) : null}
+                </div>
+              </Panel>
+            );
+          })()
+        : null}
 
       {/* Play-by-play */}
       <Panel eyebrow="Every possession" title="Play-by-play">
