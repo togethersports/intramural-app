@@ -53,8 +53,18 @@ export const Body = ({ children, style }: { children: ReactNode; style?: object 
   <Text style={[type.body, { color: color.inkBody }, style]}>{children}</Text>
 );
 /** The mono eyebrow. */
-export const Label = ({ children, style }: { children: ReactNode; style?: object }) => (
-  <Text style={[type.label, style]}>{children}</Text>
+export const Label = ({
+  children,
+  style,
+  numberOfLines,
+}: {
+  children: ReactNode;
+  style?: object;
+  numberOfLines?: number;
+}) => (
+  <Text style={[type.label, style]} numberOfLines={numberOfLines}>
+    {children}
+  </Text>
 );
 /** Anything counted. */
 export const Num = ({

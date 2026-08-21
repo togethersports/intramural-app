@@ -14,8 +14,7 @@ import {
   JetBrainsMono_500Medium,
 } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { CanvasBackground, loadCanvasChoice } from "@/lib/canvas";
-import { View } from "react-native";
+import { loadCanvasChoice, useCanvas } from "@/lib/canvas";
 import { color } from "@/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -23,6 +22,7 @@ loadCanvasChoice();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
+  const canvas = useCanvas();
   const segments = useSegments();
   const router = useRouter();
 
@@ -40,17 +40,18 @@ function RootNavigator() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: color.canvas },
+        headerStyle: { backgroundColor: canvas.base },
         headerTintColor: color.white,
         headerTitleStyle: { fontFamily: "Outfit_600SemiBold", fontSize: 18 },
         headerShadowVisible: false,
         // The previous screen is the "(tabs)" group, and iOS would print that
         // route name as the back label without an explicit title.
         headerBackTitle: "Back",
-        // Transparent so the one CanvasBackground shows through every screen
-        // — each scene painting its own ground would double the glows.
-        headerTransparent: false,
-        contentStyle: { backgroundColor: "transparent" },
+        // Solid, not transparent: native-stack screens are hoisted into the
+        // window's own view hierarchy, so a "transparent" scene reveals the
+        // white iOS window — not any React view rendered behind the Stack.
+        // The glow layer lives inside the tab and auth trees instead.
+        contentStyle: { backgroundColor: canvas.base },
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -80,10 +81,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        <View style={{ flex: 1, backgroundColor: color.canvas }}>
-          <CanvasBackground />
-          <RootNavigator />
-        </View>
+        <RootNavigator />
       </AuthProvider>
     </SafeAreaProvider>
   );

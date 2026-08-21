@@ -1,7 +1,9 @@
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { View } from "react-native";
 import { FloatingTabBar } from "@/components/FloatingTabBar";
+import { CanvasBackground, useCanvas } from "@/lib/canvas";
 import { Avatar } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useMyIdentity } from "@/lib/profile";
@@ -48,8 +50,11 @@ const IconUser = ({ c }: { c: ColorValue }) => (
 export default function TabsLayout() {
   const { user } = useAuth();
   const me = useMyIdentity(user?.id);
+  const canvas = useCanvas();
   return (
-    <Tabs
+    <View style={{ flex: 1, backgroundColor: canvas.base }}>
+      <CanvasBackground />
+      <Tabs
       // The bar floats over content instead of claiming a slab of screen —
       // every scrolling screen pads its bottom by TAB_CLEARANCE instead.
       tabBar={(props) => <FloatingTabBar {...props} />}
@@ -103,6 +108,7 @@ export default function TabsLayout() {
             ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </View>
   );
 }

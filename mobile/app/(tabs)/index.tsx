@@ -7,6 +7,7 @@
  */
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
@@ -60,6 +61,7 @@ export default function Home() {
   const { user } = useAuth();
   const router = useRouter();
   const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const [leagues, setLeagues] = useState<LeagueSummary[]>([]);
   const [teams, setTeams] = useState<MyTeam[]>([]);
   const [games, setGames] = useState<GameRow[]>([]);
@@ -151,6 +153,7 @@ export default function Home() {
       scrollEventThrottle={16}
       contentContainerStyle={{
         padding: space(2),
+        paddingTop: insets.top + space(1),
         gap: space(1.75),
         paddingBottom: TAB_CLEARANCE,
       }}

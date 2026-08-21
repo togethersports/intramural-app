@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { useCanvas } from "@/lib/canvas";
 
 /**
  * The auth group's own navigator. Without this file it exists implicitly —
@@ -7,11 +8,13 @@ import { Stack } from "expo-router";
  * full-bleed layouts; no chrome belongs above them.
  */
 export default function AuthLayout() {
+  const canvas = useCanvas();
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "transparent" },
+        // Solid: a "transparent" native-stack scene shows the white window.
+        contentStyle: { backgroundColor: canvas.base },
       }}
     />
   );

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Button, Card, EmptyState, H2, Label, Row } from "@/components/ui";
 import { getNotifications, markAllRead } from "@/lib/data";
@@ -32,6 +33,7 @@ function routeFor(link: string | null): string | null {
 export default function Inbox() {
   const router = useRouter();
   const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -50,7 +52,7 @@ export default function Inbox() {
     <ScrollView
       onScroll={onScroll}
       scrollEventThrottle={16}
-      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
       <ScreenHeader title="Inbox" subtitle="Everything that needs you" />
@@ -71,7 +73,7 @@ export default function Inbox() {
             const route = routeFor(n.link);
             const body = (
               <Row style={{ flexDirection: "row", gap: space(1.5), alignItems: "flex-start" }}>
-                <Label style={{ width: 86 }}>{CATEGORY[n.category] ?? "Update"}</Label>
+                <Label style={{ marginTop: 2 }} numberOfLines={1}>{CATEGORY[n.category] ?? "Update"}</Label>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[n.read_at ? type.body : type.bodyMedium, { color: color.ink }]}>
                     {n.title}

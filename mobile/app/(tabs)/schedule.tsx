@@ -6,6 +6,7 @@
  */
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Card, EmptyState, Label } from "@/components/ui";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -24,6 +25,7 @@ function isoToday(): string {
 export default function Schedule() {
   const { user } = useAuth();
   const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const [games, setGames] = useState<GameRow[]>([]);
   const [myTeamIds, setMyTeamIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +59,7 @@ export default function Schedule() {
     <ScrollView
       onScroll={onScroll}
       scrollEventThrottle={16}
-      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
       <ScreenHeader title="Schedule" subtitle="Grouped by day" />

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Avatar, Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -18,6 +19,7 @@ export default function Standings() {
   const { user } = useAuth();
   const router = useRouter();
   const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const me = useMyIdentity(user?.id);
   const [myTeamId, setMyTeamId] = useState<string | null>(null);
   const [leagueName, setLeagueName] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export default function Standings() {
     <ScrollView
       onScroll={onScroll}
       scrollEventThrottle={16}
-      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
       <ScreenHeader

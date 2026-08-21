@@ -13,6 +13,7 @@ import { GoogleButton } from "@/components/GoogleButton";
 import { Mark } from "@/components/Mark";
 import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { CanvasBackground } from "@/lib/canvas";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { color, space, type } from "@/theme";
 
@@ -31,10 +32,12 @@ export default function SignIn() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
-    >
+    <View style={{ flex: 1 }}>
+      <CanvasBackground />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -116,6 +119,7 @@ export default function SignIn() {
           Built for lunch periods everywhere.
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

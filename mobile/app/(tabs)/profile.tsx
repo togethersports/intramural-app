@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Lockup } from "@/components/Mark";
 import { Avatar, Button, Card, ErrorNote, H2, Label } from "@/components/ui";
@@ -15,6 +16,7 @@ export default function Profile() {
   const { user, signOut, deleteAccount } = useAuth();
   const router = useRouter();
   const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const canvas = useCanvas();
   const me = useMyIdentity(user?.id);
   const [name, setName] = useState("");
@@ -60,7 +62,7 @@ export default function Profile() {
     <ScrollView
       onScroll={onScroll}
       scrollEventThrottle={16}
-      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
     >
       <Card style={{ gap: space(2) }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space(2) }}>
@@ -116,9 +118,6 @@ export default function Profile() {
 
       <Card style={{ gap: space(1.5) }}>
         <H2>Background</H2>
-        <Text style={[type.small, { color: color.inkMuted }]}>
-          What sits behind the glass. Yours alone — everyone picks their own.
-        </Text>
         <View style={{ flexDirection: "row", gap: space(1.25) }}>
           {CANVASES.map((c) => {
             const active = c.id === canvas.id;
