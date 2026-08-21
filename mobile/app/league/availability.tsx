@@ -16,9 +16,9 @@ function clock(t: string): string {
 }
 type Status = "yes" | "maybe" | "no";
 const OPTIONS: { value: Status; label: string; bg: string; fg: string }[] = [
-  { value: "yes", label: "In", bg: color.ink, fg: color.white },
-  { value: "maybe", label: "Maybe", bg: color.bench, fg: color.white },
-  { value: "no", label: "Out", bg: color.tint, fg: color.accent },
+  { value: "yes", label: "In", bg: color.positiveBg, fg: color.positive },
+  { value: "maybe", label: "Maybe", bg: color.cautionBg, fg: color.caution },
+  { value: "no", label: "Out", bg: color.dangerBg, fg: color.danger },
 ];
 
 export default function Availability() {

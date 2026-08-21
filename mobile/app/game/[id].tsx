@@ -43,9 +43,16 @@ export default function GameDetail() {
     if (g.status === "final" || g.status === "forfeit") {
       // Final games read the materialized stat lines.
       const { data } = await supabase.from("player_game_stats").select("*").eq("game_id", id);
-      setLines(((data as unknown as PlayerGameStatRow[]) ?? []).map((r) => ({
-        ...r, userId: r.user_id, teamId: r.team_id,
+      const rows = (data as unknown as PlayerGameStatRow[]) ?? [];
+      setLines(rows.map((r) => ({
+        ...r,
+        userId: r.user_id ?? `guest:${r.guest_id ?? "?"}`,
+        teamId: r.team_id,
       })));
+      for (const r of rows) {
+        if (!r.user_id && r.full_name) nameMap.set(`guest:${r.guest_id ?? "?"}`, r.full_name);
+      }
+      setNames(new Map(nameMap));
       setScore({ home: g.home_score, away: g.away_score });
     } else {
       // Live/scheduled: compute from the event stream with the SAME pure
@@ -139,7 +146,7 @@ export default function GameDetail() {
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space(2) }}>
           <View style={{ flex: 1, alignItems: "center", gap: 6 }}>
-            <TeamBadge abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.bench} size={40} />
+            <TeamBadge abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.teamFallback} size={40} />
             <Text numberOfLines={1} style={[type.small, { color: color.inkBody }]}>{game.home_team?.name}</Text>
             {played ? <Num size={40}>{score.home}</Num> : null}
           </View>
@@ -149,7 +156,7 @@ export default function GameDetail() {
             <Label>{formatDate(game.scheduled_date)}</Label>
           )}
           <View style={{ flex: 1, alignItems: "center", gap: 6 }}>
-            <TeamBadge abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.bench} size={40} />
+            <TeamBadge abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.teamFallback} size={40} />
             <Text numberOfLines={1} style={[type.small, { color: color.inkBody }]}>{game.away_team?.name}</Text>
             {played ? <Num size={40}>{score.away}</Num> : null}
           </View>
@@ -158,8 +165,8 @@ export default function GameDetail() {
 
       {played ? (
         <>
-          <Box teamId={game.home_team_id} name={game.home_team?.name ?? "Home"} abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.bench} />
-          <Box teamId={game.away_team_id} name={game.away_team?.name ?? "Away"} abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.bench} />
+          <Box teamId={game.home_team_id} name={game.home_team?.name ?? "Home"} abbrev={game.home_team?.abbrev ?? "?"} teamColor={game.home_team?.color ?? color.teamFallback} />
+          <Box teamId={game.away_team_id} name={game.away_team?.name ?? "Away"} abbrev={game.away_team?.abbrev ?? "?"} teamColor={game.away_team?.color ?? color.teamFallback} />
 
           <Card style={{ gap: space(1) }}>
             <H2>Play-by-play</H2>

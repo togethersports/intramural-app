@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { computeStandings } from "@core/standings";
 import { aggregateLines, perGame } from "@core/stats";
 import { color, space, type } from "@/theme";
@@ -14,6 +15,8 @@ const COL = { wl: 30, diff: 50 } as const;
 export default function Standings() {
   const { user } = useAuth();
   const router = useRouter();
+  const onScroll = useBarScroll();
+  const [myTeamId, setMyTeamId] = useState<string | null>(null);
   const [rows, setRows] = useState<
     { teamId: string; name: string; teamColor: string; w: number; l: number; pct: number; diff: number }[]
   >([]);
@@ -28,6 +31,7 @@ export default function Standings() {
     if (teams.length === 0) { setRows([]); setLoaded(true); return; }
     const seasonId = teams[0].season_id;
     setLeagueId(teams[0].league_id);
+    setMyTeamId(teams[0].team_id);
     const [seasonTeams, games, stats] = await Promise.all([
       getTeams(seasonId), getGames(seasonId), getSeasonPlayerStats(seasonId),
     ]);
@@ -39,12 +43,15 @@ export default function Standings() {
     setRows(standings.map((s) => ({
       teamId: s.teamId,
       name: byId.get(s.teamId)?.name ?? "?",
-      teamColor: byId.get(s.teamId)?.color ?? color.bench,
+      teamColor: byId.get(s.teamId)?.color ?? color.teamFallback,
       w: s.w, l: s.l, pct: s.pct, diff: s.diff,
     })));
 
     const byPlayer = new Map<string, { name: string; lines: typeof stats }>();
     for (const r of stats) {
+      // Ad-hoc guests have no account; a season leaderboard is for rostered
+      // players, so their lines stay in the box score but not here.
+      if (!r.user_id) continue;
       if (!byPlayer.has(r.user_id)) byPlayer.set(r.user_id, { name: r.full_name ?? "Unnamed", lines: [] });
       byPlayer.get(r.user_id)!.lines.push(r);
     }
@@ -65,9 +72,12 @@ export default function Standings() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: space(2), gap: space(2) }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.white} />}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
+      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>League</Text>
       <Card style={{ gap: space(1.5) }}>
         <H2>Standings</H2>
         {rows.length === 0 ? (
@@ -86,7 +96,10 @@ export default function Standings() {
             {rows.map((r, i) => (
               <View key={r.teamId} style={{
                 flexDirection: "row", alignItems: "center", gap: space(1),
-                backgroundColor: color.paper, borderRadius: 12,
+                backgroundColor: r.teamId === myTeamId ? color.tint : color.paper,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: r.teamId === myTeamId ? "rgba(255,92,72,0.34)" : color.ruleSoft,
                 paddingHorizontal: space(1.25), paddingVertical: space(1.25),
               }}>
                 <Num size={13} style={{ color: color.inkFaint, width: 16 }}>{i + 1}</Num>
@@ -94,7 +107,7 @@ export default function Standings() {
                 <Text numberOfLines={1} style={[type.bodyMedium, { flex: 1, color: color.ink }]}>{r.name}</Text>
                 <Num size={15} style={{ width: COL.wl, textAlign: "right" }}>{r.w}</Num>
                 <Num size={15} style={{ width: COL.wl, textAlign: "right" }}>{r.l}</Num>
-                <Num size={15} style={{ width: COL.diff, textAlign: "right", color: r.diff < 0 ? color.accent : color.ink }}>
+                <Num size={15} style={{ width: COL.diff, textAlign: "right", color: r.diff < 0 ? color.danger : color.ink }}>
                   {r.diff > 0 ? `+${r.diff}` : r.diff}
                 </Num>
               </View>

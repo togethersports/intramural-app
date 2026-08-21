@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router";
 import { Button, Card, EmptyState, H2, Label, Row } from "@/components/ui";
 import { getNotifications, markAllRead } from "@/lib/data";
+import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 import type { NotificationRow } from "@core/types";
 
@@ -14,6 +15,7 @@ const CATEGORY: Record<string, string> = {
   schedule_change: "Schedule",
   availability_nudge: "Availability",
   scorekeeper: "Scorekeeper",
+  announcement: "League",
 };
 
 /** Notification links are web paths; map the ones the app can handle. */
@@ -28,6 +30,7 @@ function routeFor(link: string | null): string | null {
 
 export default function Inbox() {
   const router = useRouter();
+  const onScroll = useBarScroll();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -44,9 +47,12 @@ export default function Inbox() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: space(2), gap: space(2) }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.white} />}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
+      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>Inbox</Text>
       {unread > 0 ? (
         <Button variant="canvas" onPress={async () => { await markAllRead(); load(); }}>
           Mark all read

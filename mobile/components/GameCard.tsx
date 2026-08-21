@@ -49,7 +49,7 @@ function Side({
   );
 }
 
-export function GameCard({ game }: { game: GameRow }) {
+export function GameCard({ game, hideDate = false }: { game: GameRow; hideDate?: boolean }) {
   const router = useRouter();
   const final = game.status === "final" || game.status === "forfeit";
   const showScore = game.status !== "scheduled" && game.status !== "postponed";
@@ -72,9 +72,13 @@ export function GameCard({ game }: { game: GameRow }) {
     >
       <View style={s.header}>
         <Text style={[type.label, { flex: 1 }]} numberOfLines={1}>
-          {formatDate(game.scheduled_date)}
-          {game.time_slot?.label ? ` · ${game.time_slot.label}` : ""}
-          {game.venue?.name ? ` · ${game.venue.name}` : ""}
+          {[
+            hideDate ? null : formatDate(game.scheduled_date),
+            game.time_slot?.label ?? null,
+            game.venue?.name ?? null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </Text>
         {status ? (
           <View style={s.statusRow}>
@@ -87,7 +91,7 @@ export function GameCard({ game }: { game: GameRow }) {
         <Side
           name={game.home_team?.name ?? "TBD"}
           abbrev={game.home_team?.abbrev ?? "?"}
-          teamColor={game.home_team?.color ?? color.bench}
+          teamColor={game.home_team?.color ?? color.teamFallback}
           score={game.home_score}
           showScore={showScore}
           won={final && game.home_score > game.away_score}
@@ -95,7 +99,7 @@ export function GameCard({ game }: { game: GameRow }) {
         <Side
           name={game.away_team?.name ?? "TBD"}
           abbrev={game.away_team?.abbrev ?? "?"}
-          teamColor={game.away_team?.color ?? color.bench}
+          teamColor={game.away_team?.color ?? color.teamFallback}
           score={game.away_score}
           showScore={showScore}
           won={final && game.away_score > game.home_score}
@@ -111,6 +115,8 @@ const s = StyleSheet.create({
     borderRadius: radius.row,
     padding: space(2),
     gap: space(1.25),
+    borderWidth: 1,
+    borderColor: color.ruleSoft,
   },
   header: { flexDirection: "row", alignItems: "center", gap: space(1) },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 5 },

@@ -6,11 +6,13 @@ import { Avatar, Button, Card, ErrorNote, H2, Label } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { getMyLeagues, type LeagueSummary } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
+import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 
 export default function Profile() {
   const { user, signOut, deleteAccount } = useAuth();
   const router = useRouter();
+  const onScroll = useBarScroll();
   const [name, setName] = useState("");
   const [grade, setGrade] = useState<number | null>(null);
   const [leagues, setLeagues] = useState<LeagueSummary[]>([]);
@@ -51,7 +53,12 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space(2), gap: space(2) }}>
+    <ScrollView
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+    >
+      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>Me</Text>
       <Card style={{ gap: space(2) }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space(2) }}>
           <Avatar name={name || "?"} size={56} />
