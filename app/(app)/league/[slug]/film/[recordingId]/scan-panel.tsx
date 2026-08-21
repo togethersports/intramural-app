@@ -8,6 +8,7 @@ import {
   candidatesFromScan,
   denormalizeRoi,
   type MotionSample,
+  type ShotModel,
 } from "@core/vision";
 import { beginScan, ingestScanEvents, reportScanProgress } from "../actions";
 
@@ -36,15 +37,15 @@ export function ScanPanel({
   recording,
   filmUrl,
   hasPending,
-  calibration,
+  model,
 }: {
   slug: string;
   recording: RecordingRow;
   filmUrl: string | null;
   hasPending: boolean;
-  /** The learned make/miss line — re-fit from every reviewed call on the
-      server each time this page renders. 0.5 until enough evidence. */
-  calibration: { threshold: number; accuracy: number; samples: number };
+  /** The league's models, re-trained from every reviewed call on the server
+      each time this page renders. Nulls until there is enough evidence. */
+  model: ShotModel;
 }) {
   const router = useRouter();
   const [state, setState] = useState<ScanState>(IDLE);
@@ -93,9 +94,7 @@ export function ScanPanel({
         return;
       }
 
-      const candidates = candidatesFromScan(samples, {
-        makeMissThreshold: calibration.threshold,
-      });
+      const candidates = candidatesFromScan(samples, { model });
       setState((s) => ({ ...s, phase: "ingesting", found: candidates.length }));
       const res = await ingestScanEvents(slug, recording.id, candidates);
       if (res.error) throw new Error(res.error);
@@ -126,11 +125,19 @@ export function ScanPanel({
         each one as a call to review. Runs right here in the browser — keep
         this tab open and visible while it works.
       </p>
-      {calibration.threshold !== 0.5 ? (
+      {model.makeMiss || model.realShot ? (
+        <p className="mb-3 text-sm text-ink-faint">
+          Running your league&apos;s own trained model —{" "}
+          <span className="num">{model.samples.realShot}</span> rulings on what
+          counts as a shot,{" "}
+          <span className="num">{model.samples.makeMiss}</span> on made versus
+          missed. Every review sharpens the next scan.
+        </p>
+      ) : model.makeMissThreshold !== 0.5 ? (
         <p className="mb-3 text-sm text-ink-faint">
           Made/missed line tuned from{" "}
-          <span className="num">{calibration.samples}</span> of your reviewed
-          calls — every correction sharpens the next scan.
+          <span className="num">{model.samples.threshold}</span> of your
+          reviewed calls — every correction sharpens the next scan.
         </p>
       ) : null}
 

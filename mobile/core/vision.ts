@@ -458,6 +458,179 @@ export function scanConfidence(
   return Math.min(0.8, Math.max(0.2, Math.round(c * 100) / 100));
 }
 
+/* ------------------------------------------------------------ shot features --
+   Everything the motion analysis can say about one window, kept as a named
+   vector and stored with every candidate. This is the training set: the
+   reviewer's ruling labels each row, and the models below re-fit from the
+   whole history on every visit. Numbers only — no pixels ever leave the
+   scan, so the rows can outlive the film (§7: derived data is not
+   biometric). */
+
+export interface WindowFeatures {
+  /** Share of difference-energy in the lower half of the rim box. */
+  lowerShare: number;
+  /** Energy-weighted centroid drift, after the peak minus before it —
+      positive when the motion travels down through the net. */
+  driftDown: number;
+  /** Window length. A shot is brief; a scramble under the rim is not. */
+  durationMs: number;
+  /** Share of the window's energy after the peak — a make decays, a
+      rim-out keeps rattling. */
+  postShare: number;
+  /** Peak energy over the scan threshold, ≥ 1. */
+  peakRatio: number;
+}
+
+function weightedCentroid(samples: MotionSample[]): number {
+  const total = samples.reduce((s, x) => s + x.energy, 0);
+  if (total <= 0) return 0.5;
+  return samples.reduce((s, x) => s + x.centroidY * x.energy, 0) / total;
+}
+
+export function featuresFromWindow(w: MotionWindow, threshold: number): WindowFeatures {
+  const total = w.samples.reduce((s, x) => s + x.energy, 0);
+  const pre = w.samples.filter((s) => s.tsMs <= w.peakMs);
+  const post = w.samples.filter((s) => s.tsMs > w.peakMs);
+  const postEnergy = post.reduce((s, x) => s + x.energy, 0);
+  return {
+    lowerShare:
+      total <= 0
+        ? 0
+        : w.samples.reduce((s, x) => s + (x.centroidY >= 0.5 ? x.energy : 0), 0) / total,
+    driftDown: post.length === 0 ? 0 : weightedCentroid(post) - weightedCentroid(pre),
+    durationMs: w.endMs - w.startMs,
+    postShare: total <= 0 ? 0 : postEnergy / total,
+    peakRatio: threshold > 0 ? w.peak / threshold : 1,
+  };
+}
+
+/* ------------------------------------------------------------- shot models --
+   Two tiny logistic regressions, re-trained from scratch on every page
+   visit — the weights are never stored, so there is nothing to go stale
+   and nothing to migrate. Zero-init batch gradient descent: deterministic,
+   dependency-free, and milliseconds at this scale.
+
+     makeMiss — P(the shot went in), trained on confirmed shots.
+     realShot — P(this window was a shot at all), trained on confirmed
+                versus rejected candidates. This is what teaches the
+                scanner to stop proposing the janitor's mop at the rim. */
+
+/** Bounded, fixed-scale inputs — no per-league normalisation to drift. */
+function vectorize(f: WindowFeatures): number[] {
+  return [
+    1,
+    clamp01(f.lowerShare),
+    clamp01((f.driftDown + 1) / 2),
+    Math.min(f.durationMs, 4000) / 4000,
+    clamp01(f.postShare),
+    Math.min(Math.max(f.peakRatio, 0), 8) / 8,
+  ];
+}
+
+function sigmoid(z: number): number {
+  return 1 / (1 + Math.exp(-z));
+}
+
+function dot(a: number[], b: number[]): number {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+
+export interface LabelledFeatures {
+  features: WindowFeatures;
+  label: boolean;
+}
+
+/** A model must have seen both outcomes this many times before it rules. */
+export const MODEL_MIN_PER_CLASS = 5;
+
+export function trainShotClassifier(examples: LabelledFeatures[]): number[] | null {
+  const positives = examples.filter((e) => e.label).length;
+  if (positives < MODEL_MIN_PER_CLASS || examples.length - positives < MODEL_MIN_PER_CLASS) {
+    return null;
+  }
+  const xs = examples.map((e) => vectorize(e.features));
+  const ys = examples.map((e) => (e.label ? 1 : 0));
+  const w = new Array<number>(xs[0].length).fill(0);
+  const lr = 0.6;
+  const l2 = 0.01;
+  for (let epoch = 0; epoch < 400; epoch++) {
+    const g = new Array<number>(w.length).fill(0);
+    for (let i = 0; i < xs.length; i++) {
+      const err = sigmoid(dot(w, xs[i])) - ys[i];
+      for (let j = 0; j < w.length; j++) g[j] += err * xs[i][j];
+    }
+    for (let j = 0; j < w.length; j++) {
+      // the bias term escapes the L2 pull — the base rate is not noise
+      w[j] -= lr * (g[j] / xs.length + l2 * (j === 0 ? 0 : w[j]));
+    }
+  }
+  return w.map((v) => Math.round(v * 1e4) / 1e4);
+}
+
+export function classifyShot(weights: number[], f: WindowFeatures): number {
+  return sigmoid(dot(weights, vectorize(f)));
+}
+
+export interface ShotModel {
+  makeMiss: number[] | null;
+  realShot: number[] | null;
+  /** The 1-D calibrated line — the fallback while makeMiss is null, and
+      for old candidates scanned before features were stored. */
+  makeMissThreshold: number;
+  samples: { makeMiss: number; realShot: number; threshold: number };
+}
+
+function parseFeatures(payload: Record<string, unknown> | null): WindowFeatures | null {
+  const f = payload?.features as Record<string, unknown> | undefined;
+  if (!f) return null;
+  const keys = ["lowerShare", "driftDown", "durationMs", "postShare", "peakRatio"] as const;
+  const out = {} as Record<(typeof keys)[number], number>;
+  for (const k of keys) {
+    const v = f[k];
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    out[k] = v;
+  }
+  return out;
+}
+
+/** The whole self-teaching loop in one call: reviewed candidate rows in,
+    freshly trained models out. Run it server-side before each scan. */
+export function shotModelFromRows(
+  rows: {
+    type: string;
+    status: string;
+    source: string;
+    payload: Record<string, unknown> | null;
+  }[],
+): ShotModel {
+  const makeMiss: LabelledFeatures[] = [];
+  const realShot: LabelledFeatures[] = [];
+  for (const r of rows) {
+    if (r.source !== "model") continue;
+    const features = parseFeatures(r.payload);
+    if (!features) continue;
+    if (r.status === "confirmed" || r.status === "rejected") {
+      realShot.push({ features, label: r.status === "confirmed" });
+    }
+    if (r.status === "confirmed" && isShot(r.type)) {
+      makeMiss.push({ features, label: r.type.endsWith("_made") });
+    }
+  }
+  const calibration = calibrateMakeMiss(makeMissExamples(rows));
+  return {
+    makeMiss: trainShotClassifier(makeMiss),
+    realShot: trainShotClassifier(realShot),
+    makeMissThreshold: calibration.threshold,
+    samples: {
+      makeMiss: makeMiss.length,
+      realShot: realShot.length,
+      threshold: calibration.samples,
+    },
+  };
+}
+
 export interface ScanCandidate {
   type: "fg2_made" | "fg2_miss";
   ts_ms: number;
@@ -468,9 +641,11 @@ export interface ScanCandidate {
 /** Samples in, ingestable candidates out. The whole scan pipeline. */
 export function candidatesFromScan(
   samples: MotionSample[],
-  opts: ScanOptions = {},
+  opts: ScanOptions & { model?: ShotModel } = {},
 ): ScanCandidate[] {
   const { maxCandidates, makeMissThreshold } = { ...SCAN_DEFAULTS, ...opts };
+  const model = opts.model;
+  const line = model?.makeMissThreshold ?? makeMissThreshold;
   const threshold = scanThreshold(samples, opts);
   const windows = findMotionWindows(samples, opts);
   const strongest = [...windows]
@@ -480,20 +655,50 @@ export function candidatesFromScan(
   return strongest
     .sort((a, b) => a.peakMs - b.peakMs)
     .map((w) => {
-      const { made, lean, lowerShare } = scoreMakeMiss(w.samples, makeMissThreshold);
+      const features = featuresFromWindow(w, threshold);
+
+      // Made or missed: the trained model rules once it exists; until then
+      // the calibrated 1-D line does. Same fallback, per decision.
+      let made: boolean;
+      let lean: number;
+      if (model?.makeMiss) {
+        const p = classifyShot(model.makeMiss, features);
+        made = p >= 0.5;
+        lean = Math.min(1, Math.abs(2 * p - 1));
+      } else {
+        ({ made, lean } = scoreMakeMiss(w.samples, line));
+      }
+
+      // Was it a shot at all: the reject-trained model scales confidence
+      // down for windows that look like the junk this league rejects.
+      let confidence = scanConfidence(w.peak, threshold, lean);
+      if (model?.realShot) {
+        const pReal = classifyShot(model.realShot, features);
+        confidence = Math.min(0.8, Math.max(0.2, Math.round(confidence * (0.4 + 0.6 * pReal) * 100) / 100));
+      }
+
       const type = made ? ("fg2_made" as const) : ("fg2_miss" as const);
+      const round3 = (n: number) => Math.round(n * 1000) / 1000;
       return {
         type,
         ts_ms: Math.round(w.peakMs),
-        confidence: scanConfidence(w.peak, threshold, lean),
+        confidence,
         payload: {
           scanner: "browser-motion",
-          peak_energy: Math.round(w.peak * 1000) / 1000,
+          peak_energy: round3(w.peak),
           window_ms: [Math.round(w.startMs), Math.round(w.endMs)],
           samples: w.samples.length,
-          // The training pair: what the scanner saw, and what it guessed.
-          // The reviewer's final ruling on the row is the truth label.
-          lower_share: Math.round(lowerShare * 1000) / 1000,
+          // The training row: everything the scan saw, and what it guessed.
+          // The reviewer's final ruling is the truth label; the models above
+          // re-fit from the whole history on every visit.
+          features: {
+            lowerShare: round3(features.lowerShare),
+            driftDown: round3(features.driftDown),
+            durationMs: Math.round(features.durationMs),
+            postShare: round3(features.postShare),
+            peakRatio: round3(features.peakRatio),
+          },
+          lower_share: round3(features.lowerShare),
           predicted: type,
         },
       };

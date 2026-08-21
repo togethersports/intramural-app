@@ -15,7 +15,7 @@ import {
   getVisionJob,
 } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
-import { calibrateMakeMiss, makeMissExamples } from "@core/vision";
+import { shotModelFromRows } from "@core/vision";
 import { ReviewRoom, type ReviewSide } from "./review-room";
 
 export const metadata: Metadata = { title: "Review film" };
@@ -46,9 +46,10 @@ export default async function ReviewPage({
       getLeagueReviewedShots(league.id),
     ]);
 
-  // The self-tuning loop: every call an admin has ever confirmed or flipped
-  // re-draws the scanner's make/miss line before the next scan runs.
-  const calibration = calibrateMakeMiss(makeMissExamples(reviewedShots));
+  // The self-teaching loop: every ruling an admin has ever made re-trains
+  // the scanner's models before the next scan runs. Weights are never
+  // stored — refit from the full history each visit, nothing goes stale.
+  const model = shotModelFromRows(reviewedShots);
 
   // An ad-hoc game's external opponent isn't in the season team list; its
   // roster is guests only. Same shape as the live console.
@@ -122,7 +123,7 @@ export default async function ReviewPage({
         serverEvents={events}
         job={job}
         missingConsents={missing}
-        calibration={calibration}
+        model={model}
       />
     </div>
   );
