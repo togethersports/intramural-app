@@ -119,12 +119,9 @@ export function Shell({
             className="size-[38px] shrink-0 rounded-[12px] object-cover"
           />
         ) : identity.mark ? (
-          <span
-            aria-hidden
-            className="grid size-[38px] shrink-0 place-items-center rounded-[12px] bg-paper text-ink"
-          >
-            <Mark size={21} tone="theme" />
-          </span>
+          // The mark is the logo — it does not need a tile around it, and it
+          // reads better at the size the tile used to occupy.
+          <Mark size={34} tone="theme" className="shrink-0" />
         ) : (
           <span
             aria-hidden
@@ -138,9 +135,11 @@ export function Shell({
           <span className="block truncate text-sm font-semibold">
             {identity.name}
           </span>
-          <span className="label block truncate !text-[10px]">
-            {identity.eyebrow}
-          </span>
+          {identity.eyebrow ? (
+            <span className="label block truncate !text-[10px]">
+              {identity.eyebrow}
+            </span>
+          ) : null}
         </span>
       </Link>
 

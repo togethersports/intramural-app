@@ -29,6 +29,7 @@ export default async function LeagueLayout({
   if (!league) notFound();
 
   const admin = isLeagueAdmin(league.role);
+  const commissioner = league.role === "commissioner";
   // The trade count needs the season, so it cannot start until that answers —
   // but it does not need the profile or the unread count. Chaining it inside
   // the Promise.all overlaps it with those instead of waiting for all three.
@@ -64,8 +65,10 @@ export default async function LeagueLayout({
           color: league.primary_color,
         }}
         nav={{
-          player: leagueNav(slug, { admin, mode: "player" }),
-          commish: admin ? leagueNav(slug, { admin, mode: "commish" }) : null,
+          player: leagueNav(slug, { admin, commissioner, mode: "player" }),
+          commish: admin
+            ? leagueNav(slug, { admin, commissioner, mode: "commish" })
+            : null,
         }}
         badges={{ inbox: unread, trades: openTrades }}
         user={{

@@ -3,17 +3,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EmptyState, TeamBadge } from "@/components/ui";
 import {
-  getConsents,
   getGames,
   getLeague,
   getLeagueRecordings,
   getSeasons,
   getTeams,
 } from "@/lib/data";
-import { getLeagueMembers } from "@/lib/leagues";
 import { createClient } from "@/lib/supabase/server";
-import { isLeagueAdmin } from "@core/league-constants";
-import { ConsentPanel } from "./consent-panel";
 import { FilmUploader } from "./film-uploader";
 import { RecordingRow } from "./recording-row";
 
@@ -27,13 +23,12 @@ export default async function FilmPage({
   const { slug } = await params;
   const league = await getLeague(slug);
   if (!league) notFound();
-  // Film is admin-only at the RLS layer too; this is just a nicer bounce.
-  if (!isLeagueAdmin(league.role)) redirect(`/league/${slug}`);
+  // Film is the commissioner's room — RLS already limits it to league
+  // admins, and this narrows it to the one person who runs the league.
+  if (league.role !== "commissioner") redirect(`/league/${slug}`);
 
-  const [recordings, members, consents, seasons] = await Promise.all([
+  const [recordings, seasons] = await Promise.all([
     getLeagueRecordings(league.id),
-    getLeagueMembers(league.id),
-    getConsents(league.id),
     getSeasons(league.id),
   ]);
 
@@ -48,12 +43,6 @@ export default async function FilmPage({
     : [[], []];
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
-  const playable = members.filter((m) => m.role !== "spectator");
-  const consentByUser = new Map(consents.map((c) => [c.user_id, c]));
-  const onFile = playable.filter(
-    (m) => consentByUser.get(m.user_id)?.revoked_at === null,
-  ).length;
-
   // Only games that have actually been played can carry film worth reviewing.
   const filmable = games
     .filter((g) => g.status !== "postponed")
@@ -61,12 +50,10 @@ export default async function FilmPage({
 
   return (
     <div className="space-y-5">
-      {/* The shell carries the screen title; this line carries the numbers. */}
+      {/* The shell carries the screen title; this line carries the count. */}
       <p className="label text-ink-muted">
         <span className="num">{recordings.length}</span> recording
-        {recordings.length === 1 ? "" : "s"} ·{" "}
-        <span className="num">{onFile}</span>/
-        <span className="num">{playable.length}</span> players cleared
+        {recordings.length === 1 ? "" : "s"}
       </p>
 
       <section className="card p-5 sm:p-6">
@@ -81,13 +68,6 @@ export default async function FilmPage({
           hand while you review.
         </p>
       </section>
-
-      <ConsentPanel
-        slug={slug}
-        leagueId={league.id}
-        members={playable}
-        consents={consents}
-      />
 
       <section className="card p-5 sm:p-6">
         <h2 className="mb-1 text-lg font-semibold tracking-tight">Upload film</h2>

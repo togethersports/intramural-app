@@ -53,13 +53,11 @@ export function FilmUploader({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [file, setFile] = useState<File | null>(null);
   const [pct, setPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const ready = PREFLIGHT.every((p) => checked[p.key]);
   const uploading = pct !== null;
 
   async function upload(formData: FormData) {
@@ -115,7 +113,6 @@ export function FilmUploader({
 
       setPct(null);
       setFile(null);
-      setChecked({});
       formRef.current?.reset();
       setNotice("Film uploaded. Draw the rim box on it, then queue it.");
       if (res.recordingId) router.push(`/league/${slug}/film/${res.recordingId}`);
@@ -131,32 +128,27 @@ export function FilmUploader({
       <FormError message={error} />
       <FormNotice message={notice} />
 
-      <fieldset className="space-y-2">
-        <legend className="label mb-2">Before you upload</legend>
-        {PREFLIGHT.map((item) => (
-          <label
-            key={item.key}
-            className="row flex min-h-11 cursor-pointer items-start gap-3 px-4 py-3"
-          >
-            <input
-              type="checkbox"
-              checked={Boolean(checked[item.key])}
-              onChange={(e) =>
-                setChecked((c) => ({ ...c, [item.key]: e.target.checked }))
-              }
-              className="mt-1 size-5 shrink-0 accent-[var(--color-ink)]"
-            />
-            <span>
-              <span className="block text-[17px] font-medium leading-snug">
+      {/* These were checkboxes you had to tick before the button unlocked.
+          They are the same advice, stated once — the shoot is over by the
+          time anyone is on this screen, so gating the upload on a promise
+          about it only cost a click. */}
+      <details className="row px-4 py-3">
+        <summary className="cursor-pointer text-[15px] font-medium">
+          How to shoot film the scanner can read
+        </summary>
+        <ul className="mt-3 space-y-2">
+          {PREFLIGHT.map((item) => (
+            <li key={item.key}>
+              <span className="block text-[15px] font-medium leading-snug">
                 {item.title}
               </span>
               <span className="block text-sm leading-snug text-ink-muted">
                 {item.body}
               </span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
+            </li>
+          ))}
+        </ul>
+      </details>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Game" htmlFor="film-game">
@@ -212,15 +204,9 @@ export function FilmUploader({
         </div>
       ) : null}
 
-      <Button type="submit" variant="accent" disabled={!ready || uploading}>
+      <Button type="submit" variant="accent" disabled={uploading}>
         {uploading ? "Uploading…" : "Upload film"}
       </Button>
-      {!ready ? (
-        <p className="text-sm text-ink-muted">
-          Check every box above first. Each one is a way the film comes back
-          unusable.
-        </p>
-      ) : null}
     </form>
   );
 }
