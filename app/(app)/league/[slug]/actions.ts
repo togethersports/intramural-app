@@ -10,6 +10,7 @@ import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
 import { postAnnouncement as fanOutAnnouncement } from "@/lib/announce";
+import { isPushConfigured, sendPush } from "@/lib/notify/apns";
 import { removeUploadedImage, uploadImage } from "@/lib/uploads";
 import { isLeagueAdmin, isValidPosition } from "@core/league-constants";
 import type { LeagueRole } from "@core/league-constants";
@@ -28,6 +29,63 @@ function revalidateLeague(slug: string) {
 }
 
 /* --------------------------------- console --------------------------------- */
+
+/** Buzz only the caller's own devices, and say exactly what happened.
+ *
+ * Push has three silent failure modes — no device registered, no APNs key on
+ * the server, a token Apple has retired — and none of them surface anywhere
+ * a commissioner looks. This is the one-tap answer: it reads the caller's
+ * own device rows (own-row RLS, no RPC needed), sends, and reports the
+ * distinction. It never touches anyone else's phone. */
+export async function sendTestPush(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const slug = str(formData, "slug");
+  const supabase = await createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes.user) return { error: "Not signed in" };
+
+  const { data: devices, error } = await supabase
+    .from("device_tokens")
+    .select("token, bundle_id")
+    .eq("user_id", userRes.user.id)
+    .is("invalidated_at", null);
+  if (error) return { error: error.message };
+  if (!devices || devices.length === 0) {
+    return {
+      error:
+        "No device is registered for your account. Open the Intramural app on your iPhone, sign in, and allow notifications — then try again.",
+    };
+  }
+  if (!isPushConfigured()) {
+    return {
+      error: `Found ${devices.length} registered device${devices.length === 1 ? "" : "s"}, but the server has no APNs key. Set APNS_KEY_P8, APNS_KEY_ID and APNS_TEAM_ID in Vercel, redeploy, then try again.`,
+    };
+  }
+
+  let delivered = 0;
+  let detail = "";
+  for (const d of devices) {
+    const r = await sendPush({
+      to: d.token,
+      topic: d.bundle_id,
+      title: "Intramural",
+      body: "Test notification — push is working.",
+      path: `/league/${slug}`,
+    });
+    if (r.result.ok && !r.result.skipped) delivered += 1;
+    else detail = r.result.detail;
+  }
+
+  return delivered > 0
+    ? {
+        error: null,
+        notice: `Sent to ${delivered} of ${devices.length} device${devices.length === 1 ? "" : "s"}. It should appear on your phone within a few seconds.`,
+      }
+    : { error: `Apple refused the send: ${detail || "no detail returned."}` };
+}
 
 /** Post an announcement: one RPC writes it and files every member's inbox
     notification atomically; the fan-out then pushes to registered devices.

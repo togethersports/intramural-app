@@ -1649,8 +1649,8 @@ assert(
     `select count(*)::int as c from notifications
      where announcement_id = $1 and user_id = $2`,
     [announcement.id, uid(1)],
-  )).c === 0,
-  "the author is not notified about their own announcement",
+  )).c === 1,
+  "the author gets their own copy — a commissioner has to be able to see that posting worked",
 );
 
 await asAuthenticated(5);

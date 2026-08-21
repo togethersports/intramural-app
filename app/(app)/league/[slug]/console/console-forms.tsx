@@ -5,6 +5,7 @@ import {
   addTimeSlot,
   addVenue,
   announceLeague,
+  sendTestPush,
   createSeason,
   updateLeagueAppearance,
   updateLeagueLogo,
@@ -385,6 +386,26 @@ export function AnnouncementForm({ slug }: { slug: string }) {
       <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Posting…" : "Post to the whole league"}
       </Button>
+    </form>
+  );
+}
+
+/** The one-tap answer to "is push actually working?" — buzzes only your own
+    devices and names whichever link in the chain is missing. */
+export function TestPushButton({ slug }: { slug: string }) {
+  const [state, formAction, pending] = useActionState(sendTestPush, initial);
+  return (
+    <form action={formAction} className="mt-4 space-y-2 border-t border-rule pt-4">
+      <input type="hidden" name="slug" value={slug} />
+      <FormError message={state.error} />
+      {state.notice ? <FormNotice message={state.notice} /> : null}
+      <Button type="submit" disabled={pending} variant="quiet">
+        {pending ? "Sending…" : "Send a test to my phone"}
+      </Button>
+      <p className="text-[13.5px] text-ink-muted">
+        Goes only to your own devices. Tells you whether push is set up, and
+        what is missing if it is not.
+      </p>
     </form>
   );
 }

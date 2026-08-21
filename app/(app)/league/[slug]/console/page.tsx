@@ -21,6 +21,7 @@ import {
   LeagueAppearanceForm,
   LeagueLogoForm,
   LeagueSettingsForm,
+  TestPushButton,
 } from "./console-forms";
 import { DangerZone } from "./danger-zone";
 import { ConfirmForm } from "@/components/confirm-form";
@@ -110,6 +111,7 @@ export default async function ConsolePage({
           with the app installed.
         </p>
         <AnnouncementForm slug={league.slug} />
+        <TestPushButton slug={league.slug} />
         {announcements.length > 0 ? (
           <ul className="mt-5 space-y-3 border-t border-rule pt-4">
             {announcements.map((a) => (
