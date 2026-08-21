@@ -1872,6 +1872,26 @@ export async function setPrimaryRuleFile(formData: FormData) {
   revalidateLeague(str(formData, "slug"));
 }
 
+/** Take an announcement back. The row policy from 0021 limits this to league
+    admins, and the inbox copies cascade away with it — an announcement you
+    retract should not keep sitting in everyone's inbox. Phones that already
+    buzzed have already buzzed; nothing can unring that. */
+export async function deleteAnnouncement(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  await supabase.from("announcements").delete().eq("id", str(formData, "announcement_id"));
+  revalidateLeague(str(formData, "slug"));
+}
+
+/** Remove a post from the league feed. The policy has allowed admins and
+    authors since 0005; this is the button for it. */
+export async function deleteLeaguePost(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  await supabase.from("posts").delete().eq("id", str(formData, "post_id"));
+  revalidateLeague(str(formData, "slug"));
+}
+
 export async function deleteRuleFile(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();
