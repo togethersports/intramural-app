@@ -28,7 +28,7 @@ export default async function MainLayout({
         identity={{
           href: "/dashboard",
           name: "Intramural",
-          eyebrow: "Your leagues",
+          eyebrow: "",
           logoUrl: null,
           color: "var(--color-accent)",
           mark: true,

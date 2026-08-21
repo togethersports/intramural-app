@@ -70,7 +70,7 @@ function numbered(groups: { label: string; items: Omit<NavItem, "tag">[] }[]) {
  */
 export function leagueNav(
   slug: string,
-  { admin, mode }: { admin: boolean; mode: Mode },
+  { admin, mode, commissioner = admin }: { admin: boolean; mode: Mode; commissioner?: boolean },
 ): NavGroup[] {
   const b = `/league/${slug}`;
   const overview = { href: b, label: "Overview", icon: "home" as const, exact: true };
@@ -90,13 +90,18 @@ export function leagueNav(
   const members = { href: `${b}/members`, label: "Members", icon: "members" as const };
   const rules = { href: `${b}/rules`, label: "Rules", icon: "book" as const };
   const console = { href: `${b}/console`, label: "Console", icon: "console" as const };
-  // Admin-only: RLS hides every recording from players, so the page would be
-  // an empty room for them — the destination only exists in admin rails.
+  // The commissioner's room: film is theirs to upload and review, and RLS
+  // hides every recording from everyone else anyway.
   const film = { href: `${b}/film`, label: "Film", icon: "film" as const };
 
   if (mode === "commish" && admin) {
     return numbered([
-      { label: "Run today", items: [overview, schedule, availability, film] },
+      {
+        label: "Run today",
+        items: commissioner
+          ? [overview, schedule, availability, film]
+          : [overview, schedule, availability],
+      },
       { label: "Roster moves", items: [teams, draft, trades, members] },
       { label: "The season", items: [standings, stats, playoffs] },
       { label: "Setup", items: [console, rules] },
@@ -108,9 +113,11 @@ export function leagueNav(
     { label: "The season", items: [standings, stats, playoffs] },
     {
       label: "The league",
-      items: admin
+      items: commissioner
         ? [teams, draft, trades, members, film, rules, console]
-        : [teams, draft, trades, members, rules],
+        : admin
+          ? [teams, draft, trades, members, rules, console]
+          : [teams, draft, trades, members, rules],
     },
   ]);
 }

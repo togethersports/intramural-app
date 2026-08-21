@@ -11,7 +11,8 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
 import { postAnnouncement as fanOutAnnouncement } from "@/lib/announce";
 import { removeUploadedImage, uploadImage } from "@/lib/uploads";
-import { isValidPosition } from "@core/league-constants";
+import { isLeagueAdmin, isValidPosition } from "@core/league-constants";
+import type { LeagueRole } from "@core/league-constants";
 import { normalizeHex } from "@core/theme";
 
 export type ActionState = { error: string | null; notice?: string | null };
@@ -1667,8 +1668,10 @@ export async function postAnnouncement(
   const { data: userRes } = await supabase.auth.getUser();
   if (!userRes.user) return { error: "Not signed in" };
   const teamId = str(formData, "team_id");
+  const leagueId = str(formData, "league_id");
+  const slug = str(formData, "slug");
   const { error } = await supabase.from("posts").insert({
-    league_id: str(formData, "league_id"),
+    league_id: leagueId,
     season_id: str(formData, "season_id") || null,
     author_id: userRes.user.id,
     team_id: teamId || null,
@@ -1676,8 +1679,47 @@ export async function postAnnouncement(
     body,
   });
   if (error) return { error: error.message };
-  revalidateLeague(str(formData, "slug"));
-  return { error: null };
+
+  // A league-wide post from an admin is an announcement in every sense — it
+  // used to land in the feed and nowhere else, so nobody's phone ever rang.
+  // Same fan-out the console and the phone app use: inbox for every member,
+  // push for every registered device. A team post stays a team post.
+  let notice: string | null = null;
+  if (!teamId) {
+    const { data: me } = await supabase
+      .from("league_members")
+      .select("role")
+      .eq("league_id", leagueId)
+      .eq("user_id", userRes.user.id)
+      .eq("status", "active")
+      .maybeSingle();
+    if (me && isLeagueAdmin(me.role as LeagueRole)) {
+      const { data: league } = await supabase
+        .from("leagues")
+        .select("name")
+        .eq("id", leagueId)
+        .maybeSingle();
+      const name = (league?.name as string) ?? "Your league";
+      // The post is already saved; a failed buzz must never undo it.
+      const fanOut = await fanOutAnnouncement(supabase, {
+        leagueId,
+        leagueSlug: slug,
+        leagueName: name,
+        title: name,
+        body,
+      });
+      notice = fanOut.error
+        ? "Posted to the feed, but notifying the league failed."
+        : fanOut.devices === 0
+          ? "Posted. Nobody has the phone app set up for alerts yet."
+          : fanOut.delivered > 0
+            ? `Posted, and pushed to ${fanOut.delivered} device${fanOut.delivered === 1 ? "" : "s"}.`
+            : `Posted to the league's inbox. Push didn't send: ${fanOut.detail || "the APNs key isn't configured."}`;
+    }
+  }
+
+  revalidateLeague(slug);
+  return { error: null, notice };
 }
 
 /* --------------------------------- trades ---------------------------------- */
@@ -1799,6 +1841,34 @@ export async function uploadRuleFile(
   }
   revalidateLeague(slug);
   return { error: null, notice: `Uploaded ${safeName}.` };
+}
+
+/** Make one document the league's rule sheet — it renders on the Rules page
+    instead of sitting in the list as another download. Passing the id that
+    is already primary clears it, so the toggle goes both ways. A partial
+    unique index guarantees at most one per league whatever happens here. */
+export async function setPrimaryRuleFile(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const leagueId = str(formData, "league_id");
+  const fileId = str(formData, "file_id");
+  const { data: current } = await supabase
+    .from("rule_files")
+    .select("id, is_primary")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!current) return;
+  // Clear first: the index refuses two primaries in the same league, and the
+  // clear is also the whole job when this file was already the primary one.
+  await supabase
+    .from("rule_files")
+    .update({ is_primary: false })
+    .eq("league_id", leagueId)
+    .eq("is_primary", true);
+  if (!current.is_primary) {
+    await supabase.from("rule_files").update({ is_primary: true }).eq("id", fileId);
+  }
+  revalidateLeague(str(formData, "slug"));
 }
 
 export async function deleteRuleFile(formData: FormData) {

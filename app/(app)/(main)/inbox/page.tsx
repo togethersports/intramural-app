@@ -15,6 +15,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   schedule_change: "Schedule",
   availability_nudge: "Availability",
   scorekeeper: "Scorekeeper",
+  announcement: "League",
 };
 
 export default async function InboxPage() {
@@ -25,8 +26,7 @@ export default async function InboxPage() {
   return (
     <div className="space-y-5">
       <Panel
-        eyebrow={unread.length > 0 ? `${unread.length} unread` : "All caught up"}
-        title="Everything that happened"
+        title={unread.length > 0 ? `${unread.length} unread` : "All caught up"}
         action={
           unread.length > 0 ? (
             <form action={markAllNotificationsRead}>
@@ -50,10 +50,11 @@ export default async function InboxPage() {
           <ul className="space-y-1.5">
             {notifications.map((n) => {
               const inner = (
-                <div className="row flex gap-4 px-4 py-3.5">
-                  <span className="label w-24 shrink-0 pt-1">
-                    {CATEGORY_LABEL[n.category] ?? "Update"}
-                  </span>
+                // The category used to hold a fixed column of its own, which
+                // spent a quarter of the row on one word and squeezed every
+                // message. It rides the timestamp line now; the message gets
+                // the width.
+                <div className="row flex gap-3 px-4 py-3.5">
                   <div className="min-w-0 flex-1">
                     <p
                       className={`text-[17px] ${
@@ -62,16 +63,22 @@ export default async function InboxPage() {
                     >
                       {n.title}
                     </p>
-                    <p className="max-w-[62ch] text-[17px] leading-relaxed text-ink-body">
+                    <p className="max-w-[72ch] text-[17px] leading-relaxed text-ink-body">
                       {n.body}
                     </p>
-                    <p className="num mt-1 text-[13px] text-ink-faint">
-                      {new Date(n.created_at).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[13px] text-ink-faint">
+                      <span className="label !text-[10.5px]">
+                        {CATEGORY_LABEL[n.category] ?? "Update"}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <span className="num">
+                        {new Date(n.created_at).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
                     </p>
                   </div>
                   {!n.read_at ? (

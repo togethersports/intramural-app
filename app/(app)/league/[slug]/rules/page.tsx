@@ -4,7 +4,7 @@ import { EmptyState, Panel } from "@/components/ui";
 import { getLeague, getLeagueRules, getRuleFiles } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
 import { createClient } from "@/lib/supabase/server";
-import { deleteRuleFile } from "../actions";
+import { deleteRuleFile, setPrimaryRuleFile } from "../actions";
 import { RuleFileUpload, RulesEditor } from "./rules-forms";
 
 export const metadata: Metadata = { title: "Rules" };
@@ -51,8 +51,45 @@ export default async function RulesPage({
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const primary = files.find((f) => f.is_primary);
+  const primaryUrl = primary ? urlByPath.get(primary.storage_path) : undefined;
+  const primaryKind = primary?.name.toLowerCase().endsWith(".pdf")
+    ? "pdf"
+    : /\.(png|jpe?g|webp|gif)$/i.test(primary?.name ?? "")
+      ? "image"
+      : "other";
+
   return (
     <div className="space-y-5">
+      {primary && primaryUrl ? (
+        <Panel title={primary.name} flush>
+          {primaryKind === "pdf" ? (
+            <iframe
+              src={primaryUrl}
+              title={primary.name}
+              className="h-[78vh] w-full border-0 bg-paper"
+            />
+          ) : primaryKind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={primaryUrl} alt={primary.name} className="w-full" />
+          ) : (
+            <div className="px-5 py-6">
+              <p className="mb-3 text-[17px] text-ink-body">
+                This document can&apos;t be shown on the page — open it to read it.
+              </p>
+              <a
+                href={primaryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-on-ink hover:opacity-90"
+              >
+                Open the rule sheet
+              </a>
+            </div>
+          )}
+        </Panel>
+      ) : null}
+
       <Panel eyebrow="On the record" title="League rules">
         <p className="mb-4 text-sm text-ink-muted">
           {admin
@@ -85,8 +122,10 @@ export default async function RulesPage({
       </Panel>
 
       <Panel eyebrow="Files" title="Rule documents">
-        <p className="mb-4 text-sm text-ink-muted">
-          Official documents — rulebooks, waivers, code of conduct.
+        <p className="mb-4 max-w-[62ch] text-sm text-ink-muted">
+          Official documents — rulebooks, waivers, code of conduct. Pick one to
+          show on this page as the league&apos;s rule sheet; the rest stay here
+          as downloads.
         </p>
         {files.length === 0 ? (
           <p className="text-sm text-ink-faint">
@@ -108,6 +147,11 @@ export default async function RulesPage({
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[17px] font-medium">
                     {f.name}
+                    {f.is_primary ? (
+                      <span className="label ml-2 !text-[10px] !text-accent-ink">
+                        Rule sheet
+                      </span>
+                    ) : null}
                   </span>
                   <span className="num text-[13px] text-ink-faint">
                     {formatBytes(f.size_bytes)}
@@ -121,6 +165,16 @@ export default async function RulesPage({
                     >
                       Open
                     </a>
+                  ) : null}
+                  {admin ? (
+                    <form action={setPrimaryRuleFile}>
+                      <input type="hidden" name="file_id" value={f.id} />
+                      <input type="hidden" name="league_id" value={league.id} />
+                      <input type="hidden" name="slug" value={slug} />
+                      <button className="min-h-11 rounded-full px-3 text-sm font-medium text-ink-muted hover:bg-paper hover:text-ink">
+                        {f.is_primary ? "Unset as rule sheet" : "Show on the page"}
+                      </button>
+                    </form>
                   ) : null}
                   {admin ? (
                     <form action={deleteRuleFile}>

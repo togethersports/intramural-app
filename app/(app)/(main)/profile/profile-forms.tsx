@@ -168,7 +168,6 @@ export function DetailsForm({
                 defaultChecked={profile.positions.includes(p.value)}
                 className="size-4 accent-[var(--color-accent)]"
               />
-              <span className="num text-[13px]">{p.value}</span>
               <span>{p.label}</span>
             </label>
           ))}

@@ -14,7 +14,6 @@ import {
   getTeamsWithRosters,
   getVisionJob,
 } from "@/lib/data";
-import { isLeagueAdmin } from "@core/league-constants";
 import { shotModelFromRows } from "@core/vision";
 import { ReviewRoom, type ReviewSide } from "./review-room";
 
@@ -28,7 +27,7 @@ export default async function ReviewPage({
   const { slug, recordingId } = await params;
   const league = await getLeague(slug);
   if (!league) notFound();
-  if (!isLeagueAdmin(league.role)) redirect(`/league/${slug}`);
+  if (league.role !== "commissioner") redirect(`/league/${slug}`);
 
   const recording = await getRecording(recordingId);
   if (!recording) notFound();

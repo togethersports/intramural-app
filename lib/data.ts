@@ -620,6 +620,8 @@ export interface RuleFileRow {
   storage_path: string;
   size_bytes: number;
   created_at: string;
+  /** The one document shown on the page as the league's rule sheet. */
+  is_primary: boolean;
 }
 
 export async function getLeagueRules(leagueId: string): Promise<string> {
@@ -636,8 +638,9 @@ export async function getRuleFiles(leagueId: string): Promise<RuleFileRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("rule_files")
-    .select("id, name, storage_path, size_bytes, created_at")
+    .select("id, name, storage_path, size_bytes, created_at, is_primary")
     .eq("league_id", leagueId)
+    .order("is_primary", { ascending: false })
     .order("created_at", { ascending: false });
   return (data as RuleFileRow[]) ?? [];
 }
