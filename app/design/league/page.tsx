@@ -6,6 +6,7 @@ import { Lockup } from "@/components/mark";
 import { StandingsTable } from "@/components/standings-table";
 import { Avatar, Panel } from "@/components/ui";
 import { ThemeStyle } from "@/components/theme-style";
+import { NavIcon } from "@/components/nav-icon";
 import { leagueNav } from "@/lib/nav";
 import { DEFAULT_APPEARANCE } from "@core/theme";
 import type { GameRow } from "@core/types";
@@ -152,8 +153,10 @@ export default function LeagueChromeReferencePage() {
                             : "flex min-h-11 items-center gap-2.5 rounded-[11px] px-2.5 text-[15px] font-medium text-ink-muted"
                         }
                       >
-                        <span className="num w-[18px] shrink-0 text-[10px] opacity-70">
-                          {item.tag}
+                        <span
+                          className={active ? "shrink-0 text-ink" : "shrink-0 text-ink-faint"}
+                        >
+                          <NavIcon name={item.icon} />
                         </span>
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
                         {count > 0 ? (
@@ -196,7 +199,6 @@ export default function LeagueChromeReferencePage() {
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="label !text-[10.5px]">Player view · This week</p>
                 <h1 className="mt-1 truncate text-[clamp(22px,2.6vw,28px)] font-semibold leading-[1.15] tracking-[-0.025em]">
                   Overview
                 </h1>

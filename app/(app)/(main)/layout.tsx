@@ -31,6 +31,7 @@ export default async function MainLayout({
           eyebrow: "Your leagues",
           logoUrl: null,
           color: "var(--color-accent)",
+          mark: true,
         }}
         nav={{ player: mainNav(), commish: null }}
         badges={{ inbox: unread }}

@@ -226,3 +226,100 @@ export function IconPalette(props: IconProps) {
     </svg>
   );
 }
+
+/* ------------------------------------------------------ navigation icons --
+   One glyph per destination, so the rail reads by shape before it reads by
+   word. Same 24-grid, same 1.8 stroke as the set above. */
+
+export function IconHome(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3.8 10.4 12 4l8.2 6.4" />
+      <path d="M5.9 9.2V19a1.6 1.6 0 0 0 1.6 1.6h9a1.6 1.6 0 0 0 1.6-1.6V9.2" />
+      <path d="M9.9 20.6v-5.3h4.2v5.3" />
+    </svg>
+  );
+}
+
+export function IconClock(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.3V12l3.2 1.9" />
+    </svg>
+  );
+}
+
+/** Standings — ranked rows, each with its position tick. */
+export function IconList(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 6.6h2.4" />
+      <path d="M4 12h2.4" />
+      <path d="M4 17.4h2.4" />
+      <path d="M9.8 6.6H20" />
+      <path d="M9.8 12H20" />
+      <path d="M9.8 17.4H20" />
+    </svg>
+  );
+}
+
+/** Trades — two players going the other way. */
+export function IconSwap(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 9h13" />
+      <path d="M13.6 5.6 17 9l-3.4 3.4" />
+      <path d="M20 15H7" />
+      <path d="M10.4 11.6 7 15l3.4 3.4" />
+    </svg>
+  );
+}
+
+export function IconBook(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 4.8h11.2a2 2 0 0 1 2 2v12.4H7a2 2 0 0 1-2-2Z" />
+      <path d="M5 17.2a2 2 0 0 1 2-2h11.2" />
+      <path d="M8.6 8.6h6.2" />
+    </svg>
+  );
+}
+
+/** Console — the settings desk. */
+export function IconSliders(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 8.2h9.4" />
+      <path d="M18.2 8.2H20" />
+      <circle cx="15.8" cy="8.2" r="2.2" />
+      <path d="M4 15.8h3.8" />
+      <path d="M12.6 15.8H20" />
+      <circle cx="10.2" cy="15.8" r="2.2" />
+    </svg>
+  );
+}
+
+export function IconFilm(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.2" y="5" width="17.6" height="14" rx="3" />
+      <path d="M7.8 5v14" />
+      <path d="M16.2 5v14" />
+      <path d="M3.2 12h17.6" />
+    </svg>
+  );
+}
+
+/** Members — the roll, not the roster. */
+export function IconIdCard(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <circle cx="8.8" cy="11" r="2.1" />
+      <path d="M5.7 16.1a3.4 3.4 0 0 1 6.2 0" />
+      <path d="M14.8 10.2h3.6" />
+      <path d="M14.8 13.6h3.6" />
+    </svg>
+  );
+}
