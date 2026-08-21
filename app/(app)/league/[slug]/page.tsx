@@ -18,6 +18,8 @@ import {
   getTeams,
 } from "@/lib/data";
 import { isLeagueAdmin } from "@core/league-constants";
+import { ConfirmForm } from "@/components/confirm-form";
+import { deleteLeaguePost } from "./actions";
 import { aggregateLines, perGame } from "@core/stats";
 import { FeedComposer } from "./feed-composer";
 
@@ -175,6 +177,18 @@ export default async function LeagueOverviewPage({
                     </p>
                     <p className="text-sm leading-relaxed">{p.body}</p>
                   </div>
+                  {admin ? (
+                    <ConfirmForm
+                      action={deleteLeaguePost}
+                      message="Remove this from the league feed?"
+                      hidden={{ post_id: p.id, slug }}
+                      className="ml-auto"
+                    >
+                      <button className="min-h-9 shrink-0 rounded-full px-2.5 text-xs font-medium text-ink-faint hover:bg-tint hover:text-accent-ink">
+                        Remove
+                      </button>
+                    </ConfirmForm>
+                  ) : null}
                 </li>
               ))}
             </ul>

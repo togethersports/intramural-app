@@ -1609,6 +1609,79 @@ assert(
   "and so does the box score the review produced",
 );
 
+
+// --------------------------------------------------------- announcements
+// Posting is an RPC because it must write the announcement and everyone's
+// inbox atomically. Deleting is a row policy — and has to take the inbox
+// copies with it, or a retracted announcement keeps sitting in every member's
+// inbox.
+console.log("\n— announcements —");
+
+await asAuthenticated(5);
+assert(
+  await rejects(`select announce_league($1, 'Practice moved', 'Main gym')`, [league.id]),
+  "an ordinary player cannot post an announcement",
+);
+
+await asAuthenticated(1);
+await db.query(`select announce_league($1, 'Practice moved', 'Main gym at 4')`, [
+  league.id,
+]);
+const announcement = await one(
+  `select * from announcements where league_id = $1 order by created_at desc limit 1`,
+  [league.id],
+);
+assert(Boolean(announcement), "the commissioner's announcement was written");
+
+await asOwner();
+const inboxCount = (
+  await one(
+    `select count(*)::int as c from notifications where announcement_id = $1`,
+    [announcement.id],
+  )
+).c;
+assert(
+  inboxCount > 0,
+  `the announcement filed ${inboxCount} inbox notifications, each linked back to it`,
+);
+assert(
+  (await one(
+    `select count(*)::int as c from notifications
+     where announcement_id = $1 and user_id = $2`,
+    [announcement.id, uid(1)],
+  )).c === 0,
+  "the author is not notified about their own announcement",
+);
+
+await asAuthenticated(5);
+assert(
+  await rejects(`delete from announcements where id = $1`, [announcement.id]),
+  "a player cannot delete a league announcement",
+);
+assert(
+  (await one(`select count(*)::int as c from announcements where id = $1`, [
+    announcement.id,
+  ])).c === 1,
+  "a player CAN still read it — deleting is the part they cannot do",
+);
+
+await asAuthenticated(1);
+await db.query(`delete from announcements where id = $1`, [announcement.id]);
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from announcements where id = $1`, [
+    announcement.id,
+  ])).c === 0,
+  "an admin can delete an announcement",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from notifications where announcement_id = $1`,
+    [announcement.id],
+  )).c === 0,
+  "and its inbox copies cascade away — a retraction reaches the inbox too",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

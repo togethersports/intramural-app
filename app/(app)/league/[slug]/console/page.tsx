@@ -23,6 +23,8 @@ import {
   LeagueSettingsForm,
 } from "./console-forms";
 import { DangerZone } from "./danger-zone";
+import { ConfirmForm } from "@/components/confirm-form";
+import { deleteAnnouncement } from "../actions";
 
 export const metadata: Metadata = { title: "Console" };
 
@@ -111,18 +113,29 @@ export default async function ConsolePage({
         {announcements.length > 0 ? (
           <ul className="mt-5 space-y-3 border-t border-rule pt-4">
             {announcements.map((a) => (
-              <li key={a.id}>
-                <p className="text-[15px] font-semibold">{a.title}</p>
-                {a.body ? (
-                  <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-muted">{a.body}</p>
-                ) : null}
-                <p className="label mt-1 !text-[10px] !text-ink-faint">
-                  {a.author_name ?? "League admin"} ·{" "}
-                  {new Date(a.created_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </p>
+              <li key={a.id} className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-semibold">{a.title}</p>
+                  {a.body ? (
+                    <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-muted">{a.body}</p>
+                  ) : null}
+                  <p className="label mt-1 !text-[10px] !text-ink-faint">
+                    {a.author_name ?? "League admin"} ·{" "}
+                    {new Date(a.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+                <ConfirmForm
+                  action={deleteAnnouncement}
+                  message="Delete this announcement? It disappears from every member's inbox too."
+                  hidden={{ announcement_id: a.id, slug: league.slug }}
+                >
+                  <button className="min-h-11 shrink-0 rounded-full px-3 text-sm font-medium text-accent-ink hover:bg-tint">
+                    Delete
+                  </button>
+                </ConfirmForm>
               </li>
             ))}
           </ul>
