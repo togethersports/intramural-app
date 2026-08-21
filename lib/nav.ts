@@ -64,10 +64,13 @@ export function leagueNav(
   const members = { href: `${b}/members`, label: "Members" };
   const rules = { href: `${b}/rules`, label: "Rules" };
   const console = { href: `${b}/console`, label: "Console" };
+  // Admin-only: RLS hides every recording from players, so the page would be
+  // an empty room for them — the destination only exists in admin rails.
+  const film = { href: `${b}/film`, label: "Film" };
 
   if (mode === "commish" && admin) {
     return numbered([
-      { label: "Run today", items: [overview, schedule, availability] },
+      { label: "Run today", items: [overview, schedule, availability, film] },
       { label: "Roster moves", items: [teams, draft, trades, members] },
       { label: "The season", items: [standings, stats, playoffs] },
       { label: "Setup", items: [console, rules] },
@@ -80,7 +83,7 @@ export function leagueNav(
     {
       label: "The league",
       items: admin
-        ? [teams, draft, trades, members, rules, console]
+        ? [teams, draft, trades, members, film, rules, console]
         : [teams, draft, trades, members, rules],
     },
   ]);
@@ -193,6 +196,11 @@ const LEAGUE_SCREENS: Record<string, Omit<ScreenMeta, "crumb"> & { section: stri
     title: "Console",
     subtitle: "Seasons, slots, venues, appearance — the league's own settings.",
   },
+  film: {
+    section: "Run today",
+    title: "Film",
+    subtitle: "Upload game film, scan it for shots, and review every call into the box score.",
+  },
 };
 
 /*
@@ -259,6 +267,12 @@ export function leagueScreenMeta(
 
   const detail = DETAIL_SECTION[segment];
   if (detail) return { crumb: `${role} · ${detail}`, title: "", subtitle: "" };
+
+  // The review room names itself with the matchup — crumb only, like other
+  // detail routes; the film index keeps its full header.
+  if (segment === "film" && !pathname.replace(/\/$/, "").endsWith("/film")) {
+    return { crumb: `${role} · Run today · Film`, title: "", subtitle: "" };
+  }
 
   const screen = LEAGUE_SCREENS[segment];
   if (!screen) {
