@@ -1079,6 +1079,22 @@ export async function deleteGame(formData: FormData) {
   redirect(`/league/${slug}/schedule`);
 }
 
+/** Take a visiting team into the league for real. An ad-hoc opponent starts
+    as an is_external row so the stats pipeline works without a roster; this
+    is how it graduates — it then appears in Teams, the draft, standings and
+    every other surface that filters external teams out. Keeps its name,
+    abbreviation and colour, all editable on the team page afterwards. */
+export async function adoptExternalTeam(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  await supabase
+    .from("teams")
+    .update({ is_external: false })
+    .eq("id", str(formData, "team_id"))
+    .eq("is_external", true);
+  revalidateLeague(str(formData, "slug"));
+}
+
 /** Flip a game between exhibition and official. Promotion is refused when
     either side is an external (free-text) team — standings can only count
     games between two teams that are actually in the season. */
