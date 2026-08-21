@@ -58,6 +58,8 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="game/[id]" options={{ title: "Game" }} />
       <Stack.Screen name="league/rules" options={{ title: "Rules" }} />
+      <Stack.Screen name="league/stats" options={{ title: "Full stats" }} />
+      <Stack.Screen name="league/edit-profile" options={{ title: "Edit profile" }} />
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>

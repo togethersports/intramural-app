@@ -26,14 +26,14 @@ export function ScreenHeader({
         paddingHorizontal: 2,
       }}
     >
-      <Mark size={26} tone="ink" />
+      <Mark size={22} tone="ink" />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           numberOfLines={1}
           style={{
             fontFamily: type.h2.fontFamily,
-            fontSize: 19,
-            letterSpacing: -0.4,
+            fontSize: 17,
+            letterSpacing: -0.3,
             color: color.ink,
           }}
         >

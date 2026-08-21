@@ -62,7 +62,7 @@ export default function Schedule() {
       contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
-      <ScreenHeader title="Schedule" subtitle="Grouped by day" />
+      <ScreenHeader title="Schedule" />
       {days.length === 0 ? (
         <Card>
           <EmptyState

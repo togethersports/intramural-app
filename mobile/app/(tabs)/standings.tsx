@@ -9,7 +9,8 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { useMyIdentity } from "@/lib/profile";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { computeStandings } from "@core/standings";
-import { aggregateLines, perGame } from "@core/stats";
+import { STAT_CATEGORIES, leadersIn, type StatSource } from "@core/awards";
+
 import { color, space, type } from "@/theme";
 
 /** Column widths shared by the standings header and its rows. */
@@ -26,7 +27,9 @@ export default function Standings() {
   const [rows, setRows] = useState<
     { teamId: string; name: string; teamColor: string; w: number; l: number; pct: number; diff: number }[]
   >([]);
-  const [leaders, setLeaders] = useState<{ id: string; name: string; ppg: number }[]>([]);
+  const [boards, setBoards] = useState<
+    { key: string; label: string; unit: string; rows: { userId: string; name: string; value: number }[] }[]
+  >([]);
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -54,22 +57,35 @@ export default function Standings() {
       w: s.w, l: s.l, pct: s.pct, diff: s.diff,
     })));
 
-    const byPlayer = new Map<string, { name: string; lines: typeof stats }>();
+    // One source per player, then the same leadersIn the award board uses —
+    // top three in every category, not just scoring.
+    const teamName = new Map(seasonTeams.map((t) => [t.id, t.name]));
+    const byPlayer = new Map<string, StatSource>();
     for (const r of stats) {
-      // Ad-hoc guests have no account; a season leaderboard is for rostered
-      // players, so their lines stay in the box score but not here.
-      if (!r.user_id) continue;
-      if (!byPlayer.has(r.user_id)) byPlayer.set(r.user_id, { name: r.full_name ?? "Unnamed", lines: [] });
+      if (!r.user_id) continue; // guests: box score yes, season boards no
+      if (!byPlayer.has(r.user_id)) {
+        byPlayer.set(r.user_id, {
+          userId: r.user_id,
+          name: r.full_name ?? "Unnamed",
+          teamId: r.team_id,
+          teamName: teamName.get(r.team_id) ?? "",
+          lines: [],
+        });
+      }
       byPlayer.get(r.user_id)!.lines.push(r);
     }
-    setLeaders(
-      [...byPlayer.entries()]
-        .map(([id, v]) => {
-          const t = aggregateLines(v.lines);
-          return { id, name: v.name, ppg: perGame(t.pts, t.games) };
-        })
-        .sort((a, b) => b.ppg - a.ppg)
-        .slice(0, 5),
+    const sources = [...byPlayer.values()];
+    setBoards(
+      STAT_CATEGORIES.map((c) => ({
+        key: c.key,
+        label: c.label,
+        unit: c.unit,
+        rows: leadersIn(sources, c, { limit: 3 }).map((l) => ({
+          userId: l.userId,
+          name: l.name,
+          value: l.value,
+        })),
+      })).filter((b) => b.rows.length > 0),
     );
     setLoaded(true);
   }, [user]);
@@ -86,7 +102,6 @@ export default function Standings() {
     >
       <ScreenHeader
         title={leagueName ?? "League"}
-        subtitle="Standings & leaders"
         right={me ? <Avatar name={me.name || "?"} size={34} uri={me.avatarUrl} /> : undefined}
       />
       <Card style={{ gap: space(1.5) }}>
@@ -128,19 +143,27 @@ export default function Standings() {
       </Card>
 
       <Card style={{ gap: space(1.5) }}>
-        <H2>Scoring leaders</H2>
-        {leaders.length === 0 ? (
+        <H2>Leaders</H2>
+        {boards.length === 0 ? (
           <Text style={[type.body, { color: color.inkFaint }]}>Leaders appear after the first final.</Text>
         ) : (
-          leaders.map((l, i) => (
-            <View key={l.id} style={{ flexDirection: "row", alignItems: "center", gap: space(1.5) }}>
-              <Num size={13} style={{ color: color.inkFaint, width: 16 }}>{i + 1}</Num>
-              <Text numberOfLines={1} style={[type.bodyMedium, { flex: 1, color: color.ink }]}>{l.name}</Text>
-              <Num size={19}>{l.ppg.toFixed(1)}</Num>
-              <Label>PPG</Label>
+          boards.map((b) => (
+            <View key={b.key} style={{ gap: space(0.75) }}>
+              <Label>{b.label}</Label>
+              {b.rows.map((r, i) => (
+                <View key={r.userId} style={{ flexDirection: "row", alignItems: "center", gap: space(1.5) }}>
+                  <Num size={13} style={{ color: color.inkFaint, width: 16 }}>{i + 1}</Num>
+                  <Text numberOfLines={1} style={[type.bodyMedium, { flex: 1, color: color.ink }]}>{r.name}</Text>
+                  <Num size={17}>{r.value.toFixed(1)}</Num>
+                  <Label style={{ width: 34 }}>{b.unit}</Label>
+                </View>
+              ))}
             </View>
           ))
         )}
+        <Button variant="quiet" onPress={() => router.push("/league/stats")}>
+          Full stats — every player
+        </Button>
       </Card>
 
       {leagueId ? (

@@ -76,6 +76,18 @@ export default function Profile() {
               {grade ? ` · Grade ${grade}` : ""}
             </Text>
           </View>
+          <Pressable
+            hitSlop={8}
+            onPress={() => router.push("/league/edit-profile")}
+            style={{
+              borderRadius: 999,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              backgroundColor: color.paper,
+            }}
+          >
+            <Text style={[type.small, { color: color.ink, fontWeight: "600" }]}>Edit</Text>
+          </Pressable>
         </View>
       </Card>
 

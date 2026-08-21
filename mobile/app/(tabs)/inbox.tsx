@@ -55,14 +55,13 @@ export default function Inbox() {
       contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
-      <ScreenHeader title="Inbox" subtitle="Everything that needs you" />
+      <ScreenHeader title="Inbox" />
       {unread > 0 ? (
         <Button variant="canvas" onPress={async () => { await markAllRead(); load(); }}>
           Mark all read
         </Button>
       ) : null}
       <Card style={{ gap: space(1) }}>
-        <H2>Inbox</H2>
         {items.length === 0 ? (
           <EmptyState
             title={loaded ? "Nothing yet" : "Loading…"}

@@ -73,7 +73,13 @@
           "imageWidth": 160
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Lets you choose a profile photo for your league roster."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
