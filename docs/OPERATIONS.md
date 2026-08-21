@@ -137,7 +137,58 @@ takes every player's answer about when they are free with it — which is why
 re-running the file skips periods that already exist rather than replacing
 them, and why fixing a time is the UPDATE at the bottom of the file.
 
-## 5. AI recaps and Player of the Week
+## 5. Push notifications
+
+Optional, and the app is honest without it: no keys means push reports "not
+configured" and email and SMS carry on.
+
+| Variable | Where it comes from |
+|---|---|
+| `APNS_KEY_P8` | Apple Developer → Certificates, Identifiers & Profiles → **Keys** → **+** → tick **Apple Push Notifications service**. The `.p8` downloads **once** — save it. Paste the file's contents with newlines written as `\n`. |
+| `APNS_KEY_ID` | The 10-character Key ID shown beside the key you just made. |
+| `APNS_TEAM_ID` | Apple Developer → Membership. Ten characters. |
+
+Apply migration `0016` too — it creates `device_tokens` and widens
+`reminder_log.channel` to accept `push`.
+
+### What push is and isn't for
+
+**The three tip-off notices do not use it, deliberately.** The watch
+schedules those locally from the fixtures it has already cached, so they
+fire in a basement gym with no signal — precisely where a push would not
+arrive. Push exists for what the watch *cannot* derive: a captain approving
+a sub, a teammate flagging out.
+
+Only the ten-minute notice is sent `time-sensitive`, so it breaks through a
+Focus. The morning one can wait until someone looks at their wrist.
+
+### Who gets it
+
+A device registers itself against the signed-in account at
+`/api/push/register`, which writes under RLS as the caller — this route
+never touches the service-role key. Push is then added to whatever channels
+that person already gets, for any preference except `none`. `none` stays a
+global mute: someone who turned everything off does not get buzzed on the
+wrist because the watch app happens to be installed.
+
+It is deliberately *not* one of the four `notify_channel` values. Those are
+about addresses we have to be given; a registered device is consent already
+expressed by installing the app and allowing notifications.
+
+### Dead tokens
+
+Apple answers `410 Unregistered` (or `400 BadDeviceToken`) when an app is
+deleted or restored elsewhere. The sender marks that row `invalidated_at`
+rather than deleting it, so a device that comes back is distinguishable from
+one never seen — and the cron stops sending to it, which is what keeps the
+sender off Apple's throttle list.
+
+Registration upserts on the **token**, not on (user, token). A watch that
+changes hands therefore moves to its new owner rather than accumulating a
+row per person, which is what actually stops anyone inheriting someone
+else's notifications.
+
+## 6. AI recaps and Player of the Week
 
 Set `ANTHROPIC_API_KEY`. Without it both still get written — from the box
 score, in plainer prose — and the card says "Recap" instead of "Recap ·
@@ -154,7 +205,7 @@ to infer, so it cannot invent a statistic. The Player of the Week *pick* is
 not the model's at all: `impactScore` in `@core/awards` decides, and the
 prose only describes.
 
-## 6. Rotate anything you have pasted
+## 7. Rotate anything you have pasted
 
 The service-role key bypasses RLS entirely. If it has ever been in a chat,
 a screenshot, or a commit: Supabase → Project Settings → API → **Reset**.

@@ -21,6 +21,7 @@ import {
   Notice,
 } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { CanvasBackground } from "@/lib/canvas";
 import { color, space, type } from "@/theme";
 
 export default function SignUp() {
@@ -43,10 +44,12 @@ export default function SignUp() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: color.canvas }}
-    >
+    <View style={{ flex: 1 }}>
+      <CanvasBackground />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -124,6 +127,7 @@ export default function SignUp() {
           </Link>
         </Card>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

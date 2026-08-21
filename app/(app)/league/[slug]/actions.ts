@@ -9,6 +9,7 @@ import { computeStandings } from "@core/standings";
 import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
+import { postAnnouncement as fanOutAnnouncement } from "@/lib/announce";
 import { removeUploadedImage, uploadImage } from "@/lib/uploads";
 import { isValidPosition } from "@core/league-constants";
 import { normalizeHex } from "@core/theme";
@@ -26,6 +27,46 @@ function revalidateLeague(slug: string) {
 }
 
 /* --------------------------------- console --------------------------------- */
+
+/** Post an announcement: one RPC writes it and files every member's inbox
+    notification atomically; the fan-out then pushes to registered devices.
+    The admin check lives in the RPC, so this action carries no authority of
+    its own. */
+export async function announceLeague(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const slug = str(formData, "slug");
+  const title = str(formData, "title");
+  const body = str(formData, "body");
+  if (!title) return { error: "Give the announcement a title." };
+
+  const supabase = await createClient();
+  const { data: league } = await supabase
+    .from("leagues")
+    .select("id, name")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!league) return { error: "League not found." };
+
+  const result = await fanOutAnnouncement(supabase, {
+    leagueId: league.id,
+    leagueSlug: slug,
+    leagueName: league.name,
+    title,
+    body,
+  });
+  if (result.error) return { error: result.error };
+  revalidateLeague(slug);
+  const pushed =
+    result.delivered > 0
+      ? ` Buzzed ${result.delivered} device${result.delivered === 1 ? "" : "s"}.`
+      : result.devices > 0
+        ? " Devices are registered but push isn't configured yet — inboxes still got it."
+        : " No devices registered yet — it's in everyone's inbox.";
+  return { error: null, notice: `Announcement posted.${pushed}` };
+}
 
 /** The whole settings blob, so a partial write can be merged into it. */
 async function readLeagueSettings(slug: string) {

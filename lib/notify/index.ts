@@ -11,7 +11,7 @@
  * yet, and a job that throws every five minutes is a job people turn off.
  */
 
-export type Channel = "email" | "sms";
+export type Channel = "email" | "sms" | "push";
 
 export type DeliveryResult =
   | { ok: true; skipped: false; detail: string }
@@ -160,7 +160,7 @@ export type NotifyChannel = "email" | "sms" | "both" | "none";
 /** Which channels a preference actually resolves to, given what they gave us. */
 export function channelsFor(
   preference: NotifyChannel,
-  contact: { email: string | null; phone: string | null },
+  contact: { email: string | null; phone: string | null; hasDevice?: boolean },
 ): Channel[] {
   if (preference === "none") return [];
   const out: Channel[] = [];
@@ -170,6 +170,13 @@ export function channelsFor(
   if ((preference === "sms" || preference === "both") && toE164(contact.phone)) {
     out.push("sms");
   }
+  // Push is not one of the four preference values, and deliberately so.
+  // `notify_channel` is about how we reach you *away* from the app — an
+  // address we have to be given. A registered device is different: you
+  // installed the watch app and granted it permission, which is the consent.
+  // So push rides along with any preference except "none", which stays a
+  // global mute rather than an email/SMS setting.
+  if (contact.hasDevice) out.push("push");
   return out;
 }
 

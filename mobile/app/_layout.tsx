@@ -14,12 +14,15 @@ import {
   JetBrainsMono_500Medium,
 } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { loadCanvasChoice, useCanvas } from "@/lib/canvas";
 import { color } from "@/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+loadCanvasChoice();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
+  const canvas = useCanvas();
   const segments = useSegments();
   const router = useRouter();
 
@@ -37,20 +40,26 @@ function RootNavigator() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: color.canvas },
+        headerStyle: { backgroundColor: canvas.base },
         headerTintColor: color.white,
         headerTitleStyle: { fontFamily: "Outfit_600SemiBold", fontSize: 18 },
         headerShadowVisible: false,
         // The previous screen is the "(tabs)" group, and iOS would print that
         // route name as the back label without an explicit title.
         headerBackTitle: "Back",
-        contentStyle: { backgroundColor: color.canvas },
+        // Solid, not transparent: native-stack screens are hoisted into the
+        // window's own view hierarchy, so a "transparent" scene reveals the
+        // white iOS window — not any React view rendered behind the Stack.
+        // The glow layer lives inside the tab and auth trees instead.
+        contentStyle: { backgroundColor: canvas.base },
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="game/[id]" options={{ title: "Game" }} />
       <Stack.Screen name="league/rules" options={{ title: "Rules" }} />
+      <Stack.Screen name="league/stats" options={{ title: "Full stats" }} />
+      <Stack.Screen name="league/edit-profile" options={{ title: "Edit profile" }} />
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>

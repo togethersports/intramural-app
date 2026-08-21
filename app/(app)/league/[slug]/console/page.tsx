@@ -3,6 +3,7 @@ import { Panel } from "@/components/ui";
 import { notFound, redirect } from "next/navigation";
 import {
   getActiveSeason,
+  getAnnouncements,
   getLeague,
   getLeagueFootprint,
   getSeasons,
@@ -15,6 +16,7 @@ import { deleteTimeSlot, deleteVenue, setSeasonStatus } from "../actions";
 import {
   AddTimeSlotForm,
   AddVenueForm,
+  AnnouncementForm,
   CreateSeasonForm,
   LeagueAppearanceForm,
   LeagueLogoForm,
@@ -51,13 +53,15 @@ export default async function ConsolePage({
 
   const commissioner = league.role === "commissioner";
   const appearance = parseAppearance(league.settings?.appearance, DEFAULT_APPEARANCE);
-  const [seasons, activeSeason, slots, venues, footprint] = await Promise.all([
-    getSeasons(league.id),
-    getActiveSeason(league.id),
-    getTimeSlots(league.id),
-    getVenues(league.id),
-    commissioner ? getLeagueFootprint(league.id) : Promise.resolve(null),
-  ]);
+  const [seasons, activeSeason, slots, venues, footprint, announcements] =
+    await Promise.all([
+      getSeasons(league.id),
+      getActiveSeason(league.id),
+      getTimeSlots(league.id),
+      getVenues(league.id),
+      commissioner ? getLeagueFootprint(league.id) : Promise.resolve(null),
+      getAnnouncements(league.id),
+    ]);
 
   return (
     <div className="space-y-5">
@@ -95,6 +99,33 @@ export default async function ConsolePage({
           preset={appearance.preset}
           accent={appearance.accent}
         />
+      </Panel>
+
+      <Panel eyebrow="Megaphone" title="Announcements">
+        <p className="mb-4 text-[13.5px] text-ink-muted">
+          Lands in every member&apos;s inbox, and buzzes every phone and watch
+          with the app installed.
+        </p>
+        <AnnouncementForm slug={league.slug} />
+        {announcements.length > 0 ? (
+          <ul className="mt-5 space-y-3 border-t border-rule pt-4">
+            {announcements.map((a) => (
+              <li key={a.id}>
+                <p className="text-[15px] font-semibold">{a.title}</p>
+                {a.body ? (
+                  <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-muted">{a.body}</p>
+                ) : null}
+                <p className="label mt-1 !text-[10px] !text-ink-faint">
+                  {a.author_name ?? "League admin"} ·{" "}
+                  {new Date(a.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </Panel>
 
       <Panel eyebrow="Calendar" title="Seasons">

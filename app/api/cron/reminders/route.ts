@@ -8,6 +8,7 @@ import {
   type Channel,
   type NotifyChannel,
 } from "@/lib/notify";
+import { sendPush } from "@/lib/notify/apns";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { absoluteUrl } from "@/lib/site";
 import {
@@ -159,6 +160,20 @@ export async function GET(request: Request) {
     (absences ?? []).map((a) => `${a.game_id}:${a.user_id}`),
   );
 
+  // Every recipient's registered devices, in one read rather than one per
+  // player. A user may have several — a watch and a phone — and each gets
+  // its own APNs call under a single reminder_log claim.
+  const { data: devices } = await supabase
+    .from("device_tokens")
+    .select("user_id, token, bundle_id")
+    .is("invalidated_at", null);
+  const devicesFor = new Map<string, { token: string; bundle_id: string }[]>();
+  for (const d of devices ?? []) {
+    const list = devicesFor.get(d.user_id as string) ?? [];
+    list.push({ token: d.token as string, bundle_id: d.bundle_id as string });
+    devicesFor.set(d.user_id as string, list);
+  }
+
   let sent = 0;
   let failed = 0;
   let alreadyDone = 0;
@@ -171,9 +186,11 @@ export async function GET(request: Request) {
       for (const player of byTeam.get(teamId) ?? []) {
         if (absent.has(`${game.game_id}:${player.user_id}`)) continue;
 
+        const myDevices = devicesFor.get(player.user_id) ?? [];
         const channels = channelsFor(player.notify_channel, {
           email: player.email,
           phone: player.phone,
+          hasDevice: myDevices.length > 0,
         });
         if (channels.length === 0) continue;
 
@@ -206,7 +223,7 @@ export async function GET(request: Request) {
             continue;
           }
 
-          const result = await deliver(channel, kind, ctx, player);
+          const result = await deliver(channel, kind, ctx, player, myDevices, supabase);
           if (result.skipped) {
             // Nothing was sent, so release the claim — otherwise configuring
             // the provider later would never retroactively fix this game.
@@ -250,7 +267,10 @@ async function deliver(
   kind: ReminderKind,
   ctx: ReminderContext,
   player: RecipientRow,
+  devices: { token: string; bundle_id: string }[],
+  supabase: ReturnType<typeof createAdminClient>,
 ) {
+  if (channel === "push") return deliverPush(kind, ctx, devices, supabase);
   if (channel === "sms") {
     return sendSms({ to: player.phone ?? "", body: smsBody(kind, ctx) });
   }
@@ -261,4 +281,75 @@ async function deliver(
     text,
     html: renderEmailHtml({ text, url: ctx.url, cta: "Open the game" }),
   });
+}
+
+/**
+ * One claim covers all of a person's devices, so this fans out and reports a
+ * single result. A partial success still counts as delivered — the point is
+ * that the wrist buzzed, and re-sending to the one that worked would be
+ * worse than not retrying the one that didn't.
+ */
+async function deliverPush(
+  kind: ReminderKind,
+  ctx: ReminderContext,
+  devices: { token: string; bundle_id: string }[],
+  supabase: ReturnType<typeof createAdminClient>,
+) {
+  if (devices.length === 0) {
+    return { ok: true as const, skipped: true as const, detail: "No registered devices." };
+  }
+
+  const details: string[] = [];
+  let delivered = 0;
+
+  for (const device of devices) {
+    const { result, unregistered } = await sendPush({
+      to: device.token,
+      topic: device.bundle_id,
+      title: pushTitle(kind),
+      body: smsBody(kind, ctx),
+      path: `/league/${ctx.url.split("/league/")[1] ?? ""}`,
+      // Only the ten-minute notice earns a Focus break. The morning one can
+      // wait for the person to look at their watch.
+      urgent: kind === "ten",
+    });
+
+    if (unregistered) {
+      // Apple says this token is dead. Retire it rather than delete it, so a
+      // device that comes back is distinguishable from one never seen.
+      await supabase
+        .from("device_tokens")
+        .update({ invalidated_at: new Date().toISOString() })
+        .eq("token", device.token);
+    }
+
+    if (result.ok && !result.skipped) delivered += 1;
+    details.push(result.detail);
+  }
+
+  if (delivered > 0) {
+    return {
+      ok: true as const,
+      skipped: false as const,
+      detail: `Pushed to ${delivered}/${devices.length} device(s).`,
+    };
+  }
+  // Every device was skipped for the same reason if push is unconfigured —
+  // report it as skipped so the claim is released and configuring the key
+  // later still reaches future games.
+  const allSkipped = details.every((d) => d.startsWith("Push not configured"));
+  return allSkipped
+    ? { ok: true as const, skipped: true as const, detail: details[0] }
+    : { ok: false as const, skipped: false as const, detail: details.join("; ") };
+}
+
+function pushTitle(kind: ReminderKind): string {
+  switch (kind) {
+    case "morning":
+      return "Game today";
+    case "hour":
+      return "Game in an hour";
+    case "ten":
+      return "Tip-off in 10 min";
+  }
 }

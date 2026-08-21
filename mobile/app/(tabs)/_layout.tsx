@@ -1,8 +1,12 @@
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-import { color, font } from "@/theme";
+import { View } from "react-native";
+import { FloatingTabBar } from "@/components/FloatingTabBar";
+import { CanvasBackground, useCanvas } from "@/lib/canvas";
+import { Avatar } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
+import { useMyIdentity } from "@/lib/profile";
 
 /* Icons match the web set: 1.5px stroke, round caps, currentColor. */
 const stroke = (c: ColorValue) => ({
@@ -44,32 +48,22 @@ const IconUser = ({ c }: { c: ColorValue }) => (
 );
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const me = useMyIdentity(user?.id);
+  const canvas = useCanvas();
   return (
-    <Tabs
+    <View style={{ flex: 1, backgroundColor: canvas.base }}>
+      <CanvasBackground />
+      <Tabs
+      // The bar floats over content instead of claiming a slab of screen —
+      // every scrolling screen pads its bottom by TAB_CLEARANCE instead.
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: color.canvas },
-        headerTintColor: color.white,
-        headerTitleStyle: { fontFamily: font.semibold, fontSize: 18 },
-        headerShadowVisible: false,
-        sceneStyle: { backgroundColor: color.canvas },
-        tabBarStyle: {
-          backgroundColor: color.ink,
-          borderTopWidth: 0,
-          // 58 of content plus whatever the device actually reserves for the
-          // home indicator — a hardcoded 88 leaves a dead slab on devices
-          // without one (SE, iPad) and would clip if the inset ever grew.
-          height: 58 + insets.bottom,
-          paddingTop: 8,
-        },
-        tabBarActiveTintColor: color.white,
-        tabBarInactiveTintColor: "rgba(255,255,255,0.55)",
-        tabBarLabelStyle: {
-          fontFamily: font.monoMedium,
-          fontSize: 10,
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-        },
+        // Each tab draws its own identity header, per the reference — a
+        // centered native header on top of that would say everything twice.
+        headerShown: false,
+        // Transparent so the shared CanvasBackground shows through.
+        sceneStyle: { backgroundColor: "transparent" },
       }}
     >
       <Tabs.Screen
@@ -104,9 +98,17 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Me",
-          tabBarIcon: ({ color: c }) => <IconUser c={c} />,
+          // The design's fifth tab is *you* — the face, not a glyph. Falls
+          // back to initials, and to the glyph before the profile loads.
+          tabBarIcon: ({ color: c }) =>
+            me ? (
+              <Avatar name={me.name || "?"} size={26} uri={me.avatarUrl} />
+            ) : (
+              <IconUser c={c} />
+            ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </View>
   );
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -52,8 +53,18 @@ export const Body = ({ children, style }: { children: ReactNode; style?: object 
   <Text style={[type.body, { color: color.inkBody }, style]}>{children}</Text>
 );
 /** The mono eyebrow. */
-export const Label = ({ children, style }: { children: ReactNode; style?: object }) => (
-  <Text style={[type.label, style]}>{children}</Text>
+export const Label = ({
+  children,
+  style,
+  numberOfLines,
+}: {
+  children: ReactNode;
+  style?: object;
+  numberOfLines?: number;
+}) => (
+  <Text style={[type.label, style]} numberOfLines={numberOfLines}>
+    {children}
+  </Text>
 );
 /** Anything counted. */
 export const Num = ({
@@ -78,10 +89,12 @@ type Variant = "accent" | "primary" | "light" | "quiet" | "canvas";
 
 const VARIANT: Record<Variant, { bg: string; fg: string }> = {
   accent: { bg: color.accent, fg: color.white },
-  primary: { bg: color.ink, fg: color.white },
+  // The big white pill from the reference ("I'll be there") — dark type,
+  // because `ink` is light now and would vanish on white.
+  primary: { bg: color.white, fg: color.onLight },
   light: { bg: color.paper, fg: color.ink },
-  quiet: { bg: color.rule, fg: color.ink },
-  canvas: { bg: "rgba(255,255,255,0.22)", fg: color.white },
+  quiet: { bg: color.paper, fg: color.ink },
+  canvas: { bg: "rgba(255,255,255,0.14)", fg: color.ink },
 };
 
 export function Button({
@@ -175,7 +188,7 @@ export function ErrorNote({ message }: { message?: string | null }) {
   if (!message) return null;
   return (
     <View style={s.error} accessibilityRole="alert">
-      <Text style={[type.body, { color: color.accent }]}>{message}</Text>
+      <Text style={[type.body, { color: color.danger }]}>{message}</Text>
     </View>
   );
 }
@@ -184,7 +197,7 @@ export function Notice({ message }: { message?: string | null }) {
   if (!message) return null;
   return (
     <View style={s.notice}>
-      <Text style={[type.body, { color: color.white }]}>{message}</Text>
+      <Text style={[type.body, { color: color.positive }]}>{message}</Text>
     </View>
   );
 }
@@ -213,7 +226,29 @@ export function EmptyState({
 
 /* -------------------------------- Identity --------------------------------- */
 
-export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+export function Avatar({
+  name,
+  size = 40,
+  uri,
+}: {
+  name: string;
+  size?: number;
+  uri?: string | null;
+}) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1,
+          borderColor: color.glassBorder,
+        }}
+      />
+    );
+  }
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -226,7 +261,9 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: color.ink,
+        backgroundColor: color.paper,
+        borderWidth: 1,
+        borderColor: color.glassBorder,
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -235,7 +272,7 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
         style={{
           fontFamily: type.bodyMedium.fontFamily,
           fontSize: size * 0.36,
-          color: color.white,
+          color: color.ink,
         }}
       >
         {initials || "—"}
@@ -307,11 +344,15 @@ const s = StyleSheet.create({
     backgroundColor: color.surface,
     borderRadius: radius.card,
     padding: space(2.5),
+    borderWidth: 1,
+    borderColor: color.glassBorder,
   },
   row: {
     backgroundColor: color.paper,
     borderRadius: radius.row,
     padding: space(1.75),
+    borderWidth: 1,
+    borderColor: color.ruleSoft,
   },
   button: {
     minHeight: HIT,
@@ -330,9 +371,9 @@ const s = StyleSheet.create({
     paddingVertical: space(1),
     alignSelf: "flex-start",
   },
-  chipText: { fontFamily: type.bodyMedium.fontFamily, fontSize: 15, color: color.white },
+  chipText: { fontFamily: type.bodyMedium.fontFamily, fontSize: 15, color: color.inkBody },
   chipStat: {
-    backgroundColor: color.ink,
+    backgroundColor: color.paper,
     borderRadius: radius.pill,
     paddingHorizontal: space(2),
     paddingVertical: space(1.25),
@@ -341,7 +382,7 @@ const s = StyleSheet.create({
     minHeight: HIT,
     flex: 1,
   },
-  chipStatText: { fontFamily: type.num.fontFamily, fontSize: 14, color: color.white },
+  chipStatText: { fontFamily: type.num.fontFamily, fontSize: 14, color: color.ink },
   input: {
     minHeight: HIT,
     borderRadius: radius.control,
@@ -354,14 +395,18 @@ const s = StyleSheet.create({
     color: color.ink,
   },
   error: {
-    backgroundColor: color.tint,
+    backgroundColor: color.dangerBg,
     borderRadius: radius.row,
     padding: space(1.75),
+    borderWidth: 1,
+    borderColor: "rgba(255,92,72,0.36)",
   },
   notice: {
-    backgroundColor: color.ink,
+    backgroundColor: "rgba(96,196,140,0.14)",
     borderRadius: radius.row,
     padding: space(1.75),
+    borderWidth: 1,
+    borderColor: "rgba(96,196,140,0.3)",
   },
   empty: {
     backgroundColor: color.paper,

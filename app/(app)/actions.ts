@@ -523,6 +523,34 @@ export async function archiveLeague(formData: FormData) {
   redirect(`/dashboard?notice=${encodeURIComponent(`${data.name} archived.`)}`);
 }
 
+/** The permanent one. Every league-scoped table cascades from `leagues`, so
+    this one row-delete takes seasons, teams, games, events, stats — the lot.
+    RLS's "commissioner deletes" policy decides who may; a non-commissioner
+    matches zero rows and gets told so. The client shows a confirm dialog,
+    but the guarantee is the policy, not the dialog. */
+export async function purgeLeague(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const leagueId = String(formData.get("league_id") ?? "");
+  if (!leagueId) return;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("leagues")
+    .delete()
+    .eq("id", leagueId)
+    .select("name")
+    .maybeSingle();
+  revalidatePath("/dashboard");
+  if (error) {
+    redirect(`/dashboard?notice=${encodeURIComponent(`Couldn't delete: ${error.message}`)}`);
+  }
+  if (!data) {
+    redirect(
+      `/dashboard?notice=${encodeURIComponent("Only the commissioner can permanently delete a league.")}`,
+    );
+  }
+  redirect(`/dashboard?notice=${encodeURIComponent(`${data.name} permanently deleted.`)}`);
+}
+
 export async function unarchiveLeague(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();

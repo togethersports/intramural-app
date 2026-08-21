@@ -37,8 +37,9 @@ export default async function SchedulePage({
 }) {
   const { slug } = await params;
   const { remap } = await searchParams;
-  const user = await requireUser();
-  const league = await getLeague(slug);
+  // Independent of each other, so they overlap. Both are request-cached, so
+  // the layout has usually paid for them already and these resolve for free.
+  const [user, league] = await Promise.all([requireUser(), getLeague(slug)]);
   if (!league) notFound();
   const admin = isLeagueAdmin(league.role);
   const season = await getActiveSeason(league.id);

@@ -223,3 +223,72 @@ export interface BracketNodeRow {
   game_id: string | null;
   winner_team_id: string | null;
 }
+
+/* ------------------------------------------------------------------ vision -- */
+
+export interface ConsentRow {
+  id: string;
+  league_id: string;
+  user_id: string;
+  source: "school_form" | "guardian_email" | "athlete_signed";
+  note: string;
+  granted_at: string;
+  revoked_at: string | null;
+  full_name?: string;
+}
+
+export interface RecordingRow {
+  id: string;
+  game_id: string;
+  uploaded_by: string | null;
+  storage_path: string | null;
+  duration_s: number | null;
+  fps: number | null;
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
+  camera_note: string;
+  /** {x, y, w, h} in 0..1 of frame size — see mobile/core/vision.ts. */
+  rim_roi: { x: number; y: number; w: number; h: number } | null;
+  court_corners: [number, number][] | null;
+  court_side: "full" | "left" | "right";
+  status: "uploading" | "queued" | "processing" | "review" | "complete" | "failed";
+  consent_verified: boolean;
+  error: string | null;
+  delete_after: string;
+  created_at: string;
+}
+
+export interface VisionJobRow {
+  id: string;
+  recording_id: string;
+  stage: "queued" | "decode" | "detect" | "classify" | "emit" | "done";
+  progress: number;
+  status: "queued" | "running" | "succeeded" | "failed";
+  model_version: string;
+  gpu_seconds: number | null;
+  cost_cents: number | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface DetectedEventRow {
+  id: string;
+  recording_id: string;
+  game_id: string;
+  type: string;
+  ts_ms: number;
+  frame: number | null;
+  period: number;
+  user_id: string | null;
+  guest_id: string | null;
+  team_id: string | null;
+  confidence: number;
+  model_version: string;
+  payload: Record<string, unknown>;
+  source: "model" | "manual";
+  status: "pending" | "confirmed" | "rejected";
+  edited: boolean;
+  promoted_event_id: string | null;
+}

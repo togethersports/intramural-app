@@ -3,7 +3,7 @@
     "name": "Intramural",
     "slug": "intramural",
     "owner": "harryhonig",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "intramural",
     "userInterfaceStyle": "light",
@@ -17,7 +17,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.intramural.ios",
-      "config": { "usesNonExemptEncryption": false },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIViewControllerBasedStatusBarAppearance": false
@@ -54,7 +56,9 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ]
       }
@@ -64,13 +68,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#17171A",
+          "backgroundColor": "#101218",
           "image": "./assets/splash.png",
           "imageWidth": 160
         }
+      ],
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Lets you choose a profile photo for your league roster."
+        }
       ]
     ],
-    "experiments": { "typedRoutes": true },
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
       "router": {},
       "eas": {

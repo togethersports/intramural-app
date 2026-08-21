@@ -8,7 +8,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 School intramural league app. **The spec is `docs/BRIEF.md`** — treat it as
 the instruction set. Build order is BRIEF §6; Phase 0 (foundation) is done,
-Phase 1 is the draft room.
+Phase 1 is the draft room. Intramural Vision — game film to a reviewed box
+score — is specced in `docs/VISION.md`; its logic lives in `@core/vision`,
+its schema in migrations 0018/0019, and its UI under `/league/<slug>/film`.
 
 ## Running it
 

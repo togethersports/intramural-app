@@ -1,8 +1,11 @@
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Button, Card, EmptyState, H2, Label, Row } from "@/components/ui";
 import { getNotifications, markAllRead } from "@/lib/data";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 import type { NotificationRow } from "@core/types";
 
@@ -14,6 +17,7 @@ const CATEGORY: Record<string, string> = {
   schedule_change: "Schedule",
   availability_nudge: "Availability",
   scorekeeper: "Scorekeeper",
+  announcement: "League",
 };
 
 /** Notification links are web paths; map the ones the app can handle. */
@@ -28,6 +32,8 @@ function routeFor(link: string | null): string | null {
 
 export default function Inbox() {
   const router = useRouter();
+  const onScroll = useBarScroll();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -44,16 +50,18 @@ export default function Inbox() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: space(2), gap: space(2) }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.white} />}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
+      <ScreenHeader title="Inbox" />
       {unread > 0 ? (
         <Button variant="canvas" onPress={async () => { await markAllRead(); load(); }}>
           Mark all read
         </Button>
       ) : null}
       <Card style={{ gap: space(1) }}>
-        <H2>Inbox</H2>
         {items.length === 0 ? (
           <EmptyState
             title={loaded ? "Nothing yet" : "Loading…"}
@@ -64,7 +72,7 @@ export default function Inbox() {
             const route = routeFor(n.link);
             const body = (
               <Row style={{ flexDirection: "row", gap: space(1.5), alignItems: "flex-start" }}>
-                <Label style={{ width: 86 }}>{CATEGORY[n.category] ?? "Update"}</Label>
+                <Label style={{ marginTop: 2 }} numberOfLines={1}>{CATEGORY[n.category] ?? "Update"}</Label>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[n.read_at ? type.body : type.bodyMedium, { color: color.ink }]}>
                     {n.title}

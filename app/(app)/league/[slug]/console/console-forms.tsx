@@ -4,6 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import {
   addTimeSlot,
   addVenue,
+  announceLeague,
   createSeason,
   updateLeagueAppearance,
   updateLeagueLogo,
@@ -318,6 +319,50 @@ export function AddVenueForm({
       </label>
       <Button type="submit" disabled={pending} variant="quiet">
         {pending ? "Adding…" : "Add venue"}
+      </Button>
+    </form>
+  );
+}
+
+/** One announcement, three deliveries: the record, every member's inbox,
+ *  and a push to each registered phone and watch. The textarea is optional —
+ *  a title alone ("Games cancelled today") is a complete announcement. */
+export function AnnouncementForm({ slug }: { slug: string }) {
+  const [state, formAction, pending] = useActionState(announceLeague, initial);
+  const formRef = useRef<HTMLFormElement>(null);
+  return (
+    <form
+      ref={formRef}
+      action={(fd) => {
+        formAction(fd);
+        formRef.current?.reset();
+      }}
+      className="space-y-3"
+    >
+      <FormError message={state.error} />
+      {state.notice ? <FormNotice message={state.notice} /> : null}
+      <input type="hidden" name="slug" value={slug} />
+      <Field label="Title" htmlFor="ann-title">
+        <Input
+          id="ann-title"
+          name="title"
+          placeholder="Games cancelled today"
+          maxLength={120}
+          required
+        />
+      </Field>
+      <Field label="Details (optional)" htmlFor="ann-body">
+        <textarea
+          id="ann-body"
+          name="body"
+          rows={3}
+          maxLength={2000}
+          placeholder="Main Gym is closed for the assembly. Everything moves to Thursday."
+          className="w-full rounded-2xl border border-rule bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-ink-faint focus:border-accent"
+        />
+      </Field>
+      <Button type="submit" disabled={pending} variant="quiet">
+        {pending ? "Posting…" : "Post to the whole league"}
       </Button>
     </form>
   );

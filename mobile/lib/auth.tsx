@@ -11,6 +11,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { configureForegroundPresentation, registerForPush, unregisterForPush } from "./push";
 
 // Lets the in-app browser hand the session back the moment Google redirects
 // instead of leaving the sheet open.
@@ -91,12 +92,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    configureForegroundPresentation();
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
+      // Every signed-in launch, not once: Apple can reissue the token after
+      // a restore, and registration upserts on the token itself.
+      if (data.session) void registerForPush(data.session.access_token);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === "SIGNED_IN" && s) void registerForPush(s.access_token);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -183,6 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       },
       async signOut() {
+        // Retire the push token while the session can still authorize it —
+        // after signOut() the bearer is gone.
+        if (session) await unregisterForPush(session.access_token);
         await supabase.auth.signOut();
       },
       async deleteAccount() {

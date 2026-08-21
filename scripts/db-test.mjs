@@ -1286,6 +1286,329 @@ assert(
   "the purged league is really gone (cascade took its children)",
 );
 
+// --------------------------------------------------------------- vision
+// Film → candidate events → a human's keystroke → game_events. The two
+// things that must hold: no consent means no processing, and nothing reaches
+// a box score without a league admin confirming it.
+console.log("\n— vision (film review) —");
+
+await asOwner();
+// The game is over — that is the point. game_events only accepts client
+// inserts while a game is live, so promotion has to go through the RPC.
+await db.query(`update games set status = 'final' where id = $1`, [game.id]);
+
+await asAuthenticated(1);
+const recording = await one(
+  `insert into recordings (game_id, uploaded_by, storage_path, duration_s, rim_roi)
+   values ($1, $2, $3, 2400, '{"x":0.5,"y":0.2,"w":0.1,"h":0.1}'::jsonb)
+   returning *`,
+  [game.id, uid(1), `${league.id}/film.mp4`],
+);
+assert(recording.status === "uploading", "a new recording starts in 'uploading'");
+assert(
+  recording.consent_verified === false,
+  "a new recording is not consent-verified until it is queued",
+);
+
+// -- the consent gate
+const rosterUsers = (
+  await db.query(
+    `select distinct tm.user_id from team_members tm
+     join games g on tm.team_id in (g.home_team_id, g.away_team_id)
+     where g.id = $1 and tm.left_at is null`,
+    [game.id],
+  )
+).rows.map((r) => r.user_id);
+assert(rosterUsers.length > 0, `the game has ${rosterUsers.length} rostered players`);
+
+// Consent is recorded at join (0014): every rostered player already has a
+// 'league_join' consent row, so the gate opens by default…
+assert(
+  (
+    await one(
+      `select count(*)::int as c from consents
+       where league_id = $1 and user_id = any($2) and source = 'league_join' and revoked_at is null`,
+      [league.id, rosterUsers],
+    )
+  ).c === rosterUsers.length,
+  "joining the league recorded a film consent for every rostered player",
+);
+assert(
+  (await db.query(`select * from missing_consents($1)`, [recording.id])).rows.length === 0,
+  "nobody is missing before anyone touches anything — consent came with the join",
+);
+
+// …and revoking one player closes it again, by name.
+await db.query(
+  `update consents set revoked_at = now() where league_id = $1 and user_id = $2`,
+  [league.id, uid(4)],
+);
+assert(
+  await rejects(`update recordings set status = 'queued' where id = $1`, [recording.id]),
+  "one revoked player on the roster blocks processing",
+);
+let gateMessage = "";
+try {
+  await db.query(`select assert_recording_consent($1)`, [recording.id]);
+} catch (err) {
+  gateMessage = err.message;
+}
+assert(
+  gateMessage.includes("Player Number4") && gateMessage.includes("consent"),
+  "the gate names the revoked player, not just 'denied'",
+);
+assert(
+  await rejects(
+    `select ingest_detected_events($1, 'v0.1', '[]'::jsonb)`,
+    [recording.id],
+  ),
+  "ingest re-checks the gate too — a mid-run revocation stops the data itself",
+);
+
+// the school re-collects the form; re-granting reopens the gate
+await db.query(
+  `update consents set revoked_at = null, granted_at = now(), granted_by = $3
+   where league_id = $1 and user_id = $2`,
+  [league.id, uid(4), uid(1)],
+);
+await db.query(`update recordings set status = 'queued' where id = $1`, [recording.id]);
+assert(
+  (await one(`select consent_verified, status from recordings where id = $1`, [recording.id]))
+    .consent_verified === true,
+  "queueing stamps consent_verified — the gate is what sets it, never the client",
+);
+
+// re-joining must never resurrect a revoked consent
+await asOwner();
+await db.query(
+  `update consents set revoked_at = now() where league_id = $1 and user_id = $2`,
+  [league.id, uid(9)],
+);
+await db.query(
+  `update league_members set status = 'removed' where league_id = $1 and user_id = $2`,
+  [league.id, uid(9)],
+);
+await db.query(
+  `update league_members set status = 'active' where league_id = $1 and user_id = $2`,
+  [league.id, uid(9)],
+);
+assert(
+  (await one(
+    `select revoked_at from consents where league_id = $1 and user_id = $2`,
+    [league.id, uid(9)],
+  )).revoked_at !== null,
+  "re-activating a membership does NOT resurrect a revoked consent",
+);
+await db.query(
+  `update consents set revoked_at = null where league_id = $1 and user_id = $2`,
+  [league.id, uid(9)],
+);
+await asAuthenticated(1);
+
+// -- film is admin-only
+await asAuthenticated(5); // an ordinary player in this league
+assert(
+  (await one(`select count(*)::int as c from recordings where id = $1`, [recording.id])).c === 0,
+  "an ordinary player cannot see a recording at all",
+);
+assert(
+  await rejects(
+    `update consents set revoked_at = null, source = 'school_form'
+     where league_id = $1 and user_id = $2`,
+    [league.id, uid(5)],
+  ),
+  "a player cannot edit consent rows — grants and revocations are admin-only",
+);
+assert(
+  (await one(
+    `select count(*)::int as c from consents where league_id = $1 and user_id = $2`,
+    [league.id, uid(5)],
+  )).c === 1,
+  "a player CAN see their own consent row — it is their right to check",
+);
+
+// -- the worker writes progress and candidates
+await asAuthenticated(1);
+await db.query(`select set_vision_progress($1, 'detect', 0.4, 'running', 'v0.1')`, [
+  recording.id,
+]);
+assert(
+  (await one(`select status from recordings where id = $1`, [recording.id])).status ===
+    "processing",
+  "progress from the worker moves the recording into 'processing'",
+);
+
+const candidates = JSON.stringify([
+  { type: "fg2_made", ts_ms: 12000, confidence: 0.94 },
+  { type: "fg2_miss", ts_ms: 45000, confidence: 0.41 },
+  { type: "fg2_made", ts_ms: 90000, confidence: 0.77 },
+]);
+const ingested = (
+  await one(`select ingest_detected_events($1, 'v0.1', $2::jsonb) as n`, [
+    recording.id,
+    candidates,
+  ])
+).n;
+assert(ingested === 3, "the worker ingested 3 candidates");
+await db.query(`select set_vision_progress($1, 'done', 1, 'succeeded', 'v0.1')`, [
+  recording.id,
+]);
+assert(
+  (await one(`select status from recordings where id = $1`, [recording.id])).status === "review",
+  "a finished job puts the recording in 'review'",
+);
+
+// a retried job replaces its own pending output instead of doubling the queue
+await one(`select ingest_detected_events($1, 'v0.1', $2::jsonb) as n`, [
+  recording.id,
+  candidates,
+]);
+assert(
+  (await one(`select count(*)::int as c from detected_events where recording_id = $1`, [
+    recording.id,
+  ])).c === 3,
+  "re-running the pipeline does not duplicate the review queue",
+);
+
+// -- confirming promotes into game_events
+const eventsBeforeReview = (
+  await one(`select count(*)::int as c from game_events where game_id = $1`, [game.id])
+).c;
+const shot = await one(
+  `select * from detected_events where recording_id = $1 and ts_ms = 12000`,
+  [recording.id],
+);
+const promoted = (
+  await one(`select confirm_detected_event($1, 'fg3_made', $2, null, $3) as id`, [
+    shot.id,
+    uid(4),
+    teamA.id,
+  ])
+).id;
+assert(Boolean(promoted), "confirming a call returns the game_event it created");
+
+const promotedRow = await one(`select * from game_events where id = $1`, [promoted]);
+assert(
+  promotedRow.type === "fg3_made" && promotedRow.value === 3,
+  "the reviewer's edit (two → three) is what lands in the box score, worth 3",
+);
+assert(
+  promotedRow.client_uuid === shot.id,
+  "the candidate's id becomes the game_event's client_uuid, so confirming twice is a no-op",
+);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1`, [game.id])).c ===
+    eventsBeforeReview + 1,
+  "exactly one game_event was written, into a game that is already final",
+);
+
+const reviewed = await one(`select * from detected_events where id = $1`, [shot.id]);
+assert(reviewed.status === "confirmed", "the candidate is marked confirmed");
+assert(reviewed.edited === true, "changing the call flags the row as a training example");
+assert(reviewed.promoted_event_id === promoted, "the candidate points at its game_event");
+
+// confirming again applies the edit in place rather than double-counting
+await db.query(`select confirm_detected_event($1, 'fg2_made', $2, null, $3)`, [
+  shot.id,
+  uid(4),
+  teamA.id,
+]);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1`, [game.id])).c ===
+    eventsBeforeReview + 1,
+  "re-confirming edits the same game_event instead of writing a second one",
+);
+assert(
+  (await one(`select value from game_events where id = $1`, [promoted])).value === 2,
+  "the re-confirm re-scored it as a two",
+);
+
+// -- rejecting voids rather than deletes
+await db.query(`select reject_detected_event($1)`, [shot.id]);
+assert(
+  (await one(`select voided from game_events where id = $1`, [promoted])).voided === true,
+  "rejecting a promoted call voids its game_event — the ledger stays append-only",
+);
+assert(
+  (await one(`select status from detected_events where id = $1`, [shot.id])).status ===
+    "rejected",
+  "the candidate is marked rejected",
+);
+
+// -- only admins review, and the client cannot forge a confirmation
+await asAuthenticated(5);
+const other = await one(
+  `select id from detected_events where recording_id = $1 and status = 'pending' limit 1`,
+  [recording.id],
+);
+assert(other === undefined, "a player cannot even see the pending queue");
+await asAuthenticated(1);
+const pending = await one(
+  `select id from detected_events where recording_id = $1 and status = 'pending' limit 1`,
+  [recording.id],
+);
+await asAuthenticated(5);
+assert(
+  await rejects(`select confirm_detected_event($1)`, [pending.id]),
+  "a player cannot confirm a call even with its id in hand",
+);
+
+await asAuthenticated(1);
+assert(
+  await rejects(
+    `update detected_events set status = 'confirmed' where id = $1`,
+    [pending.id],
+  ),
+  "even an admin cannot hand-write 'confirmed' — promotion only happens through the RPC",
+);
+assert(
+  (await one(`select status from detected_events where id = $1`, [pending.id])).status ===
+    "pending",
+  "that row is still pending",
+);
+
+// -- revoking consent re-closes the gate
+await db.query(
+  `update consents set revoked_at = now() where league_id = $1 and user_id = $2`,
+  [league.id, rosterUsers[0]],
+);
+await db.query(`update recordings set status = 'review' where id = $1`, [recording.id]);
+assert(
+  await rejects(`update recordings set status = 'queued' where id = $1`, [recording.id]),
+  "revoking one player's consent blocks the film from being processed again",
+);
+
+// -- retention deletes the film and keeps the stats
+assert(
+  (await one(`select purge_expired_recordings() as n`)).n === 0,
+  "the retention sweep leaves film inside its 30-day window alone",
+);
+await asOwner();
+await db.query(`update recordings set delete_after = now() - interval '1 day' where id = $1`, [
+  recording.id,
+]);
+await asAuthenticated(1);
+assert(
+  (await one(`select purge_expired_recordings() as n`)).n === 1,
+  "the sweep clears film past its retention date",
+);
+assert(
+  (await one(`select storage_path from recordings where id = $1`, [recording.id]))
+    .storage_path === null,
+  "the video path is gone",
+);
+assert(
+  (await one(`select count(*)::int as c from detected_events where recording_id = $1`, [
+    recording.id,
+  ])).c === 3,
+  "the derived events survive — they hold no biometric data",
+);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1`, [game.id])).c ===
+    eventsBeforeReview + 1,
+  "and so does the box score the review produced",
+);
+
 // ---------------------------------------------------------------- summary
 if (failures > 0) {
   console.error(`\n${failures} failure(s)`);

@@ -3,10 +3,13 @@
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/auth";
 import type { LeagueRole } from "@core/league-constants";
 import type {
   AvailabilityRow,
   BracketNodeRow,
+  ConsentRow,
+  DetectedEventRow,
   DraftPickRow,
   DraftRow,
   GameEventRow,
@@ -16,12 +19,14 @@ import type {
   NotificationRow,
   PlayerGameStatRow,
   PostRow,
+  RecordingRow,
   SeasonRow,
   TeamRow,
   TeamWithRoster,
   TimeSlotRow,
   TradeRow,
   VenueRow,
+  VisionJobRow,
 } from "@core/types";
 
 export interface LeagueContext {
@@ -58,8 +63,11 @@ export const getLeague = cache(
     // dashboard's Archived section — even for the commissioner (whose RLS
     // read access exists precisely so that restore can work).
     if (data.deleted_at) return null;
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return null;
+    // getUser() from lib/auth, not supabase.auth.getUser(): the Supabase call
+    // is a network round trip every time, and this one is on the critical
+    // path of every league page. The cached version has already paid for it.
+    const me = await getUser();
+    if (!me) return null;
     // Must be scoped to me: RLS exposes every member of a league I am in, and
     // maybeSingle() errors on more than one row, so omitting this 404s the
     // entire league the moment it has two members.
@@ -67,13 +75,46 @@ export const getLeague = cache(
       .from("league_members")
       .select("role")
       .eq("league_id", data.id)
-      .eq("user_id", auth.user.id)
+      .eq("user_id", me.id)
       .eq("status", "active")
       .maybeSingle();
     if (!membership) return null;
     return { ...data, role: membership.role as LeagueRole } as LeagueContext;
   },
 );
+
+export interface AnnouncementRow {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  author_name: string | null;
+}
+
+export async function getAnnouncements(
+  leagueId: string,
+  limit = 5,
+): Promise<AnnouncementRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("id, title, body, created_at, author:profiles!announcements_author_profile_fkey(full_name)")
+    .eq("league_id", leagueId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error(`getAnnouncements(${leagueId}) failed: ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    body: r.body as string,
+    created_at: r.created_at as string,
+    author_name:
+      (r.author as unknown as { full_name: string } | null)?.full_name ?? null,
+  }));
+}
 
 export const getActiveSeason = cache(
   async (leagueId: string): Promise<SeasonRow | null> => {
@@ -897,7 +938,7 @@ export async function getSchedulePolls(
   seasonId: string,
 ): Promise<SchedulePollRow[]> {
   const supabase = await createClient();
-  const [{ data: polls, error }, { data: auth }] = await Promise.all([
+  const [{ data: polls, error }, me] = await Promise.all([
     supabase
       .from("schedule_polls")
       .select(
@@ -906,7 +947,7 @@ export async function getSchedulePolls(
       .eq("season_id", seasonId)
       .neq("status", "cancelled")
       .order("created_at", { ascending: false }),
-    supabase.auth.getUser(),
+    getUser(),
   ]);
   if (error) {
     console.error(`getSchedulePolls(${seasonId}) failed: ${error.message}`);
@@ -926,12 +967,12 @@ export async function getSchedulePolls(
 
   const tally = new Map<string, { yes: number; maybe: number; no: number }>();
   const mine = new Map<string, "yes" | "maybe" | "no">();
-  const me = auth?.user?.id;
+  const meId = me?.id;
   for (const v of votes ?? []) {
     const bucket = tally.get(v.option_id as string) ?? { yes: 0, maybe: 0, no: 0 };
     bucket[v.vote as "yes" | "maybe" | "no"] += 1;
     tally.set(v.option_id as string, bucket);
-    if (me && v.user_id === me) {
+    if (meId && v.user_id === meId) {
       mine.set(v.option_id as string, v.vote as "yes" | "maybe" | "no");
     }
   }
@@ -1028,4 +1069,136 @@ export async function getLatestAward(
     stat_line: (data.stat_line as Record<string, number>) ?? {},
     source: (data.source as string) ?? "",
   };
+}
+/* ------------------------------------------------------------------ vision --
+   Film is admin-only at the RLS layer, so these return empty for everyone
+   else rather than needing a role check at the call site. */
+
+export interface RecordingWithGame extends RecordingRow {
+  game?: {
+    id: string;
+    week: number;
+    scheduled_date: string | null;
+    status: string;
+    home_team_id: string;
+    away_team_id: string;
+  };
+}
+
+/** Every recording in the league, newest first. Walks seasons → games →
+    recordings rather than a three-deep PostgREST filter: two extra round
+    trips, one obvious query. */
+export async function getLeagueRecordings(
+  leagueId: string,
+): Promise<RecordingWithGame[]> {
+  const supabase = await createClient();
+  const { data: seasons } = await supabase
+    .from("seasons")
+    .select("id")
+    .eq("league_id", leagueId);
+  const seasonIds = (seasons ?? []).map((s) => s.id as string);
+  if (seasonIds.length === 0) return [];
+
+  const { data: games } = await supabase
+    .from("games")
+    .select("id, week, scheduled_date, status, home_team_id, away_team_id")
+    .in("season_id", seasonIds);
+  const gameById = new Map((games ?? []).map((g) => [g.id as string, g]));
+  if (gameById.size === 0) return [];
+
+  const { data } = await supabase
+    .from("recordings")
+    .select("*")
+    .in("game_id", [...gameById.keys()])
+    .order("created_at", { ascending: false });
+
+  return ((data as unknown as RecordingRow[]) ?? []).map((r) => ({
+    ...r,
+    game: gameById.get(r.game_id) as RecordingWithGame["game"],
+  }));
+}
+
+export async function getGameRecordings(gameId: string): Promise<RecordingRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recordings")
+    .select("*")
+    .eq("game_id", gameId)
+    .order("created_at", { ascending: false });
+  return (data as unknown as RecordingRow[]) ?? [];
+}
+
+export async function getRecording(id: string): Promise<RecordingRow | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recordings")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  return (data as unknown as RecordingRow) ?? null;
+}
+
+export async function getDetectedEvents(
+  recordingId: string,
+): Promise<DetectedEventRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("detected_events")
+    .select("*")
+    .eq("recording_id", recordingId)
+    .order("ts_ms", { ascending: true });
+  return (data as unknown as DetectedEventRow[]) ?? [];
+}
+
+export async function getVisionJob(
+  recordingId: string,
+): Promise<VisionJobRow | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("vision_jobs")
+    .select("*")
+    .eq("recording_id", recordingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as unknown as VisionJobRow) ?? null;
+}
+
+/** Consent rows for the league, joined to names for the roster table. */
+export async function getConsents(leagueId: string): Promise<ConsentRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("consents")
+    .select("*, profile:profiles(full_name)")
+    .eq("league_id", leagueId);
+  return ((data as unknown as (ConsentRow & { profile?: { full_name: string } | null })[]) ?? []).map(
+    (c) => ({ ...c, full_name: c.profile?.full_name || "Unnamed" }),
+  );
+}
+
+/** Players on this game's two rosters who have no unrevoked consent row.
+    The same query the database gate raises on, so the UI can name the fix
+    before the admin hits the wall. */
+export async function getMissingConsents(
+  recordingId: string,
+): Promise<{ user_id: string; full_name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("missing_consents", {
+    p_recording: recordingId,
+  });
+  return (data as { user_id: string; full_name: string }[]) ?? [];
+}
+
+/** Short-lived signed URL for a private film object. Null when the file is
+    gone — retention deletes the blob and keeps the row. */
+export async function getFilmUrl(
+  storagePath: string | null,
+  expiresIn = 60 * 60,
+): Promise<string | null> {
+  if (!storagePath) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.storage
+    .from("film")
+    .createSignedUrl(storagePath, expiresIn);
+  return data?.signedUrl ?? null;
 }
