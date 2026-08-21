@@ -2,7 +2,9 @@ import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { FloatingTabBar } from "@/components/FloatingTabBar";
-import { color, font } from "@/theme";
+import { Avatar } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
+import { useMyIdentity } from "@/lib/profile";
 
 /* Icons match the web set: 1.5px stroke, round caps, currentColor. */
 const stroke = (c: ColorValue) => ({
@@ -44,16 +46,19 @@ const IconUser = ({ c }: { c: ColorValue }) => (
 );
 
 export default function TabsLayout() {
+  const { user } = useAuth();
+  const me = useMyIdentity(user?.id);
   return (
     <Tabs
       // The bar floats over content instead of claiming a slab of screen —
       // every scrolling screen pads its bottom by TAB_CLEARANCE instead.
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        // Each tab draws its own big left-aligned title, per the reference —
-        // a centered native header on top of that would say everything twice.
+        // Each tab draws its own identity header, per the reference — a
+        // centered native header on top of that would say everything twice.
         headerShown: false,
-        sceneStyle: { backgroundColor: color.canvas },
+        // Transparent so the shared CanvasBackground shows through.
+        sceneStyle: { backgroundColor: "transparent" },
       }}
     >
       <Tabs.Screen
@@ -88,7 +93,14 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Me",
-          tabBarIcon: ({ color: c }) => <IconUser c={c} />,
+          // The design's fifth tab is *you* — the face, not a glyph. Falls
+          // back to initials, and to the glyph before the profile loads.
+          tabBarIcon: ({ color: c }) =>
+            me ? (
+              <Avatar name={me.name || "?"} size={26} uri={me.avatarUrl} />
+            ) : (
+              <IconUser c={c} />
+            ),
         }}
       />
     </Tabs>

@@ -45,7 +45,7 @@ export default function SignUp() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: color.canvas }}
+      style={{ flex: 1 }}
     >
       <ScrollView
         contentContainerStyle={{

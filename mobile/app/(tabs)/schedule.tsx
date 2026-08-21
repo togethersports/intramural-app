@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Card, EmptyState, Label } from "@/components/ui";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams } from "@/lib/data";
@@ -59,7 +60,7 @@ export default function Schedule() {
       contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
-      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>Schedule</Text>
+      <ScreenHeader title="Schedule" subtitle="Grouped by day" />
       {days.length === 0 ? (
         <Card>
           <EmptyState

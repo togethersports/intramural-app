@@ -14,9 +14,12 @@ import {
   JetBrainsMono_500Medium,
 } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { CanvasBackground, loadCanvasChoice } from "@/lib/canvas";
+import { View } from "react-native";
 import { color } from "@/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+loadCanvasChoice();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -44,7 +47,10 @@ function RootNavigator() {
         // The previous screen is the "(tabs)" group, and iOS would print that
         // route name as the back label without an explicit title.
         headerBackTitle: "Back",
-        contentStyle: { backgroundColor: color.canvas },
+        // Transparent so the one CanvasBackground shows through every screen
+        // — each scene painting its own ground would double the glows.
+        headerTransparent: false,
+        contentStyle: { backgroundColor: "transparent" },
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -74,7 +80,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        <RootNavigator />
+        <View style={{ flex: 1, backgroundColor: color.canvas }}>
+          <CanvasBackground />
+          <RootNavigator />
+        </View>
       </AuthProvider>
     </SafeAreaProvider>
   );

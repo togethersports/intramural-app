@@ -34,23 +34,16 @@ interface TabBarProps {
     navigate: (name: string) => void;
   };
 }
-import { color, font, radius, shadowFloat, space } from "@/theme";
+import { color, radius, shadowFloat, space } from "@/theme";
 
 export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   const insets = useSafeAreaInsets();
 
+  // Icon-only, per the v2 reference — the label's job is done by the active
+  // dot. The shrink now just tightens the pill.
   const height = barShrink.interpolate({
     inputRange: [0, 1],
-    outputRange: [62, 48],
-  });
-  const labelOpacity = barShrink.interpolate({
-    inputRange: [0, 0.6],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-  const labelHeight = barShrink.interpolate({
-    inputRange: [0, 1],
-    outputRange: [14, 0],
+    outputRange: [58, 46],
   });
 
   return (
@@ -89,16 +82,13 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                 style={s.item}
                 hitSlop={6}
               >
-                {options.tabBarIcon?.({ focused, color: tint, size: 22 })}
-                <Animated.Text
-                  numberOfLines={1}
+                {options.tabBarIcon?.({ focused, color: tint, size: 23 })}
+                <View
                   style={[
-                    s.label,
-                    { color: tint, opacity: labelOpacity, height: labelHeight },
+                    s.dot,
+                    { backgroundColor: focused ? color.accent : "transparent" },
                   ]}
-                >
-                  {label}
-                </Animated.Text>
+                />
               </Pressable>
             );
           })}
@@ -137,10 +127,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 2,
   },
-  label: {
-    fontFamily: font.monoMedium,
-    fontSize: 9.5,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
+  dot: { width: 5, height: 5, borderRadius: 3 },
 });

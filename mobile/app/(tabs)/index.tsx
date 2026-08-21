@@ -11,6 +11,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { Button, Card, EmptyState, Label, Num, TeamBadge } from "@/components/ui";
+import { RoleChip, ScreenHeader } from "@/components/ScreenHeader";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
 import {
@@ -157,69 +158,70 @@ export default function Home() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />
       }
     >
-      {/* Identity strip — who and where, not a greeting card. */}
-      <View style={{ paddingHorizontal: 2 }}>
-        <Text style={[type.h1, { color: color.ink }]}>
-          {league ? league.name : `Hey, ${firstName}`}
-        </Text>
-        <Label style={{ marginTop: 4 }}>
-          {myTeam ? myTeam.team_name : league ? "No team yet" : "Join a league to start"}
-        </Label>
-      </View>
+      {/* Identity header — the mark, then who and where you are. */}
+      <ScreenHeader
+        title={myTeam ? myTeam.team_name : league ? league.name : `Hey, ${firstName}`}
+        subtitle={myTeam ? myTeam.league_name : league ? "No team yet" : "Join a league to start"}
+        right={league ? <RoleChip role={league.role} /> : undefined}
+      />
 
       {/* The hero: you play next. */}
       {hero && myTeam ? (
         <View style={s.hero}>
           <LinearGradient
-            colors={["rgba(255,92,72,0.30)", "rgba(255,255,255,0.05)"]}
+            colors={["rgba(255,92,72,0.42)", "rgba(255,92,72,0.06)"]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ borderRadius: radius.card - 1, padding: space(2.5) }}
+            end={{ x: 0.9, y: 1 }}
+            style={{ borderRadius: 29, padding: space(2.25) }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Label style={{ color: color.blush }}>
                 {hero.status === "live" ? "Live now" : "You play next"}
               </Label>
-              <Label style={{ color: color.inkBody }}>
-                {hero.status === "live"
-                  ? `${hero.home_score} – ${hero.away_score}`
-                  : untilLabel(hero.scheduled_date)}
-              </Label>
+              <View style={s.heroWhen}>
+                <Label style={{ color: color.ink, fontSize: 10 }}>
+                  {hero.status === "live"
+                    ? `${hero.home_score} – ${hero.away_score}`
+                    : untilLabel(hero.scheduled_date)}
+                </Label>
+              </View>
             </View>
-            <Text style={[type.h1, { color: color.ink, marginTop: space(1.5) }]}>
-              {myTeam.team_name}
-              {"\n"}vs {heroOpponent ?? "TBD"}
+            <Text
+              style={[type.h1, { fontSize: 28, color: color.ink, marginTop: space(1.25) }]}
+              numberOfLines={2}
+            >
+              {myTeam.team_name} vs {heroOpponent ?? "TBD"}
             </Text>
-            <View style={{ marginTop: space(1.75), gap: 7 }}>
-              <View style={s.heroLine}>
-                <Svg width={16} height={16} viewBox="0 0 24 24">
+            <View style={{ marginTop: space(1.5), flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
+              <View style={s.heroChip}>
+                <Svg width={14} height={14} viewBox="0 0 24 24">
                   <Rect x={4} y={5} width={16} height={15} rx={3} {...ICON} />
                   <Path d="M8 3v4M16 3v4M4 10h16" {...ICON} />
                 </Svg>
-                <Text style={s.heroLineText}>{formatDate(hero.scheduled_date)}</Text>
+                <Text style={s.heroChipText}>{formatDate(hero.scheduled_date)}</Text>
               </View>
               {hero.time_slot?.label ? (
-                <View style={s.heroLine}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24">
+                <View style={s.heroChip}>
+                  <Svg width={14} height={14} viewBox="0 0 24 24">
                     <Circle cx={12} cy={12} r={8} {...ICON} />
                     <Path d="M12 8v4l3 2" {...ICON} />
                   </Svg>
-                  <Text style={s.heroLineText}>{hero.time_slot.label}</Text>
+                  <Text style={s.heroChipText}>{hero.time_slot.label}</Text>
                 </View>
               ) : null}
               {hero.venue?.name ? (
-                <View style={s.heroLine}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24">
+                <View style={s.heroChip}>
+                  <Svg width={14} height={14} viewBox="0 0 24 24">
                     <Path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" {...ICON} />
                     <Circle cx={12} cy={10} r={2.4} {...ICON} />
                   </Svg>
-                  <Text style={s.heroLineText}>{hero.venue.name}</Text>
+                  <Text style={s.heroChipText}>{hero.venue.name}</Text>
                 </View>
               ) : null}
             </View>
             <Button
               variant="primary"
-              style={{ marginTop: space(2.25) }}
+              style={{ marginTop: space(2), borderRadius: 15, minHeight: 48 }}
               onPress={() => router.push(`/game/${hero.id}`)}
             >
               {hero.status === "live" ? "Follow it live" : "Game details"}
@@ -334,13 +336,36 @@ export default function Home() {
 
 const s = StyleSheet.create({
   hero: {
-    borderRadius: radius.card,
+    borderRadius: 30,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,130,110,0.3)",
     overflow: "hidden",
+    shadowColor: color.accent,
+    shadowOpacity: 0.35,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 13 },
+    elevation: 10,
   },
-  heroLine: { flexDirection: "row", alignItems: "center", gap: 9 },
-  heroLineText: { ...type.bodyMedium, color: color.ink },
+  heroWhen: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  heroChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  heroChipText: { ...type.small, fontSize: 13, color: color.ink },
   tile: {
     flex: 1,
     backgroundColor: color.surface,

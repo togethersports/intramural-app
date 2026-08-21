@@ -7,12 +7,16 @@ import { useAuth } from "@/lib/auth";
 import { getMyLeagues, type LeagueSummary } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
+import { CANVASES, setCanvasChoice, useCanvas } from "@/lib/canvas";
+import { useMyIdentity } from "@/lib/profile";
 import { color, space, type } from "@/theme";
 
 export default function Profile() {
   const { user, signOut, deleteAccount } = useAuth();
   const router = useRouter();
   const onScroll = useBarScroll();
+  const canvas = useCanvas();
+  const me = useMyIdentity(user?.id);
   const [name, setName] = useState("");
   const [grade, setGrade] = useState<number | null>(null);
   const [leagues, setLeagues] = useState<LeagueSummary[]>([]);
@@ -58,10 +62,9 @@ export default function Profile() {
       scrollEventThrottle={16}
       contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
     >
-      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>Me</Text>
       <Card style={{ gap: space(2) }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space(2) }}>
-          <Avatar name={name || "?"} size={56} />
+          <Avatar name={name || "?"} size={56} uri={me?.avatarUrl} />
           <View style={{ flex: 1 }}>
             <Text style={[type.h2, { color: color.ink }]} numberOfLines={1}>
               {name || "Your profile"}
@@ -109,6 +112,52 @@ export default function Profile() {
           ))
         )}
         <Button variant="quiet" onPress={() => router.push("/join")}>Join a league</Button>
+      </Card>
+
+      <Card style={{ gap: space(1.5) }}>
+        <H2>Background</H2>
+        <Text style={[type.small, { color: color.inkMuted }]}>
+          What sits behind the glass. Yours alone — everyone picks their own.
+        </Text>
+        <View style={{ flexDirection: "row", gap: space(1.25) }}>
+          {CANVASES.map((c) => {
+            const active = c.id === canvas.id;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => setCanvasChoice(c.id)}
+                style={{
+                  flex: 1,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  borderWidth: active ? 2 : 1,
+                  borderColor: active ? color.accent : color.glassBorder,
+                }}
+              >
+                <View style={{ height: 64, backgroundColor: c.base }}>
+                  {/* A cheap echo of the glows — a swatch, not a render. */}
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -18,
+                      left: 8,
+                      width: 70,
+                      height: 46,
+                      borderRadius: 999,
+                      backgroundColor: c.glows[0].color,
+                      opacity: c.glows[0].opacity * 2,
+                    }}
+                  />
+                </View>
+                <View style={{ paddingVertical: 7, alignItems: "center", backgroundColor: color.surface }}>
+                  <Text style={[type.small, { fontSize: 12.5, color: active ? color.ink : color.inkMuted }]}>
+                    {c.name}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </Card>
 
       <Card style={{ gap: space(1.5) }}>

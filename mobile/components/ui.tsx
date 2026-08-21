@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -215,7 +216,29 @@ export function EmptyState({
 
 /* -------------------------------- Identity --------------------------------- */
 
-export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+export function Avatar({
+  name,
+  size = 40,
+  uri,
+}: {
+  name: string;
+  size?: number;
+  uri?: string | null;
+}) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1,
+          borderColor: color.glassBorder,
+        }}
+      />
+    );
+  }
   const initials = name
     .split(/\s+/)
     .filter(Boolean)

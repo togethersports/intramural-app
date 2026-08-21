@@ -10,8 +10,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { GoogleButton } from "@/components/GoogleButton";
-import { Lockup } from "@/components/Mark";
-import { Button, Card, ErrorNote, Field, H1, Input } from "@/components/ui";
+import { Mark } from "@/components/Mark";
+import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { color, space, type } from "@/theme";
@@ -33,7 +33,7 @@ export default function SignIn() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: color.canvas }}
+      style={{ flex: 1 }}
     >
       <ScrollView
         contentContainerStyle={{
@@ -46,12 +46,30 @@ export default function SignIn() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ alignItems: "center" }}>
-          <Lockup size={40} tone="white-red" />
+        <View style={{ alignItems: "center", gap: space(1.5) }}>
+          <View
+            style={{
+              width: 74,
+              height: 74,
+              borderRadius: 24,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(255,255,255,0.10)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.16)",
+            }}
+          >
+            <Mark size={40} tone="white-red" />
+          </View>
+          <View style={{ alignItems: "center" }}>
+            <Text style={[type.h1, { fontSize: 27, color: color.ink }]}>Intramural</Text>
+            <Text style={[type.small, { color: color.inkMuted, marginTop: 3 }]}>
+              Your school league, in your pocket.
+            </Text>
+          </View>
         </View>
 
         <Card style={{ gap: space(2) }}>
-          <H1>Sign in</H1>
           {!isSupabaseConfigured() ? (
             <ErrorNote message="The backend isn't configured in this build. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY." />
           ) : null}
@@ -94,9 +112,7 @@ export default function SignIn() {
           </Link>
         </Card>
 
-        <Text
-          style={[type.body, { color: color.white, textAlign: "center" }]}
-        >
+        <Text style={[type.small, { color: color.inkFaint, textAlign: "center" }]}>
           Built for lunch periods everywhere.
         </Text>
       </ScrollView>

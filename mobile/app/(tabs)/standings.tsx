@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
+import { Avatar, Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { useMyIdentity } from "@/lib/profile";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { computeStandings } from "@core/standings";
 import { aggregateLines, perGame } from "@core/stats";
@@ -16,7 +18,9 @@ export default function Standings() {
   const { user } = useAuth();
   const router = useRouter();
   const onScroll = useBarScroll();
+  const me = useMyIdentity(user?.id);
   const [myTeamId, setMyTeamId] = useState<string | null>(null);
+  const [leagueName, setLeagueName] = useState<string | null>(null);
   const [rows, setRows] = useState<
     { teamId: string; name: string; teamColor: string; w: number; l: number; pct: number; diff: number }[]
   >([]);
@@ -32,6 +36,7 @@ export default function Standings() {
     const seasonId = teams[0].season_id;
     setLeagueId(teams[0].league_id);
     setMyTeamId(teams[0].team_id);
+    setLeagueName(teams[0].league_name);
     const [seasonTeams, games, stats] = await Promise.all([
       getTeams(seasonId), getGames(seasonId), getSeasonPlayerStats(seasonId),
     ]);
@@ -77,7 +82,11 @@ export default function Standings() {
       contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
-      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>League</Text>
+      <ScreenHeader
+        title={leagueName ?? "League"}
+        subtitle="Standings & leaders"
+        right={me ? <Avatar name={me.name || "?"} size={34} uri={me.avatarUrl} /> : undefined}
+      />
       <Card style={{ gap: space(1.5) }}>
         <H2>Standings</H2>
         {rows.length === 0 ? (

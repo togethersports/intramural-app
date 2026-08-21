@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router";
 import { Button, Card, EmptyState, H2, Label, Row } from "@/components/ui";
 import { getNotifications, markAllRead } from "@/lib/data";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 import type { NotificationRow } from "@core/types";
@@ -52,7 +53,7 @@ export default function Inbox() {
       contentContainerStyle={{ padding: space(2), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
-      <Text style={[type.h1, { color: color.ink, paddingHorizontal: 2 }]}>Inbox</Text>
+      <ScreenHeader title="Inbox" subtitle="Everything that needs you" />
       {unread > 0 ? (
         <Button variant="canvas" onPress={async () => { await markAllRead(); load(); }}>
           Mark all read
