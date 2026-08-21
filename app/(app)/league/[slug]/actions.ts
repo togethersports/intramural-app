@@ -107,6 +107,7 @@ export async function updateLeagueSettings(
         email_domain: str(formData, "email_domain") || undefined,
         trade_approval:
           str(formData, "trade_approval") === "auto" ? "auto" : "commissioner",
+        jersey_numbers: formData.get("jersey_numbers") === "on",
       },
     })
     .eq("slug", slug);

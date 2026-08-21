@@ -40,6 +40,9 @@ export interface LeagueContext {
   settings: {
     email_domain?: string;
     trade_approval?: "auto" | "commissioner";
+    /** Leagues that don't hand out jerseys turn the numbers off entirely
+        rather than leaving an empty column everywhere. Default on. */
+    jersey_numbers?: boolean;
     /** The league's palette, set by a commissioner in the Console. */
     appearance?: { preset?: string; accent?: string };
   };

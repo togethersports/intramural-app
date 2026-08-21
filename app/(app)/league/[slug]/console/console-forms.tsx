@@ -141,12 +141,14 @@ export function LeagueSettingsForm({
   color,
   emailDomain,
   tradeApproval,
+  jerseyNumbers,
 }: {
   slug: string;
   name: string;
   color: string;
   emailDomain: string;
   tradeApproval: string;
+  jerseyNumbers: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     updateLeagueSettings,
@@ -193,6 +195,25 @@ export function LeagueSettingsForm({
           </Select>
         </Field>
       </div>
+      {/* Plenty of intramural leagues play in whatever shirt people wore
+          that day. Off hides the numbers instead of leaving empty slots. */}
+      <label className="row flex min-h-11 cursor-pointer items-start gap-3 px-4 py-3">
+        <input
+          type="checkbox"
+          name="jersey_numbers"
+          defaultChecked={jerseyNumbers}
+          className="mt-1 size-5 shrink-0 accent-[var(--color-ink)]"
+        />
+        <span>
+          <span className="block text-[17px] font-medium leading-snug">
+            Use jersey numbers
+          </span>
+          <span className="block text-sm leading-snug text-ink-muted">
+            Off for leagues that don&apos;t hand out shirts — numbers disappear
+            from rosters and team pages instead of sitting there blank.
+          </span>
+        </span>
+      </label>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save settings"}
       </Button>
