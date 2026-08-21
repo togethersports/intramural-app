@@ -961,10 +961,17 @@ export async function reassignGameTeams(formData: FormData) {
   const supabase = await createClient();
   const { data: game } = await supabase
     .from("games")
-    .select("home_team_id, away_team_id, home_score, away_score, status")
+    .select(
+      "home_team_id, away_team_id, home_score, away_score, status, counts_for_standings",
+    )
     .eq("id", gameId)
     .maybeSingle();
-  if (!game || game.status === "final" || game.status === "forfeit") return;
+  if (!game) return;
+  // A finished official game is the season's ledger and stays put. A finished
+  // *exhibition* is fair game: that is exactly the game somebody threw
+  // together against a placeholder team, which is what needs fixing.
+  const finished = game.status === "final" || game.status === "forfeit";
+  if (finished && game.counts_for_standings) return;
   const oldHome = game.home_team_id as string;
   const oldAway = game.away_team_id as string;
   if (newHome === oldHome && newAway === oldAway) return;

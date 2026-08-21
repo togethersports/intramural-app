@@ -11,6 +11,8 @@ export interface LeagueSummary {
   slug: string;
   sport: string;
   primary_color: string;
+  /** The crest a commissioner uploaded, when there is one. */
+  logo_url: string | null;
   join_code: string;
   role: LeagueRole;
 }
@@ -44,7 +46,7 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
   const { data, error } = await supabase
     .from("league_members")
     .select(
-      "role, league:leagues(id, name, slug, sport, primary_color, join_code, archived_at, deleted_at)",
+      "role, league:leagues(id, name, slug, sport, primary_color, logo_url, join_code, archived_at, deleted_at)",
     )
     // Scope to MY memberships. RLS makes every member of a league I belong to
     // visible — rosters need that — so without this the league comes back once
@@ -70,6 +72,7 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
         slug: league.slug,
         sport: league.sport,
         primary_color: league.primary_color,
+        logo_url: league.logo_url,
         join_code: league.join_code,
         role: row.role as LeagueRole,
       };
@@ -146,7 +149,7 @@ export async function getLeagueBySlug(
   const { data, error } = await supabase
     .from("league_members")
     .select(
-      "role, league:leagues!inner(id, name, slug, sport, primary_color, join_code)",
+      "role, league:leagues!inner(id, name, slug, sport, primary_color, logo_url, join_code)",
     )
     .eq("league.slug", slug)
     .eq("user_id", user.id)
