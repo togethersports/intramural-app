@@ -25,6 +25,7 @@ import {
   toggleShotValue,
   type ReviewSort,
   type RimRoi,
+  type ShotModel,
 } from "@core/vision";
 import {
   addManualDetected,
@@ -86,7 +87,7 @@ export function ReviewRoom({
   serverEvents,
   job,
   missingConsents,
-  calibration,
+  model,
 }: {
   slug: string;
   recording: RecordingRow;
@@ -97,7 +98,7 @@ export function ReviewRoom({
   serverEvents: DetectedEventRow[];
   job: VisionJobRow | null;
   missingConsents: { user_id: string; full_name: string }[];
-  calibration: { threshold: number; accuracy: number; samples: number };
+  model: ShotModel;
 }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -457,7 +458,7 @@ export function ReviewRoom({
             recording={recording}
             filmUrl={filmUrl}
             hasPending={queue.length > 0}
-            calibration={calibration}
+            model={model}
           />
 
           <section className="card p-5">

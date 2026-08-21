@@ -16,15 +16,18 @@ import {
   roiLooksUsable,
   seekTargetMs,
   stepQueue,
+  trainShotClassifier,
   toggleShotResult,
   toggleShotValue,
   calibrateMakeMiss,
+  classifyShot,
   CALIBRATION_MIN_EXAMPLES,
   candidatesFromScan,
   findMotionWindows,
   scanConfidence,
   scanThreshold,
   makeMissExamples,
+  shotModelFromRows,
   scoreMakeMiss,
   type DetectedEvent,
   type MotionSample,
@@ -492,6 +495,128 @@ describe("make/miss self-calibration", () => {
     for (const c of [stock[0], tuned[0]]) {
       expect(typeof c.payload.lower_share).toBe("number");
       expect(c.payload.predicted).toBe(c.type);
+    }
+  });
+});
+
+describe("the self-teaching shot model", () => {
+  const F = (over: Partial<import("./vision").WindowFeatures> = {}) => ({
+    lowerShare: 0.5,
+    driftDown: 0,
+    durationMs: 800,
+    postShare: 0.4,
+    peakRatio: 3,
+    ...over,
+  });
+
+  it("refuses to rule before seeing both outcomes enough times", () => {
+    const oneSided = Array.from({ length: 20 }, () => ({ features: F(), label: true }));
+    expect(trainShotClassifier(oneSided)).toBeNull();
+    const tiny = [
+      { features: F(), label: true },
+      { features: F(), label: false },
+    ];
+    expect(trainShotClassifier(tiny)).toBeNull();
+  });
+
+  it("learns a separable pattern and is deterministic", () => {
+    // makes drift down through the net; misses bounce back up
+    const examples = [
+      ...Array.from({ length: 8 }, (_, i) => ({
+        features: F({ driftDown: 0.3 + i * 0.05, lowerShare: 0.6 }),
+        label: true,
+      })),
+      ...Array.from({ length: 8 }, (_, i) => ({
+        features: F({ driftDown: -0.3 - i * 0.05, lowerShare: 0.4 }),
+        label: false,
+      })),
+    ];
+    const w1 = trainShotClassifier(examples);
+    const w2 = trainShotClassifier(examples);
+    expect(w1).not.toBeNull();
+    expect(w1).toEqual(w2); // zero-init batch GD — same data, same model
+    const right = examples.filter(
+      (e) => (classifyShot(w1!, e.features) >= 0.5) === e.label,
+    ).length;
+    expect(right / examples.length).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("builds both models from reviewed rows and falls back per decision", () => {
+    const row = (
+      status: string,
+      type: string,
+      features: Record<string, number> | null,
+    ) => ({ type, status, source: "model", payload: features ? { features, lower_share: features.lowerShare } : {} });
+
+    const rows = [
+      // ten confirmed makes vs misses, separable on driftDown
+      ...Array.from({ length: 6 }, (_, i) =>
+        row("confirmed", "fg2_made", F({ driftDown: 0.4 + i * 0.03 })),
+      ),
+      ...Array.from({ length: 6 }, (_, i) =>
+        row("confirmed", "fg2_miss", F({ driftDown: -0.4 - i * 0.03 })),
+      ),
+      // rejected junk: long scrambles with weak peaks
+      ...Array.from({ length: 6 }, (_, i) =>
+        row("rejected", "fg2_miss", F({ durationMs: 3200 + i * 100, peakRatio: 1.2 })),
+      ),
+      // rows from before features existed contribute nothing
+      row("confirmed", "fg2_made", null),
+    ];
+    const model = shotModelFromRows(rows);
+    expect(model.makeMiss).not.toBeNull();
+    expect(model.realShot).not.toBeNull();
+    expect(model.samples).toEqual({ makeMiss: 12, realShot: 18, threshold: 12 });
+
+    // a downward-drifting window reads made, an upward one missed
+    expect(classifyShot(model.makeMiss!, F({ driftDown: 0.5 }))).toBeGreaterThan(0.5);
+    expect(classifyShot(model.makeMiss!, F({ driftDown: -0.5 }))).toBeLessThan(0.5);
+    // a long weak scramble reads junk; a sharp clean spike reads shot
+    expect(classifyShot(model.realShot!, F({ durationMs: 3400, peakRatio: 1.2 }))).toBeLessThan(0.5);
+    expect(classifyShot(model.realShot!, F({ driftDown: 0.4 }))).toBeGreaterThan(0.5);
+  });
+
+  it("threads the model through a scan: rulings, confidence, stored features", () => {
+    const quiet = Array.from({ length: 60 }, (_, i) => ({
+      tsMs: i * 250,
+      energy: 0.005,
+      centroidY: 0.5,
+    }));
+    // one spike drifting DOWN (net) — the stock line would call it a miss
+    // because its energy sits high in the box; the trained model calls it made
+    const spike = [
+      { tsMs: 20_000, energy: 0.55, centroidY: 0.35 },
+      { tsMs: 20_120, energy: 0.6, centroidY: 0.4 },
+      { tsMs: 20_260, energy: 0.35, centroidY: 0.9 },
+    ];
+    const samples = [...quiet, ...spike];
+
+    const driftModel: import("./vision").ShotModel = {
+      makeMiss: trainShotClassifier([
+        ...Array.from({ length: 6 }, (_, i) => ({ features: F({ driftDown: 0.3 + i * 0.05 }), label: true })),
+        ...Array.from({ length: 6 }, (_, i) => ({ features: F({ driftDown: -0.3 - i * 0.05 }), label: false })),
+      ]),
+      realShot: null,
+      makeMissThreshold: 0.5,
+      samples: { makeMiss: 12, realShot: 0, threshold: 12 },
+    };
+
+    const stock = candidatesFromScan(samples);
+    const learned = candidatesFromScan(samples, { model: driftModel });
+    expect(stock).toHaveLength(1);
+    expect(learned).toHaveLength(1);
+    expect(stock[0].type).toBe("fg2_miss");
+    expect(learned[0].type).toBe("fg2_made");
+
+    // every candidate banks the full training row for next time
+    const f = learned[0].payload.features as Record<string, number>;
+    for (const k of ["lowerShare", "driftDown", "durationMs", "postShare", "peakRatio"]) {
+      expect(typeof f[k]).toBe("number");
+    }
+    // and confidence stays inside the human-review band either way
+    for (const c of [...stock, ...learned]) {
+      expect(c.confidence).toBeGreaterThanOrEqual(0.2);
+      expect(c.confidence).toBeLessThanOrEqual(0.8);
     }
   });
 });

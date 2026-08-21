@@ -1203,10 +1203,10 @@ export async function getFilmUrl(
   return data?.signedUrl ?? null;
 }
 
-/** Every reviewed scanner call in the league, as calibration fodder — the
-    self-tuning loop reads these to re-draw the make/miss line for this gym
-    (see calibrateMakeMiss in @core/vision). Admin-only via RLS, like every
-    other detected_events read. */
+/** Every reviewed scanner call in the league — the training set. Confirmed
+    rows teach made-versus-missed; confirmed-versus-rejected teaches what
+    counts as a shot at all (see shotModelFromRows in @core/vision).
+    Admin-only via RLS, like every other detected_events read. */
 export async function getLeagueReviewedShots(
   leagueId: string,
 ): Promise<{ type: string; status: string; source: string; payload: Record<string, unknown> | null }[]> {
@@ -1229,7 +1229,7 @@ export async function getLeagueReviewedShots(
     .from("detected_events")
     .select("type, status, source, payload")
     .in("game_id", gameIds)
-    .eq("status", "confirmed")
+    .in("status", ["confirmed", "rejected"])
     .eq("source", "model");
   return (
     (data as { type: string; status: string; source: string; payload: Record<string, unknown> | null }[]) ?? []

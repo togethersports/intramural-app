@@ -43,6 +43,16 @@ in the tab, and the scanner's confidence is deliberately capped below the
 bulk-confirm band: a motion heuristic never reaches a box score without a
 human looking at each call.
 
+The scanner teaches itself from the review room. Every candidate stores a
+named feature vector (lower-share, centroid drift, window duration,
+post-peak share, peak ratio — numbers only, never pixels, so the rows
+outlive the film), and every ruling labels one: confirmed-versus-rejected
+trains a "was that a shot at all" model, confirmed made-versus-missed
+trains the make/miss call. Both are tiny logistic regressions re-fit from
+the league's whole history on every visit (`shotModelFromRows`) — weights
+are never stored, so nothing goes stale — with the 1-D calibrated line as
+the fallback until each model has seen five of both outcomes.
+
 The GPU worker is now an *upgrade*, not a prerequisite — it speaks the same
 two RPCs the browser scanner uses, so swapping it in changes nothing above the
 contract. Both plans are still right about what makes the upgrade good:
