@@ -9,7 +9,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Card, EmptyState, HScroll, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
 import { aggregateLines, perGame } from "@core/stats";
 import { color, space, type } from "@/theme";
 import type { PlayerGameStatRow } from "@core/types";
@@ -50,11 +51,11 @@ export default function FullStats() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const teams = await getMyTeams(user.id);
-    if (teams.length === 0) { setLoaded(true); return; }
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
     const [seasonTeams, stats] = await Promise.all([
-      getTeams(teams[0].season_id),
-      getSeasonPlayerStats(teams[0].season_id),
+      getTeams(ctx.seasonId),
+      getSeasonPlayerStats(ctx.seasonId),
     ]);
     const abbrev = new Map(seasonTeams.map((t) => [t.id, t.abbrev]));
     const byPlayer = new Map<string, { name: string; teamId: string; lines: PlayerGameStatRow[] }>();

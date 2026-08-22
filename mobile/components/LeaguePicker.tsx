@@ -42,7 +42,11 @@ export function LeaguePicker({
           onPress={() => {}}
           style={{
             borderRadius: radius.card,
-            backgroundColor: color.paper,
+            // Genuinely opaque. Both paper and bench are translucent glass —
+            // right for a card resting on the canvas, wrong for a sheet
+            // floating over one, which showed the page straight through the
+            // list and made two screens fight for the same pixels.
+            backgroundColor: color.canvas,
             borderWidth: 1,
             borderColor: color.glassBorder,
             overflow: "hidden",

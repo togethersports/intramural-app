@@ -1,8 +1,10 @@
 import { useEffect } from "react";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Pressable } from "react-native";
+import { Stack, router, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 import { useFonts } from "expo-font";
 import {
   Outfit_400Regular,
@@ -48,10 +50,12 @@ function RootNavigator() {
         headerTintColor: color.white,
         headerTitleStyle: { fontFamily: "Outfit_600SemiBold", fontSize: 18 },
         headerShadowVisible: false,
-        // Chevron only. The previous screen is the "(tabs)" group, whose
-        // route name iOS would otherwise print as the label — and the word
-        // "Back" that replaced it was no better than the arrow alone.
-        headerBackButtonDisplayMode: "minimal",
+        // Our own back control, not the system one: iOS 26 draws the native
+        // button as a filled glass pill that fights the dark headers, and
+        // its label was the route name or the word "Back" — neither of which
+        // says anything the arrow does not.
+        headerBackVisible: false,
+        headerLeft: () => <BackButton />,
         // Solid, not transparent: native-stack screens are hoisted into the
         // window's own view hierarchy, so a "transparent" scene reveals the
         // white iOS window — not any React view rendered behind the Stack.
@@ -76,6 +80,31 @@ function RootNavigator() {
       <Stack.Screen name="league/members" options={{ title: "Members" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>
+  );
+}
+
+/** The back control: the chevron, in the running ink, and nothing else. */
+function BackButton() {
+  if (!router.canGoBack()) return null;
+  return (
+    <Pressable
+      onPress={() => router.back()}
+      hitSlop={12}
+      accessibilityLabel="Back"
+      accessibilityRole="button"
+      style={{ paddingRight: 8, paddingVertical: 4 }}
+    >
+      <Svg width={26} height={26} viewBox="0 0 24 24">
+        <Path
+          d="M15 5 8 12l7 7"
+          stroke={color.ink}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    </Pressable>
   );
 }
 

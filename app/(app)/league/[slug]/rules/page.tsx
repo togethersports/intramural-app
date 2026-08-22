@@ -51,13 +51,23 @@ export default async function RulesPage({
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const primary = files.find((f) => f.is_primary);
+  const kindOf = (name: string): "pdf" | "image" | "other" =>
+    name.toLowerCase().endsWith(".pdf")
+      ? "pdf"
+      : /\.(png|jpe?g|webp|gif)$/i.test(name)
+        ? "image"
+        : "other";
+
+  // Uploading the rulebook *is* the intent to show it. Waiting for a second,
+  // separate "show this one" click left leagues with a page that said no
+  // rules while the rules sat two clicks away as a download. So the flagged
+  // file wins if there is one, and otherwise the first file we can actually
+  // render takes the slot on its own.
+  const primary =
+    files.find((f) => f.is_primary) ??
+    files.find((f) => kindOf(f.name) !== "other");
   const primaryUrl = primary ? urlByPath.get(primary.storage_path) : undefined;
-  const primaryKind = primary?.name.toLowerCase().endsWith(".pdf")
-    ? "pdf"
-    : /\.(png|jpe?g|webp|gif)$/i.test(primary?.name ?? "")
-      ? "image"
-      : "other";
+  const primaryKind = primary ? kindOf(primary.name) : "other";
 
   return (
     <div className="space-y-5">
@@ -123,9 +133,9 @@ export default async function RulesPage({
 
       <Panel eyebrow="Files" title="Rule documents">
         <p className="mb-4 max-w-[62ch] text-sm text-ink-muted">
-          Official documents — rulebooks, waivers, code of conduct. Pick one to
-          show on this page as the league&apos;s rule sheet; the rest stay here
-          as downloads.
+          Official documents — rulebooks, waivers, code of conduct. The newest
+          PDF or image shows at the top of this page as the league&apos;s rule
+          sheet; pin one to keep it there when you upload more.
         </p>
         {files.length === 0 ? (
           <p className="text-sm text-ink-faint">
@@ -147,7 +157,7 @@ export default async function RulesPage({
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[17px] font-medium">
                     {f.name}
-                    {f.is_primary ? (
+                    {f.id === primary?.id ? (
                       <span className="label ml-2 !text-[10px] !text-accent-ink">
                         Rule sheet
                       </span>
@@ -172,7 +182,11 @@ export default async function RulesPage({
                       <input type="hidden" name="league_id" value={league.id} />
                       <input type="hidden" name="slug" value={slug} />
                       <button className="min-h-11 rounded-full px-3 text-sm font-medium text-ink-muted hover:bg-paper hover:text-ink">
-                        {f.is_primary ? "Unset as rule sheet" : "Show on the page"}
+                        {f.is_primary
+                          ? "Unset as rule sheet"
+                          : f.id === primary?.id
+                            ? "Pin as rule sheet"
+                            : "Show on the page"}
                       </button>
                     </form>
                   ) : null}

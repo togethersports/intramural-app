@@ -190,6 +190,26 @@ export async function getTeams(seasonId: string): Promise<TeamRow[]> {
   return (data as TeamRow[]) ?? [];
 }
 
+/** How many people are on each of these teams, right now. Home shows the
+    count next to the team; pulling whole rosters for one number would be a
+    much heavier query for the same answer. */
+export async function getTeammateCounts(
+  teamIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (teamIds.length === 0) return counts;
+  const { data } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .in("team_id", teamIds)
+    .is("left_at", null);
+  for (const row of data ?? []) {
+    const id = row.team_id as string;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export async function getTeamsWithRosters(
   seasonId: string,
 ): Promise<TeamWithRoster[]> {
@@ -299,8 +319,12 @@ export async function getLeagueRules(leagueId: string): Promise<string> {
 export async function getRuleFiles(leagueId: string) {
   const { data } = await supabase
     .from("rule_files")
-    .select("id, name, storage_path, size_bytes, created_at")
+    .select("id, name, storage_path, size_bytes, created_at, is_primary")
     .eq("league_id", leagueId)
+    // Same order as the web: the pinned rule sheet first, then newest. The
+    // rules screen shows whichever of these it lands on inline, so the two
+    // platforms must agree on which document that is.
+    .order("is_primary", { ascending: false })
     .order("created_at", { ascending: false });
   return data ?? [];
 }
