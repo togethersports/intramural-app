@@ -184,8 +184,15 @@ export default function Standings() {
         </Button>
       </Card>
 
+      {/* Everything the league has, from the tab that is the league. The
+          phone reached about half of these before. */}
       {leagueId ? (
         <View style={{ gap: space(1) }}>
+          <Button variant="quiet" onPress={() => router.push("/league/teams" as never)}>Teams and rosters</Button>
+          <Button variant="quiet" onPress={() => router.push("/league/draft" as never)}>Draft room</Button>
+          <Button variant="quiet" onPress={() => router.push("/league/trades" as never)}>Trades</Button>
+          <Button variant="quiet" onPress={() => router.push("/league/playoffs" as never)}>Playoffs</Button>
+          <Button variant="quiet" onPress={() => router.push("/league/members" as never)}>Members</Button>
           <Button variant="quiet" onPress={() => router.push("/league/rules")}>League rules</Button>
           <Button variant="quiet" onPress={() => router.push("/league/availability")}>My availability</Button>
         </View>

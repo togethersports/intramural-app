@@ -67,6 +67,12 @@ function RootNavigator() {
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
       <Stack.Screen name="league/announce" options={{ title: "Announce" }} />
       <Stack.Screen name="league/new-game" options={{ title: "New game" }} />
+      <Stack.Screen name="league/teams" options={{ title: "Teams" }} />
+      <Stack.Screen name="league/player/[id]" options={{ title: "Player" }} />
+      <Stack.Screen name="league/draft" options={{ title: "Draft" }} />
+      <Stack.Screen name="league/trades" options={{ title: "Trades" }} />
+      <Stack.Screen name="league/playoffs" options={{ title: "Playoffs" }} />
+      <Stack.Screen name="league/members" options={{ title: "Members" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>
   );
