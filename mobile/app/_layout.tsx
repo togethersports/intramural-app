@@ -66,6 +66,7 @@ function RootNavigator() {
       <Stack.Screen name="league/edit-profile" options={{ title: "Edit profile" }} />
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
       <Stack.Screen name="league/announce" options={{ title: "Announce" }} />
+      <Stack.Screen name="league/new-game" options={{ title: "New game" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>
   );

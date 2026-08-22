@@ -7,12 +7,12 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
-import { Card, EmptyState, Label } from "@/components/ui";
+import { router, useFocusEffect } from "expo-router";
+import { Button, Card, EmptyState, Label } from "@/components/ui";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
-import { getGames, getMyTeams } from "@/lib/data";
+import { getGames, getMyLeagues, getMyTeams } from "@/lib/data";
 import { getActiveLeague, resolveTeam, useActiveLeague } from "@/lib/active-league";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
@@ -32,11 +32,17 @@ export default function Schedule() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const activeLeague = useActiveLeague();
+  const [canSchedule, setCanSchedule] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     const teams = await getMyTeams(user.id);
     const mine = resolveTeam(teams, getActiveLeague());
+    // Only a commissioner or admin can write a game — the RLS policy would
+    // refuse anyone else, so the button only exists for them.
+    const ls = await getMyLeagues();
+    const role = ls.find((l) => l.id === mine?.league_id)?.role;
+    setCanSchedule(role === "commissioner" || role === "admin");
     if (!mine) { setGames([]); setLoaded(true); return; }
     // Player-first: the schedule that matters is the one for the season
     // they're actually playing in.
@@ -66,6 +72,11 @@ export default function Schedule() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
       <ScreenHeader title="Schedule" />
+      {canSchedule ? (
+        <Button variant="quiet" onPress={() => router.push("/league/new-game" as never)}>
+          New game
+        </Button>
+      ) : null}
       {days.length === 0 ? (
         <Card>
           <EmptyState
