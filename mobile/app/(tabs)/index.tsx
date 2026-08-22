@@ -15,7 +15,7 @@ import { Button, Card, EmptyState, Label, Num, TeamBadge } from "@/components/ui
 import { RoleChip, ScreenHeader } from "@/components/ScreenHeader";
 import { LeaguePicker } from "@/components/LeaguePicker";
 import {
-  getActiveLeague,
+  loadLeagueContext,
   resolveLeague,
   resolveTeam,
   useActiveLeague,
@@ -104,21 +104,22 @@ export default function Home() {
         : null,
     );
 
-    // Everything below follows the league you picked, not whichever team the
-    // database happened to return first.
-    const mine = resolveTeam(ts, getActiveLeague());
-    if (mine) {
+    // Everything below follows the league you picked. A team is optional:
+    // a commissioner who does not play still gets their league's week.
+    const ctx = await loadLeagueContext(user.id);
+    const mine = ctx?.team ?? null;
+    if (ctx?.seasonId) {
       const [seasonTeams, seasonGames, upcoming] = await Promise.all([
-        getTeams(mine.season_id),
-        getGames(mine.season_id),
-        getUpcomingGames([mine.team_id]),
+        getTeams(ctx.seasonId),
+        getGames(ctx.seasonId),
+        mine ? getUpcomingGames([mine.team_id]) : getGames(ctx.seasonId),
       ]);
       setGames(upcoming);
       const { standings } = computeStandings(
         seasonTeams.map((t) => t.id),
         seasonGames.filter((g) => !g.is_playoff),
       );
-      const idx = standings.findIndex((s) => s.teamId === mine.team_id);
+      const idx = mine ? standings.findIndex((s) => s.teamId === mine.team_id) : -1;
       setStanding(
         idx >= 0 ? { rank: idx + 1, streak: standings[idx].streak } : null,
       );

@@ -48,9 +48,10 @@ function RootNavigator() {
         headerTintColor: color.white,
         headerTitleStyle: { fontFamily: "Outfit_600SemiBold", fontSize: 18 },
         headerShadowVisible: false,
-        // The previous screen is the "(tabs)" group, and iOS would print that
-        // route name as the back label without an explicit title.
-        headerBackTitle: "Back",
+        // Chevron only. The previous screen is the "(tabs)" group, whose
+        // route name iOS would otherwise print as the label — and the word
+        // "Back" that replaced it was no better than the arrow alone.
+        headerBackButtonDisplayMode: "minimal",
         // Solid, not transparent: native-stack screens are hoisted into the
         // window's own view hierarchy, so a "transparent" scene reveals the
         // white iOS window — not any React view rendered behind the Stack.

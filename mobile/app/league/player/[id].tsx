@@ -7,8 +7,8 @@ import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Avatar, Card, EmptyState, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
-import { getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
+import { getSeasonPlayerStats, getTeams } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { aggregateLines, formatPct, pct, perGame, type SeasonTotals } from "@core/stats";
 import type { PlayerGameStatRow } from "@core/types";
@@ -25,16 +25,16 @@ export default function Player() {
 
   const load = useCallback(async () => {
     if (!user || !id) return;
-    const [{ data: profile }, mine] = await Promise.all([
+    const [{ data: profile }, ctx] = await Promise.all([
       supabase.from("profiles").select("full_name, avatar_url").eq("id", id).maybeSingle(),
-      getMyTeams(user.id).then((ts) => resolveTeam(ts, getActiveLeague())),
+      loadLeagueContext(user.id),
     ]);
     setName((profile?.full_name as string) ?? "Unnamed");
     setAvatar((profile?.avatar_url as string | null) ?? null);
-    if (!mine) { setLoaded(true); return; }
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
     const [stats, teams] = await Promise.all([
-      getSeasonPlayerStats(mine.season_id),
-      getTeams(mine.season_id),
+      getSeasonPlayerStats(ctx.seasonId),
+      getTeams(ctx.seasonId),
     ]);
     const lines = stats.filter((s) => s.user_id === id) as PlayerGameStatRow[];
     setTotals(lines.length > 0 ? aggregateLines(lines) : null);

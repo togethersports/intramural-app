@@ -12,9 +12,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Button, Card, EmptyState, ErrorNote, Label, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
+import { loadLeagueContext } from "@/lib/active-league";
 import {
-  getMyTeams,
   getTeams,
   getTeamsWithRosters,
   getTrades,
@@ -52,19 +51,20 @@ export default function Trades() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const mine = resolveTeam(await getMyTeams(user.id), getActiveLeague());
-    if (!mine) { setLoaded(true); return; }
-    setMyTeamId(mine.team_id);
-    setSeasonId(mine.season_id);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
+    setMyTeamId(ctx.team?.team_id ?? null);
+    setSeasonId(ctx.seasonId);
     const [t, ts, rs] = await Promise.all([
-      getTrades(mine.season_id),
-      getTeams(mine.season_id),
-      getTeamsWithRosters(mine.season_id),
+      getTrades(ctx.seasonId),
+      getTeams(ctx.seasonId),
+      getTeamsWithRosters(ctx.seasonId),
     ]);
     setTrades(t);
     setTeams(ts);
     setRosters(rs);
-    setCaptain(ts.find((x) => x.id === mine.team_id)?.captain_id === user.id);
+    // Proposing is the captain's, and the RPC says so; reading is everyone's.
+    setCaptain(ts.some((x) => x.captain_id === user.id));
     setLoaded(true);
   }, [user]);
 

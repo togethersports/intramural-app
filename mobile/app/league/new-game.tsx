@@ -18,8 +18,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Button, Card, ErrorNote, Field, Input, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
-import { getActiveSeason, getMyTeams, getTeams, getTimeSlots } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
+import { getTeams, getTimeSlots } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { color, radius, space, type } from "@/theme";
 import type { TeamRow, TimeSlotRow } from "@core/types";
@@ -58,19 +58,26 @@ export default function NewGame() {
 
   const load = useCallback(async () => {
     if (!user || seasonId) return;
-    const mine = resolveTeam(await getMyTeams(user.id), getActiveLeague());
-    if (!mine) {
-      setError("You need a team in a league before you can make a game.");
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx) {
+      setError("Join a league before making a game.");
       return;
     }
-    setLeagueId(mine.league_id);
-    const season = await getActiveSeason(mine.league_id);
-    const sid = season?.id ?? mine.season_id;
-    setSeasonId(sid);
-    const [ts, sl] = await Promise.all([getTeams(sid), getTimeSlots(mine.league_id)]);
+    if (!ctx.seasonId) {
+      setError("This league has no season yet — create one first.");
+      return;
+    }
+    setLeagueId(ctx.league.id);
+    setSeasonId(ctx.seasonId);
+    const [ts, sl] = await Promise.all([
+      getTeams(ctx.seasonId),
+      getTimeSlots(ctx.league.id),
+    ]);
     setTeams(ts);
     setSlots(sl);
-    setHome(mine.team_id);
+    // Default to my own team when I have one; otherwise the commissioner
+    // picks both sides.
+    setHome(ctx.team?.team_id ?? null);
   }, [user, seasonId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));

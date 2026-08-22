@@ -69,3 +69,42 @@ export function resolveTeam<T extends { league_id: string }>(
   if (teams.length === 0) return null;
   return teams.find((t) => t.league_id === chosen) ?? teams[0];
 }
+
+/* ------------------------------------------------------- the league context --
+   Every tab used to start from "my team": getMyTeams(), take the first, use
+   its season. That silently made a roster spot the price of admission — a
+   commissioner who runs a league without playing in it saw an empty app,
+   because a team they do not have could not name a season.
+   The league is what someone belongs to; the team is optional decoration on
+   top of it. So resolution starts at the league, takes the active season
+   from the league, and treats a team as a nice-to-have. */
+
+import { getActiveSeason, getMyLeagues, getMyTeams, type LeagueSummary, type MyTeam } from "./data";
+
+export interface LeagueContext {
+  league: LeagueSummary;
+  /** The league's active season — null only before one is created. */
+  seasonId: string | null;
+  /** My team in this league, when I play in it. */
+  team: MyTeam | null;
+  /** Commissioner or admin: the roles the database lets write. */
+  isAdmin: boolean;
+}
+
+export async function loadLeagueContext(
+  userId: string,
+): Promise<LeagueContext | null> {
+  const leagues = await getMyLeagues();
+  const league = resolveLeague(leagues, getActiveLeague());
+  if (!league) return null;
+  const [season, teams] = await Promise.all([
+    getActiveSeason(league.id),
+    getMyTeams(userId),
+  ]);
+  return {
+    league,
+    seasonId: season?.id ?? teams.find((t) => t.league_id === league.id)?.season_id ?? null,
+    team: teams.find((t) => t.league_id === league.id) ?? null,
+    isAdmin: league.role === "commissioner" || league.role === "admin",
+  };
+}

@@ -15,13 +15,12 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Avatar, Card, EmptyState, ErrorNote, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
+import { loadLeagueContext } from "@/lib/active-league";
 import {
   draftPickTeam,
   getDraft,
   getDraftPicks,
   getLeagueMembers,
-  getMyTeams,
   getTeams,
   makeDraftPick,
   type DraftPickRow,
@@ -40,21 +39,25 @@ export default function Draft() {
   const [members, setMembers] = useState<LeagueMemberRow[]>([]);
   const [onClock, setOnClock] = useState<string | null>(null);
   const [myTeamId, setMyTeamId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
-    const mine = resolveTeam(await getMyTeams(user.id), getActiveLeague());
-    if (!mine) { setLoaded(true); return; }
-    setMyTeamId(mine.team_id);
-    const d = await getDraft(mine.season_id);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
+    setMyTeamId(ctx.team?.team_id ?? null);
+    // A commissioner picks for whoever is on the clock; make_pick() allows
+    // that and refuses everyone else, so the button follows the same rule.
+    setIsAdmin(ctx.isAdmin);
+    const d = await getDraft(ctx.seasonId);
     setDraft(d);
     if (!d) { setLoaded(true); return; }
     const [p, ts, ms, clock] = await Promise.all([
       getDraftPicks(d.id),
-      getTeams(mine.season_id),
-      getLeagueMembers(mine.league_id),
+      getTeams(ctx.seasonId),
+      getLeagueMembers(ctx.league.id),
       draftPickTeam(d.id, d.current_pick_no),
     ]);
     setPicks(p);
@@ -90,7 +93,7 @@ export default function Draft() {
   const available = members
     .filter((m) => (m.role === "player" || m.role === "captain") && !taken.has(m.user_id))
     .sort((a, b) => a.full_name.localeCompare(b.full_name));
-  const myPick = onClock != null && onClock === myTeamId;
+  const myPick = (onClock != null && onClock === myTeamId) || isAdmin;
   const nameOfTeam = (id: string | null) =>
     id ? (teams.find((t) => t.id === id)?.name ?? "—") : "—";
 

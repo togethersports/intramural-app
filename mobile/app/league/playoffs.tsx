@@ -9,8 +9,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Card, EmptyState, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
-import { getBracketNodes, getGames, getMyTeams, getTeams } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
+import { getBracketNodes, getGames, getTeams } from "@/lib/data";
 import { roundName } from "@core/bracket";
 import type { GameRow, TeamRow } from "@core/types";
 import { color, space, type } from "@/theme";
@@ -24,12 +24,12 @@ export default function Playoffs() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const mine = resolveTeam(await getMyTeams(user.id), getActiveLeague());
-    if (!mine) { setLoaded(true); return; }
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
     const [n, t, g] = await Promise.all([
-      getBracketNodes(mine.season_id),
-      getTeams(mine.season_id),
-      getGames(mine.season_id),
+      getBracketNodes(ctx.seasonId),
+      getTeams(ctx.seasonId),
+      getGames(ctx.seasonId),
     ]);
     setNodes(n);
     setTeams(t);

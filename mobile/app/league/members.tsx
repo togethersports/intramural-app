@@ -9,8 +9,8 @@ import { ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Avatar, Card, EmptyState, Label } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveLeague } from "@/lib/active-league";
-import { getLeagueMembers, getMyLeagues, type LeagueMemberRow } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
+import { getLeagueMembers, type LeagueMemberRow } from "@/lib/data";
 import { color, space, type } from "@/theme";
 
 const ROLE_ORDER: Record<string, number> = {
@@ -24,9 +24,9 @@ export default function Members() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const league = resolveLeague(await getMyLeagues(), getActiveLeague());
-    if (!league) { setLoaded(true); return; }
-    const rows = await getLeagueMembers(league.id);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx) { setLoaded(true); return; }
+    const rows = await getLeagueMembers(ctx.league.id);
     rows.sort(
       (a, b) =>
         (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) ||

@@ -12,8 +12,8 @@ import { Button, Card, EmptyState, Label } from "@/components/ui";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
-import { getGames, getMyLeagues, getMyTeams } from "@/lib/data";
-import { getActiveLeague, resolveTeam, useActiveLeague } from "@/lib/active-league";
+import { getGames, getMyTeams } from "@/lib/data";
+import { loadLeagueContext, useActiveLeague } from "@/lib/active-league";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 import type { GameRow } from "@core/types";
@@ -36,18 +36,14 @@ export default function Schedule() {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setGames([]); setLoaded(true); return; }
+    // The button follows the role, not a roster spot — a commissioner who
+    // does not play still runs the schedule.
+    setCanSchedule(ctx.isAdmin);
     const teams = await getMyTeams(user.id);
-    const mine = resolveTeam(teams, getActiveLeague());
-    // Only a commissioner or admin can write a game — the RLS policy would
-    // refuse anyone else, so the button only exists for them.
-    const ls = await getMyLeagues();
-    const role = ls.find((l) => l.id === mine?.league_id)?.role;
-    setCanSchedule(role === "commissioner" || role === "admin");
-    if (!mine) { setGames([]); setLoaded(true); return; }
-    // Player-first: the schedule that matters is the one for the season
-    // they're actually playing in.
     setMyTeamIds(new Set(teams.map((t) => t.team_id)));
-    setGames(await getGames(mine.season_id));
+    setGames(await getGames(ctx.seasonId));
     setLoaded(true);
   }, [user, activeLeague]);
 
