@@ -267,7 +267,16 @@ export async function getTeamsWithRosters(
   return [...byTeam.values()];
 }
 
-/** Active playing members not on any roster this season. */
+/**
+ * Active members not on any roster this season.
+ *
+ * Commissioners and admins are candidates too. Running the league and
+ * playing in it is the normal case at a school — the previous filter of
+ * player/captain only meant the one person with the power to fill rosters
+ * was the one person who could never be put on one, and there was no other
+ * route to a team in the whole app. Spectators stay out: signing up to
+ * watch is not signing up to play.
+ */
 export async function getFreeAgents(
   leagueId: string,
   seasonId: string,
@@ -286,7 +295,7 @@ export async function getFreeAgents(
       .select("user_id, role, profile:profiles(full_name, avatar_url, grade)")
       .eq("league_id", leagueId)
       .eq("status", "active")
-      .in("role", ["player", "captain"]),
+      .in("role", ["player", "captain", "commissioner", "admin"]),
     getTeamsWithRosters(seasonId),
   ]);
   const taken = new Set(

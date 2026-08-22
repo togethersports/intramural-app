@@ -26,6 +26,7 @@ import {
   getGames,
   getMyLeagues,
   getMyTeams,
+  getTeammateCounts,
   getTeams,
   getUpcomingGames,
   type LeagueSummary,
@@ -51,9 +52,15 @@ function ordinal(n: number): string {
   return `${n}${["th", "st", "nd", "rd"][n % 10 <= 3 ? n % 10 : 0]}`;
 }
 
+/* The screen keeps its shape when the data is thin. A player between games
+   still sees the hero, the tiles and the card — with a dash where the fact
+   would be — rather than a different, emptier screen every other week. This
+   is the dash. */
+const DASH = "—";
+
 /** "in 2 days", "today", "in 3 hr" — the hero counts down, not up. */
 function untilLabel(date: string | null): string {
-  if (!date) return "date TBD";
+  if (!date) return DASH;
   const then = new Date(`${date}T00:00:00`);
   const now = new Date();
   const days = Math.round(
@@ -62,6 +69,22 @@ function untilLabel(date: string | null): string {
   if (days <= 0) return "today";
   if (days === 1) return "tomorrow";
   return `in ${days} days`;
+}
+
+/** The "there's more behind this row" mark. */
+function Chevron() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <Path
+        d="m9 5 7 7-7 7"
+        stroke={color.inkFaint}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
 }
 
 export default function Home() {
@@ -75,6 +98,7 @@ export default function Home() {
   const [standing, setStanding] = useState<{ rank: number; streak: string } | null>(null);
   const [ppg, setPpg] = useState<number | null>(null);
   const [name, setName] = useState("");
+  const [teammates, setTeammates] = useState<Map<string, number>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -96,6 +120,7 @@ export default function Home() {
     setLeagues(ls);
     setTeams(ts);
     setName((profile.data?.full_name as string) ?? "");
+    setTeammates(await getTeammateCounts(ts.map((t) => t.team_id)));
 
     const lines = (statRes.data ?? []) as Pick<PlayerGameStatRow, "pts">[];
     setPpg(
@@ -152,15 +177,32 @@ export default function Home() {
     games.find((g) => g.status === "live") ??
     games.find((g) => g.status === "scheduled") ??
     null;
-  const heroOpponent =
-    hero && myTeam
-      ? hero.home_team_id === myTeam.team_id
-        ? hero.away_team?.name
-        : hero.home_team?.name
-      : null;
+  // The matchup, from wherever I stand. With a team it reads from my side;
+  // without one — a commissioner who runs the league but doesn't play — it
+  // reads home against away, which is still the game they care about.
+  const heroLeft = myTeam
+    ? myTeam.team_name
+    : (hero?.home_team?.name ?? DASH);
+  const heroRight = hero
+    ? myTeam
+      ? (hero.home_team_id === myTeam.team_id
+          ? hero.away_team?.name
+          : hero.home_team?.name) ?? DASH
+      : hero.away_team?.name ?? DASH
+    : DASH;
+  const heroLabel =
+    hero?.status === "live"
+      ? "Live now"
+      : myTeam
+        ? "You play next"
+        : "Next in the league";
   const liveElsewhere = games.filter(
     (g) => g.status === "live" && g.id !== hero?.id,
   );
+  const upcoming = games.filter((g) => g.id !== hero?.id && g.status !== "live");
+  // Nothing to dash out before the first load lands — that would flash a
+  // screen full of dashes and then replace it a beat later.
+  const inLeague = loaded && Boolean(league);
 
   return (
     <ScrollView
@@ -190,8 +232,10 @@ export default function Home() {
         onPressTitle={leagues.length > 1 ? () => setPicking(true) : undefined}
       />
 
-      {/* The hero: you play next. */}
-      {hero && myTeam ? (
+      {/* The hero: you play next. It renders whether or not there is a game
+          to put in it — a week off is a fact about the season, not a reason
+          for the screen to change shape. */}
+      {inLeague ? (
         <View style={s.hero}>
           <LinearGradient
             colors={["rgba(255,92,72,0.42)", "rgba(255,92,72,0.06)"]}
@@ -200,14 +244,12 @@ export default function Home() {
             style={{ borderRadius: 29, padding: space(2.25) }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Label style={{ color: color.blush }}>
-                {hero.status === "live" ? "Live now" : "You play next"}
-              </Label>
+              <Label style={{ color: color.blush }}>{heroLabel}</Label>
               <View style={s.heroWhen}>
                 <Label style={{ color: color.ink, fontSize: 10 }}>
-                  {hero.status === "live"
+                  {hero?.status === "live"
                     ? `${hero.home_score} – ${hero.away_score}`
-                    : untilLabel(hero.scheduled_date)}
+                    : untilLabel(hero?.scheduled_date ?? null)}
                 </Label>
               </View>
             </View>
@@ -215,7 +257,7 @@ export default function Home() {
               style={[type.h1, { fontSize: 28, color: color.ink, marginTop: space(1.25) }]}
               numberOfLines={2}
             >
-              {myTeam.team_name} vs {heroOpponent ?? "TBD"}
+              {heroLeft} vs {heroRight}
             </Text>
             <View style={{ marginTop: space(1.5), flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
               <View style={s.heroChip}>
@@ -223,49 +265,51 @@ export default function Home() {
                   <Rect x={4} y={5} width={16} height={15} rx={3} {...ICON} />
                   <Path d="M8 3v4M16 3v4M4 10h16" {...ICON} />
                 </Svg>
-                <Text style={s.heroChipText}>{formatDate(hero.scheduled_date)}</Text>
+                <Text style={s.heroChipText}>
+                  {hero ? formatDate(hero.scheduled_date) : DASH}
+                </Text>
               </View>
-              {hero.time_slot?.label ? (
-                <View style={s.heroChip}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24">
-                    <Circle cx={12} cy={12} r={8} {...ICON} />
-                    <Path d="M12 8v4l3 2" {...ICON} />
-                  </Svg>
-                  <Text style={s.heroChipText}>{hero.time_slot.label}</Text>
-                </View>
-              ) : null}
-              {hero.venue?.name ? (
-                <View style={s.heroChip}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24">
-                    <Path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" {...ICON} />
-                    <Circle cx={12} cy={10} r={2.4} {...ICON} />
-                  </Svg>
-                  <Text style={s.heroChipText}>{hero.venue.name}</Text>
-                </View>
-              ) : null}
+              <View style={s.heroChip}>
+                <Svg width={14} height={14} viewBox="0 0 24 24">
+                  <Circle cx={12} cy={12} r={8} {...ICON} />
+                  <Path d="M12 8v4l3 2" {...ICON} />
+                </Svg>
+                <Text style={s.heroChipText}>{hero?.time_slot?.label ?? DASH}</Text>
+              </View>
+              <View style={s.heroChip}>
+                <Svg width={14} height={14} viewBox="0 0 24 24">
+                  <Path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" {...ICON} />
+                  <Circle cx={12} cy={10} r={2.4} {...ICON} />
+                </Svg>
+                <Text style={s.heroChipText}>{hero?.venue?.name ?? DASH}</Text>
+              </View>
             </View>
             <Button
               variant="primary"
               style={{ marginTop: space(2), borderRadius: 15, minHeight: 48 }}
-              onPress={() => router.push(`/game/${hero.id}`)}
+              onPress={() =>
+                hero ? router.push(`/game/${hero.id}`) : router.push("/schedule")
+              }
             >
-              {hero.status === "live" ? "Follow it live" : "Game details"}
+              {hero
+                ? hero.status === "live"
+                  ? "Follow it live"
+                  : "Game details"
+                : "See the schedule"}
             </Button>
           </LinearGradient>
         </View>
       ) : (
         <Card>
           <EmptyState
-            title={loaded ? "No games coming up" : "Loading…"}
+            title={loaded ? "No league yet" : "Loading…"}
             body={
               loaded
-                ? myTeam
-                  ? "You're between games — the schedule has what's next."
-                  : "Join your school's league with the six-character code from your commissioner."
+                ? "Join your school's league with the six-character code from your commissioner."
                 : undefined
             }
             action={
-              loaded && !myTeam ? (
+              loaded ? (
                 <Button variant="accent" onPress={() => router.push("/join")}>
                   I have a join code
                 </Button>
@@ -275,14 +319,15 @@ export default function Home() {
         </Card>
       )}
 
-      {/* Three tiles: standing, streak, your scoring. */}
-      {myTeam ? (
+      {/* Three tiles: standing, streak, your scoring. Dashes until there is
+          a season's worth of games to draw them from. */}
+      {inLeague ? (
         <View style={{ flexDirection: "row", gap: space(1.25) }}>
           {(
             [
-              [standing ? ordinal(standing.rank) : "—", "Standing"],
-              [standing?.streak ?? "—", "Streak"],
-              [ppg !== null ? ppg.toFixed(1) : "—", "Your PPG"],
+              [standing ? ordinal(standing.rank) : DASH, "Standing"],
+              [standing?.streak ?? DASH, "Streak"],
+              [ppg !== null ? ppg.toFixed(1) : DASH, "Your PPG"],
             ] as const
           ).map(([v, l]) => (
             <View key={l} style={s.tile}>
@@ -314,38 +359,69 @@ export default function Home() {
       ))}
 
       {/* The rest of the slate. */}
-      {games.filter((g) => g.id !== hero?.id && g.status !== "live").length > 0 ? (
+      {inLeague ? (
         <Card style={{ gap: space(1.25) }}>
-          <Label>Coming up</Label>
-          {games
-            .filter((g) => g.id !== hero?.id && g.status !== "live")
-            .slice(0, 3)
-            .map((g) => (
-              <GameCard key={g.id} game={g} />
-            ))}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Label style={{ flex: 1 }}>Coming up</Label>
+            <Pressable onPress={() => router.push("/schedule")} hitSlop={10}>
+              <Text style={[type.small, { color: color.accent, fontWeight: "600" }]}>
+                See all
+              </Text>
+            </Pressable>
+          </View>
+          {upcoming.length > 0 ? (
+            upcoming.slice(0, 3).map((g) => <GameCard key={g.id} game={g} />)
+          ) : (
+            <Text style={[type.body, { color: color.inkMuted }]}>
+              {DASH}  Nothing else scheduled yet.
+            </Text>
+          )}
         </Card>
       ) : null}
 
-      {/* My teams */}
-      {teams.length > 0 ? (
+      {/* My teams — tap through to the roster. */}
+      {inLeague ? (
         <Card style={{ gap: space(1.5) }}>
           <Label>My teams</Label>
-          {teams.map((t) => (
-            <View
-              key={t.team_id}
+          {teams.length > 0 ? (
+            teams.map((t) => (
+              <Pressable
+                key={t.team_id}
+                onPress={() => router.push("/league/teams" as never)}
+                style={{ flexDirection: "row", alignItems: "center", gap: space(1.5) }}
+              >
+                <TeamBadge abbrev={t.team_abbrev} teamColor={t.team_color} size={36} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[type.bodyMedium, { color: color.ink }]} numberOfLines={1}>
+                    {t.team_name}
+                  </Text>
+                  <Text style={[type.small, { color: color.inkMuted }]} numberOfLines={1}>
+                    {(() => {
+                      const n = teammates.get(t.team_id);
+                      // Me plus the rest — "6 teammates" means six other people.
+                      return n && n > 1
+                        ? `${n - 1} teammate${n - 1 === 1 ? "" : "s"}`
+                        : t.league_name;
+                    })()}
+                  </Text>
+                </View>
+                <Chevron />
+              </Pressable>
+            ))
+          ) : (
+            <Pressable
+              onPress={() => router.push("/league/teams" as never)}
               style={{ flexDirection: "row", alignItems: "center", gap: space(1.5) }}
             >
-              <TeamBadge abbrev={t.team_abbrev} teamColor={t.team_color} size={36} />
-              <View style={{ flex: 1 }}>
-                <Text style={[type.bodyMedium, { color: color.ink }]} numberOfLines={1}>
-                  {t.team_name}
-                </Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.bodyMedium, { color: color.ink }]}>{DASH}</Text>
                 <Text style={[type.small, { color: color.inkMuted }]} numberOfLines={1}>
-                  {t.league_name}
+                  No team yet — see who else is in the league
                 </Text>
               </View>
-            </View>
-          ))}
+              <Chevron />
+            </Pressable>
+          )}
         </Card>
       ) : null}
 

@@ -3,7 +3,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Card, EmptyState, ErrorNote, H2 } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getMyAvailability, getMyTeams, getTimeSlots, setAvailability } from "@/lib/data";
+import { getMyAvailability, getTimeSlots, setAvailability } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
 import { color, radius, space, type, HIT } from "@/theme";
 import type { TimeSlotRow } from "@core/types";
 
@@ -31,12 +32,12 @@ export default function Availability() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const teams = await getMyTeams(user.id);
-    if (teams.length === 0) { setLoaded(true); return; }
-    setSeasonId(teams[0].season_id);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
+    setSeasonId(ctx.seasonId);
     const [sl, mine] = await Promise.all([
-      getTimeSlots(teams[0].league_id),
-      getMyAvailability(teams[0].season_id, user.id),
+      getTimeSlots(ctx.league.id),
+      getMyAvailability(ctx.seasonId, user.id),
     ]);
     setSlots(sl);
     setPicked(Object.fromEntries(mine.map((a) => [a.time_slot_id as string, a.status as Status])));
