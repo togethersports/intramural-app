@@ -13,6 +13,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams } from "@/lib/data";
+import { getActiveLeague, resolveTeam, useActiveLeague } from "@/lib/active-league";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { color, space, type } from "@/theme";
 import type { GameRow } from "@core/types";
@@ -30,17 +31,19 @@ export default function Schedule() {
   const [myTeamIds, setMyTeamIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const activeLeague = useActiveLeague();
 
   const load = useCallback(async () => {
     if (!user) return;
     const teams = await getMyTeams(user.id);
-    if (teams.length === 0) { setGames([]); setLoaded(true); return; }
+    const mine = resolveTeam(teams, getActiveLeague());
+    if (!mine) { setGames([]); setLoaded(true); return; }
     // Player-first: the schedule that matters is the one for the season
     // they're actually playing in.
     setMyTeamIds(new Set(teams.map((t) => t.team_id)));
-    setGames(await getGames(teams[0].season_id));
+    setGames(await getGames(mine.season_id));
     setLoaded(true);
-  }, [user]);
+  }, [user, activeLeague]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
