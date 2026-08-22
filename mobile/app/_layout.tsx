@@ -15,10 +15,14 @@ import {
 } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loadCanvasChoice, useCanvas } from "@/lib/canvas";
+import { loadActiveLeague } from "@/lib/active-league";
 import { color } from "@/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 loadCanvasChoice();
+// Same reasoning: read the remembered league before the first paint, so the
+// tabs do not flash the wrong one.
+void loadActiveLeague();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -61,6 +65,7 @@ function RootNavigator() {
       <Stack.Screen name="league/stats" options={{ title: "Full stats" }} />
       <Stack.Screen name="league/edit-profile" options={{ title: "Edit profile" }} />
       <Stack.Screen name="league/availability" options={{ title: "Availability" }} />
+      <Stack.Screen name="league/announce" options={{ title: "Announce" }} />
       <Stack.Screen name="join" options={{ title: "Join a league" }} />
     </Stack>
   );

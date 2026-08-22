@@ -13,6 +13,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { Button, Card, EmptyState, Label, Num, TeamBadge } from "@/components/ui";
 import { RoleChip, ScreenHeader } from "@/components/ScreenHeader";
+import { LeaguePicker } from "@/components/LeaguePicker";
+import {
+  getActiveLeague,
+  resolveLeague,
+  resolveTeam,
+  useActiveLeague,
+} from "@/lib/active-league";
 import { GameCard, formatDate } from "@/components/GameCard";
 import { useAuth } from "@/lib/auth";
 import {
@@ -70,6 +77,8 @@ export default function Home() {
   const [name, setName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const activeLeague = useActiveLeague();
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -95,18 +104,21 @@ export default function Home() {
         : null,
     );
 
-    if (ts.length > 0) {
+    // Everything below follows the league you picked, not whichever team the
+    // database happened to return first.
+    const mine = resolveTeam(ts, getActiveLeague());
+    if (mine) {
       const [seasonTeams, seasonGames, upcoming] = await Promise.all([
-        getTeams(ts[0].season_id),
-        getGames(ts[0].season_id),
-        getUpcomingGames(ts.map((t) => t.team_id)),
+        getTeams(mine.season_id),
+        getGames(mine.season_id),
+        getUpcomingGames([mine.team_id]),
       ]);
       setGames(upcoming);
       const { standings } = computeStandings(
         seasonTeams.map((t) => t.id),
         seasonGames.filter((g) => !g.is_playoff),
       );
-      const idx = standings.findIndex((s) => s.teamId === ts[0].team_id);
+      const idx = standings.findIndex((s) => s.teamId === mine.team_id);
       setStanding(
         idx >= 0 ? { rank: idx + 1, streak: standings[idx].streak } : null,
       );
@@ -115,7 +127,9 @@ export default function Home() {
       setStanding(null);
     }
     setLoaded(true);
-  }, [user]);
+    // activeLeague is read inside via getActiveLeague(), but it belongs in the
+    // deps so switching leagues refetches instead of showing the old season.
+  }, [user, activeLeague]);
 
   useFocusEffect(
     useCallback(() => {
@@ -130,8 +144,8 @@ export default function Home() {
   };
 
   const firstName = (name || "there").split(" ")[0];
-  const league = leagues[0] ?? null;
-  const myTeam = teams[0] ?? null;
+  const league = resolveLeague(leagues, activeLeague);
+  const myTeam = resolveTeam(teams, activeLeague);
   // The hero is the next game that involves me; live beats scheduled.
   const hero =
     games.find((g) => g.status === "live") ??
@@ -162,10 +176,17 @@ export default function Home() {
       }
     >
       {/* Identity header — the mark, then who and where you are. */}
+      <LeaguePicker
+        open={picking}
+        leagues={leagues.map((l) => ({ id: l.id, name: l.name, role: l.role }))}
+        activeId={league?.id ?? null}
+        onClose={() => setPicking(false)}
+      />
       <ScreenHeader
         title={myTeam ? myTeam.team_name : league ? league.name : `Hey, ${firstName}`}
         subtitle={myTeam ? myTeam.league_name : league ? "No team yet" : "Join a league to start"}
         right={league ? <RoleChip role={league.role} /> : undefined}
+        onPressTitle={leagues.length > 1 ? () => setPicking(true) : undefined}
       />
 
       {/* The hero: you play next. */}

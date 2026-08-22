@@ -5,7 +5,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Avatar, Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { getGames, getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { getActiveLeague, resolveTeam, useActiveLeague } from "@/lib/active-league";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { LeaguePicker } from "@/components/LeaguePicker";
 import { useMyIdentity } from "@/lib/profile";
 import { TAB_CLEARANCE, useBarScroll } from "@/lib/scroll";
 import { computeStandings } from "@core/standings";
@@ -33,15 +35,24 @@ export default function Standings() {
   const [leagueId, setLeagueId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const activeLeague = useActiveLeague();
+  // Derived from my memberships rather than another query: the League tab
+  // needs a team in the league to show anything anyway.
+  const [myLeagues, setMyLeagues] = useState<{ id: string; name: string }[]>([]);
+  const [picking, setPicking] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     const teams = await getMyTeams(user.id);
-    if (teams.length === 0) { setRows([]); setLoaded(true); return; }
-    const seasonId = teams[0].season_id;
-    setLeagueId(teams[0].league_id);
-    setMyTeamId(teams[0].team_id);
-    setLeagueName(teams[0].league_name);
+    const mine = resolveTeam(teams, getActiveLeague());
+    setMyLeagues(
+      [...new Map(teams.map((t) => [t.league_id, { id: t.league_id, name: t.league_name }])).values()],
+    );
+    if (!mine) { setRows([]); setLoaded(true); return; }
+    const seasonId = mine.season_id;
+    setLeagueId(mine.league_id);
+    setMyTeamId(mine.team_id);
+    setLeagueName(mine.league_name);
     const [seasonTeams, games, stats] = await Promise.all([
       getTeams(seasonId), getGames(seasonId), getSeasonPlayerStats(seasonId),
     ]);
@@ -88,7 +99,7 @@ export default function Standings() {
       })).filter((b) => b.rows.length > 0),
     );
     setLoaded(true);
-  }, [user]);
+  }, [user, activeLeague]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
@@ -100,7 +111,14 @@ export default function Standings() {
       contentContainerStyle={{ padding: space(2), paddingTop: insets.top + space(1), gap: space(2), paddingBottom: TAB_CLEARANCE }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink} />}
     >
+      <LeaguePicker
+        open={picking}
+        leagues={myLeagues}
+        activeId={leagueId}
+        onClose={() => setPicking(false)}
+      />
       <ScreenHeader
+        onPressTitle={myLeagues.length > 1 ? () => setPicking(true) : undefined}
         title={leagueName ?? "League"}
         right={me ? <Avatar name={me.name || "?"} size={34} uri={me.avatarUrl} /> : undefined}
       />

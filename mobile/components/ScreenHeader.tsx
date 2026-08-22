@@ -4,7 +4,7 @@
  * screen needs there: a role chip, the user's face, nothing.
  */
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Mark } from "./Mark";
 import { color, space, type } from "@/theme";
 
@@ -12,11 +12,15 @@ export function ScreenHeader({
   title,
   subtitle,
   right,
+  onPressTitle,
 }: {
   title: string;
   subtitle?: string | null;
   right?: ReactNode;
+  /** Set when the title is a switch — the league picker, today. */
+  onPressTitle?: () => void;
 }) {
+  const Name = onPressTitle ? Pressable : View;
   return (
     <View
       style={{
@@ -27,7 +31,11 @@ export function ScreenHeader({
       }}
     >
       <Mark size={22} tone="ink" />
-      <View style={{ flex: 1, minWidth: 0 }}>
+      <Name
+        onPress={onPressTitle}
+        hitSlop={onPressTitle ? 8 : undefined}
+        style={{ flex: 1, minWidth: 0 }}
+      >
         <Text
           numberOfLines={1}
           style={{
@@ -38,13 +46,14 @@ export function ScreenHeader({
           }}
         >
           {title}
+          {onPressTitle ? "  ▾" : ""}
         </Text>
         {subtitle ? (
           <Text numberOfLines={1} style={[type.small, { fontSize: 12.5, color: color.inkFaint }]}>
             {subtitle}
           </Text>
         ) : null}
-      </View>
+      </Name>
       {right}
     </View>
   );

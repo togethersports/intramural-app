@@ -1,4 +1,5 @@
-import { Tabs } from "expo-router";
+import { Tabs, router, usePathname } from "expo-router";
+import { GestureDetector } from "react-native-gesture-handler";
 import type { ColorValue } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { View } from "react-native";
@@ -7,6 +8,8 @@ import { CanvasBackground, useCanvas } from "@/lib/canvas";
 import { Avatar } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useMyIdentity } from "@/lib/profile";
+import { TAB_ROUTES, tabSwipeGesture } from "@/lib/tab-swipe";
+import { useMemo } from "react";
 
 /* Icons match the web set: 1.5px stroke, round caps, currentColor. */
 const stroke = (c: ColorValue) => ({
@@ -51,7 +54,19 @@ export default function TabsLayout() {
   const { user } = useAuth();
   const me = useMyIdentity(user?.id);
   const canvas = useCanvas();
+  // Swipe left/right between tabs. The pathname is the source of truth for
+  // where we are, so the gesture never drifts out of step with the bar.
+  const pathname = usePathname();
+  const index = Math.max(
+    0,
+    TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]),
+  );
+  const swipe = useMemo(
+    () => tabSwipeGesture(index, (path) => router.navigate(path as never)),
+    [index],
+  );
   return (
+    <GestureDetector gesture={swipe}>
     <View style={{ flex: 1, backgroundColor: canvas.base }}>
       <CanvasBackground />
       <Tabs
@@ -110,5 +125,6 @@ export default function TabsLayout() {
       />
       </Tabs>
     </View>
+    </GestureDetector>
   );
 }
