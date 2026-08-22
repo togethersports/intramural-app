@@ -10,6 +10,16 @@ import { color, space, type } from "@/theme";
 import type { NotificationRow } from "@core/types";
 
 // No emoji, ever — the mono category label carries it (brandbook 07).
+/** "Aug 21, 9:11 PM" — the same shape the web inbox prints. */
+function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 const CATEGORY: Record<string, string> = {
   draft_clock: "Draft",
   trade: "Trade",
@@ -71,13 +81,25 @@ export default function Inbox() {
           items.map((n) => {
             const route = routeFor(n.link);
             const body = (
+              /* The category used to stand in a column of its own beside the
+                 message, so one word like SCOREKEEPER squeezed every line
+                 next to it. It sits under the message now, with the time —
+                 the words get the width. */
               <Row style={{ flexDirection: "row", gap: space(1.5), alignItems: "flex-start" }}>
-                <Label style={{ marginTop: 2 }} numberOfLines={1}>{CATEGORY[n.category] ?? "Update"}</Label>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[n.read_at ? type.body : type.bodyMedium, { color: color.ink }]}>
                     {n.title}
                   </Text>
-                  <Text style={[type.small, { color: color.inkBody }]}>{n.body}</Text>
+                  {n.body ? (
+                    <Text style={[type.small, { color: color.inkBody }]}>{n.body}</Text>
+                  ) : null}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: space(0.75), marginTop: 3 }}>
+                    <Label numberOfLines={1}>{CATEGORY[n.category] ?? "Update"}</Label>
+                    <Text style={[type.small, { fontSize: 12, color: color.inkFaint }]}>·</Text>
+                    <Text style={[type.small, { fontSize: 12, color: color.inkFaint }]}>
+                      {formatWhen(n.created_at)}
+                    </Text>
+                  </View>
                 </View>
                 {!n.read_at ? (
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color.accent, marginTop: 6 }} />
