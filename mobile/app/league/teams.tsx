@@ -11,8 +11,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Avatar, Card, EmptyState, Label, TeamBadge } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getActiveLeague, resolveTeam } from "@/lib/active-league";
-import { getMyLeagues, getMyTeams, getTeamsWithRosters } from "@/lib/data";
+import { loadLeagueContext } from "@/lib/active-league";
+import { getTeamsWithRosters } from "@/lib/data";
 import { color, space, type } from "@/theme";
 import type { TeamWithRoster } from "@core/types";
 
@@ -25,16 +25,11 @@ export default function Teams() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const mine = resolveTeam(await getMyTeams(user.id), getActiveLeague());
-    if (!mine) { setLoaded(true); return; }
-    setMyTeamId(mine.team_id);
-    const [rosters, leagues] = await Promise.all([
-      getTeamsWithRosters(mine.season_id),
-      getMyLeagues(),
-    ]);
-    setTeams(rosters);
-    const league = leagues.find((l) => l.id === mine.league_id);
-    setJerseys(league?.settings?.jersey_numbers !== false);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setLoaded(true); return; }
+    setMyTeamId(ctx.team?.team_id ?? null);
+    setTeams(await getTeamsWithRosters(ctx.seasonId));
+    setJerseys(ctx.league.settings?.jersey_numbers !== false);
     setLoaded(true);
   }, [user]);
 

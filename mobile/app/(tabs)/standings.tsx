@@ -4,8 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Avatar, Button, Card, EmptyState, H2, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getGames, getMyTeams, getSeasonPlayerStats, getTeams } from "@/lib/data";
-import { getActiveLeague, resolveTeam, useActiveLeague } from "@/lib/active-league";
+import { getGames, getMyLeagues, getSeasonPlayerStats, getTeams } from "@/lib/data";
+import { loadLeagueContext, useActiveLeague } from "@/lib/active-league";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { LeaguePicker } from "@/components/LeaguePicker";
 import { useMyIdentity } from "@/lib/profile";
@@ -43,16 +43,15 @@ export default function Standings() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const teams = await getMyTeams(user.id);
-    const mine = resolveTeam(teams, getActiveLeague());
-    setMyLeagues(
-      [...new Map(teams.map((t) => [t.league_id, { id: t.league_id, name: t.league_name }])).values()],
-    );
-    if (!mine) { setRows([]); setLoaded(true); return; }
-    const seasonId = mine.season_id;
-    setLeagueId(mine.league_id);
-    setMyTeamId(mine.team_id);
-    setLeagueName(mine.league_name);
+    const ctx = await loadLeagueContext(user.id);
+    if (!ctx || !ctx.seasonId) { setRows([]); setLoaded(true); return; }
+    // The switcher lists leagues, not teams — otherwise a commissioner who
+    // does not play could not switch to the league they run.
+    setMyLeagues((await getMyLeagues()).map((l) => ({ id: l.id, name: l.name })));
+    const seasonId = ctx.seasonId;
+    setLeagueId(ctx.league.id);
+    setMyTeamId(ctx.team?.team_id ?? null);
+    setLeagueName(ctx.league.name);
     const [seasonTeams, games, stats] = await Promise.all([
       getTeams(seasonId), getGames(seasonId), getSeasonPlayerStats(seasonId),
     ]);
