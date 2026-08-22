@@ -20,6 +20,8 @@ export interface LeagueSummary {
   sport: string;
   primary_color: string;
   role: string;
+  /** The same settings blob the web reads — jersey numbers, trade approval. */
+  settings?: { jersey_numbers?: boolean; trade_approval?: string } | null;
 }
 
 const GAME_SELECT = `id, season_id, week, home_team_id, away_team_id, venue_id,
@@ -35,7 +37,7 @@ export async function getMyLeagues(): Promise<LeagueSummary[]> {
   const { data } = await supabase
     .from("league_members")
     .select(
-      "role, league:leagues(id, name, slug, sport, primary_color, archived_at, deleted_at)",
+      "role, league:leagues(id, name, slug, sport, primary_color, settings, archived_at, deleted_at)",
     )
     // Scope to MY memberships. RLS makes every member of a league I belong to
     // visible — rosters need that — so without this the league comes back once
@@ -313,4 +315,203 @@ export async function joinLeague(code: string): Promise<string | null> {
     p_code: code.trim().toUpperCase(),
   });
   return error?.message ?? null;
+}
+
+/* ------------------------------------------------------- teams and people --
+   Read paths the phone was missing entirely: who is on which team, and how
+   one player's season has gone. Same queries the web runs, same RLS. */
+
+export interface LeagueMemberRow {
+  user_id: string;
+  role: string;
+  full_name: string;
+  avatar_url: string | null;
+  grade: number | null;
+}
+
+export async function getLeagueMembers(leagueId: string): Promise<LeagueMemberRow[]> {
+  const { data } = await supabase
+    .from("league_members")
+    .select("user_id, role, profile:profiles(full_name, avatar_url, grade)")
+    .eq("league_id", leagueId)
+    .eq("status", "active");
+  return (data ?? []).map((m) => {
+    const p = m.profile as unknown as {
+      full_name: string; avatar_url: string | null; grade: number | null;
+    } | null;
+    return {
+      user_id: m.user_id as string,
+      role: m.role as string,
+      full_name: p?.full_name || "Unnamed",
+      avatar_url: p?.avatar_url ?? null,
+      grade: p?.grade ?? null,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ draft -- */
+
+export interface DraftRow {
+  id: string;
+  season_id: string;
+  format: string;
+  pick_seconds: number;
+  rounds: number;
+  pick_order: string[];
+  status: string;
+  current_pick_no: number;
+  last_pick_at: string | null;
+}
+
+export interface DraftPickRow {
+  pick_no: number;
+  round: number;
+  team_id: string;
+  user_id: string;
+  auto_picked: boolean;
+  full_name: string;
+}
+
+export async function getDraft(seasonId: string): Promise<DraftRow | null> {
+  const { data } = await supabase
+    .from("drafts")
+    .select("*")
+    .eq("season_id", seasonId)
+    .maybeSingle();
+  return (data as DraftRow) ?? null;
+}
+
+export async function getDraftPicks(draftId: string): Promise<DraftPickRow[]> {
+  const { data } = await supabase
+    .from("draft_picks")
+    .select("pick_no, round, team_id, user_id, auto_picked, profile:profiles(full_name)")
+    .eq("draft_id", draftId)
+    .order("pick_no");
+  return (data ?? []).map((p) => ({
+    pick_no: p.pick_no as number,
+    round: p.round as number,
+    team_id: p.team_id as string,
+    user_id: p.user_id as string,
+    auto_picked: Boolean(p.auto_picked),
+    full_name:
+      (p.profile as unknown as { full_name: string } | null)?.full_name || "Unnamed",
+  }));
+}
+
+/** Whose turn it is, from the same RPC the web asks. */
+export async function draftPickTeam(draftId: string, pickNo: number): Promise<string | null> {
+  const { data } = await supabase.rpc("draft_pick_team", {
+    p_draft: draftId,
+    p_pick_no: pickNo,
+  });
+  return (data as string) ?? null;
+}
+
+/** The pick itself. The RPC owns the whole rule set — order, eligibility,
+    roster limits — so a phone tapping this cannot draft out of turn. */
+export async function makeDraftPick(draftId: string, userId: string): Promise<string | null> {
+  const { error } = await supabase.rpc("make_pick", { p_draft: draftId, p_user: userId });
+  return error?.message ?? null;
+}
+
+/* ----------------------------------------------------------------- trades -- */
+
+export interface TradeItem {
+  user_id: string;
+  from_team_id: string;
+  to_team_id: string;
+  full_name: string;
+}
+
+export interface TradeRow {
+  id: string;
+  season_id: string;
+  from_team_id: string;
+  to_team_id: string;
+  status: string;
+  proposed_by: string;
+  note: string | null;
+  created_at: string;
+  items: TradeItem[];
+}
+
+export async function getTrades(seasonId: string): Promise<TradeRow[]> {
+  const { data } = await supabase
+    .from("trades")
+    .select(
+      "id, season_id, from_team_id, to_team_id, status, proposed_by, note, created_at, items:trade_items(user_id, from_team_id, to_team_id, profile:profiles(full_name))",
+    )
+    .eq("season_id", seasonId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((t) => ({
+    id: t.id as string,
+    season_id: t.season_id as string,
+    from_team_id: t.from_team_id as string,
+    to_team_id: t.to_team_id as string,
+    status: t.status as string,
+    proposed_by: t.proposed_by as string,
+    note: (t.note as string | null) ?? null,
+    created_at: t.created_at as string,
+    items: ((t.items as unknown[]) ?? []).map((raw) => {
+      const it = raw as {
+        user_id: string; from_team_id: string; to_team_id: string;
+        profile: { full_name: string } | null;
+      };
+      return {
+        user_id: it.user_id,
+        from_team_id: it.from_team_id,
+        to_team_id: it.to_team_id,
+        full_name: it.profile?.full_name || "Unnamed",
+      };
+    }),
+  }));
+}
+
+export async function respondTrade(tradeId: string, accept: boolean): Promise<string | null> {
+  const { error } = await supabase.rpc("respond_trade", {
+    p_trade: tradeId,
+    p_accept: accept,
+  });
+  return error?.message ?? null;
+}
+
+export async function proposeTrade(input: {
+  seasonId: string;
+  fromTeamId: string;
+  toTeamId: string;
+  offer: string[];
+  request: string[];
+  note: string;
+}): Promise<string | null> {
+  const { error } = await supabase.rpc("propose_trade", {
+    p_season: input.seasonId,
+    p_from_team: input.fromTeamId,
+    p_to_team: input.toTeamId,
+    p_offer: input.offer,
+    p_request: input.request,
+    p_note: input.note,
+  });
+  return error?.message ?? null;
+}
+
+/* -------------------------------------------------------------- playoffs -- */
+
+export interface BracketNodeRow {
+  id: string;
+  round: number;
+  position: number;
+  home_source: string;
+  away_source: string;
+  game_id: string | null;
+  winner_team_id: string | null;
+}
+
+export async function getBracketNodes(seasonId: string): Promise<BracketNodeRow[]> {
+  const { data } = await supabase
+    .from("bracket_nodes")
+    .select("id, round, position, home_source, away_source, game_id, winner_team_id")
+    .eq("season_id", seasonId)
+    .order("round")
+    .order("position");
+  return (data as BracketNodeRow[]) ?? [];
 }

@@ -1214,7 +1214,7 @@ export function LiveConsole({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3 pb-72 sm:pb-64">
+    <div className="mx-auto max-w-5xl space-y-3 pb-72 sm:pb-64 lg:pb-40">
       {/* ------------------------------ scoreboard ------------------------------ */}
       <section className="card p-4">
         <div className="flex items-start justify-between gap-2">
@@ -1364,7 +1364,7 @@ export function LiveConsole({
           <h3 className="text-[15px] font-semibold">Play-by-play</h3>
           <span className="label !text-[10px]">Tap a row to fix it</span>
         </div>
-        <div className="scroll-contain max-h-72 overflow-y-auto">
+        <div className="scroll-contain max-h-72 overflow-y-auto lg:max-h-48">
           {scoredLog.length === 0 ? (
             <p className="px-4 py-5 text-sm text-ink-muted">
               Nothing yet — tap a player, then a stat.
@@ -1403,8 +1403,8 @@ export function LiveConsole({
 
       {/* --------------------- fixed thumb zone: pad + status -------------------- */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-rule bg-surface/95 backdrop-blur">
-        <div className="mx-auto max-w-5xl p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <p className="mb-2 truncate text-center text-[12px] font-medium text-ink-body">
+        <div className="mx-auto max-w-5xl p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:py-2">
+          <p className="mb-2 truncate text-center text-[12px] font-medium text-ink-body lg:mb-1">
             {selected
               ? `Recording for ${nameOf(selected.userId)}`
               : "Tap a player, then a stat"}
