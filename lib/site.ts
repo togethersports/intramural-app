@@ -10,6 +10,17 @@ export const SUPPORT_EMAIL = "harryhonigburger@gmail.com";
 export const LAST_UPDATED = "29 July 2026";
 
 /**
+ * The iOS app's public listing.
+ *
+ * The number is the App Store Connect app id — the same `ascAppId` that
+ * `mobile/eas.json` submits builds against, so the two cannot drift apart.
+ * The link only resolves once a build has been approved; until then Apple
+ * serves a "not available" page, so pull the button rather than the URL if
+ * the listing is still in review.
+ */
+export const APP_STORE_URL = "https://apps.apple.com/app/id6795986822";
+
+/**
  * An absolute URL into the app.
  *
  * Reminders and recaps are read outside the browser — in an inbox, in a text

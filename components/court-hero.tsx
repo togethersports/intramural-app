@@ -23,6 +23,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ButtonLink } from "@/components/ui";
+import { IconApple } from "@/components/icons";
+import { APP_STORE_URL } from "@/lib/site";
 
 const CourtHeroScene = dynamic(() => import("./court-hero-scene"), {
   ssr: false,
@@ -152,9 +154,13 @@ export default function CourtHero({
         </div>
 
         {/* The clipboard — its own region above the CTA band, so the board
-            cannot overlap the buttons at any rotation angle */}
+            cannot overlap the buttons at any rotation angle. The split is
+            66/34 on a phone, where the three CTAs wrap to two rows and the
+            tagline runs to three lines; at scroll 0 the sticky stage also
+            still sits a header's height down the page, so the band needs the
+            extra tenth to clear the fold before the pin engages. */}
         <div
-          className="absolute inset-x-0 top-0 z-10 h-[76%] transition-opacity duration-500"
+          className="absolute inset-x-0 top-0 z-10 h-[66%] transition-opacity duration-500 sm:h-[76%]"
           style={{ opacity: ready ? 1 : 0 }}
         >
           <CourtHeroScene
@@ -168,7 +174,7 @@ export default function CourtHero({
         {/* Tagline + CTAs: fixed on screen for the whole pin. They rise in
             once on load and then never move, fade, or drift — during the
             board's exit and the final hold they are the only thing left. */}
-        <div className="absolute inset-x-0 bottom-0 z-30 flex h-[24%] flex-col items-center justify-start gap-4 px-4 pt-1">
+        <div className="absolute inset-x-0 bottom-0 z-30 flex h-[34%] flex-col items-center justify-start gap-4 px-4 pt-1 sm:h-[24%]">
           <p className="ch-cta max-w-[52ch] text-center text-[clamp(15px,1.3vw,18px)] font-medium leading-[1.5] text-white">
             Captains draft teams. Games fit into lunch and free periods. Stats
             are tracked live from the sideline. Playoffs settle it.
@@ -180,13 +186,25 @@ export default function CourtHero({
             <ButtonLink href={joinHref} variant="canvas">
               I have a join code
             </ButtonLink>
+            {/* White on the blue, the way the App Store badge reads. `light`
+                is the token pair for it — paper ground, ink type — so it
+                follows a league that restyles the site. */}
+            <ButtonLink
+              href={APP_STORE_URL}
+              variant="light"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <IconApple />
+              Download on iOS
+            </ButtonLink>
           </div>
         </div>
 
         {/* Film grain wash */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[76%] opacity-[0.13] mix-blend-overlay"
+          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[66%] opacity-[0.13] mix-blend-overlay sm:h-[76%]"
           style={{ backgroundImage: GRAIN }}
         />
 
