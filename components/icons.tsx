@@ -323,3 +323,25 @@ export function IconIdCard(props: IconProps) {
     </svg>
   );
 }
+
+/**
+ * The Apple mark, for the App Store link.
+ *
+ * The only solid icon in this file — every other one is a 1.8px stroke, but
+ * the Apple logo is a filled silhouette and a stroked outline of it reads as
+ * a drawing of the logo rather than the logo. So it opts out of `base()`.
+ */
+export function IconApple({ size = 18, ...props }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      {...props}
+    >
+      <path d="M16.365 1.43c0 1.14-.468 2.243-1.187 3.043-.869.966-2.29 1.716-3.43 1.626a3.6 3.6 0 0 1-.028-.406c0-1.096.51-2.264 1.279-3.03.79-.79 2.13-1.386 3.24-1.433.075.066.126.152.126.2ZM20.7 17.13c-.5 1.16-.74 1.68-1.38 2.7-.9 1.43-2.17 3.2-3.74 3.22-1.4.01-1.76-.9-3.66-.89-1.9.01-2.29.91-3.69.9-1.57-.01-2.77-1.61-3.67-3.03-2.52-3.99-2.78-8.67-1.23-11.16 1.1-1.77 2.84-2.8 4.47-2.8 1.66 0 2.7.91 4.08.91 1.33 0 2.14-.91 4.06-.91 1.45 0 2.99.79 4.08 2.15-3.59 1.97-3.01 7.1.68 8.91Z" />
+    </svg>
+  );
+}

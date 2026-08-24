@@ -23,6 +23,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ButtonLink } from "@/components/ui";
+import { IconApple } from "@/components/icons";
 import { APP_STORE_URL } from "@/lib/site";
 
 const CourtHeroScene = dynamic(() => import("./court-hero-scene"), {
@@ -185,15 +186,16 @@ export default function CourtHero({
             <ButtonLink href={joinHref} variant="canvas">
               I have a join code
             </ButtonLink>
-            {/* No Apple logo and no badge art: the identity guidelines govern
-                the official badge, and a hand-drawn copy of it would be both
-                wrong and off-brand next to two pills. The words do the work. */}
+            {/* White on the blue, the way the App Store badge reads. `light`
+                is the token pair for it — paper ground, ink type — so it
+                follows a league that restyles the site. */}
             <ButtonLink
               href={APP_STORE_URL}
-              variant="canvas"
+              variant="light"
               target="_blank"
               rel="noopener noreferrer"
             >
+              <IconApple />
               Download on iOS
             </ButtonLink>
           </div>
