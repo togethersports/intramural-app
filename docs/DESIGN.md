@@ -1,9 +1,13 @@
 # Intramural — brand in code
 
 Implementation of **Brandbook v1.0 (July 2026)**. The brandbook is the
-authority; this file maps it onto the codebase. Living reference: **`/design`**
-(and `/design/league`, `/design/identity`, `/design/dashboard`,
-`/design/live`, which render the real components against fixture data).
+authority; this file maps it onto the codebase.
+
+There used to be a set of `/design` reference routes rendering the real
+components against fixture data. They were public pages on a product site,
+which is the wrong place for a brand reference, so they were removed — read
+the components themselves, or `git show 5982038:app/design/page.tsx` for
+what they held.
 
 ## Two presets, one token set
 

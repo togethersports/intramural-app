@@ -345,3 +345,23 @@ export function IconApple({ size = 18, ...props }: IconProps) {
     </svg>
   );
 }
+
+/**
+ * The LinkedIn mark, for the footer credit. Solid, like IconApple and for
+ * the same reason — a stroked outline of a wordmark-adjacent logo reads as
+ * a sketch of it.
+ */
+export function IconLinkedIn({ size = 18, ...props }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      {...props}
+    >
+      <path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM2.75 9.75h4.46V21H2.75V9.75Zm6.94 0h4.27v1.54h.06c.6-1.07 2.05-2.2 4.22-2.2 4.51 0 5.34 2.79 5.34 6.42V21h-4.45v-4.6c0-1.1-.02-2.51-1.62-2.51-1.62 0-1.87 1.2-1.87 2.43V21H9.69V9.75Z" />
+    </svg>
+  );
+}

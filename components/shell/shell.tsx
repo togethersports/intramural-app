@@ -268,7 +268,17 @@ export function Shell({
             </span>
           </span>
         </Link>
-        <form action={signOut}>
+        {/* Asked before it goes through: the control is a single unlabelled
+            icon sitting next to the profile link, so the cost of clipping it
+            by accident — losing a half-tracked game, being thrown back to
+            the login screen mid-draft — is out of all proportion to the size
+            of the target. */}
+        <form
+          action={signOut}
+          onSubmit={(e) => {
+            if (!window.confirm("Sign out of Intramural?")) e.preventDefault();
+          }}
+        >
           <button
             type="submit"
             aria-label="Sign out"

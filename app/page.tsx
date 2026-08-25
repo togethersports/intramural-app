@@ -8,7 +8,9 @@ import {
 } from "@/components/landing-live";
 import { Lockup, Mark } from "@/components/mark";
 import { ButtonLink } from "@/components/ui";
+import { IconLinkedIn } from "@/components/icons";
 import { getUser } from "@/lib/auth";
+import { BUILT_BY, BUILT_BY_URL } from "@/lib/site";
 
 /* Staggered entrance delays, typed once. */
 const delay = (s: number) => ({ "--lp-delay": `${s}s` }) as React.CSSProperties;
@@ -216,9 +218,6 @@ export default async function LandingPage() {
             <Link href="/signup" className="hover:text-white/70">
               Create account
             </Link>
-            <Link href="/design" className="hover:text-white/70">
-              Brand
-            </Link>
             <Link href="/privacy" className="hover:text-white/70">
               Privacy
             </Link>
@@ -226,9 +225,15 @@ export default async function LandingPage() {
               Support
             </Link>
           </nav>
-          <p className="label !text-white/70">
-            Built for lunch periods everywhere
-          </p>
+          <a
+            href={BUILT_BY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="label inline-flex min-h-11 items-center gap-2 !text-white/70 transition-colors hover:!text-white"
+          >
+            Built by {BUILT_BY}
+            <IconLinkedIn size={15} />
+          </a>
         </div>
       </footer>
     </div>

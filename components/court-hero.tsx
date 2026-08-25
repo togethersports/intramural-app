@@ -216,13 +216,6 @@ export default function CourtHero({
           <span>School intramural sports</span>
           <span className="hidden sm:block">06 systems · one league</span>
         </div>
-        <div
-          className="label pointer-events-none absolute inset-x-0 bottom-0 z-20 hidden justify-between p-5 !text-[11px] !text-white/60 sm:flex sm:p-7"
-          style={{ opacity: "calc(1 - var(--ch-p, 0) * 1.6)" }}
-        >
-          <span>Fig. A — coaching board</span>
-          <span className="hidden sm:block">Zero gravity · 14s / rev</span>
-        </div>
       </div>
 
       {/* Scoped styles — ch-* names leak nothing into the rest of the site. */}
