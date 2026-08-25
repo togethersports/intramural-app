@@ -1,7 +1,7 @@
 /**
- * The dashboard, as pure presentation. All data arrives as props so the
- * page can stay a thin data-fetching shell and /design/dashboard can render
- * the whole thing against fixtures with no backend.
+ * The dashboard, as pure presentation. All data arrives as props, so the
+ * page stays a thin data-fetching shell and the whole thing can be
+ * rendered against fixtures with no backend.
  *
  * Structure, in priority order — what a player opens the app to find out:
  *   1. who/when they are (greeting strip, on the Court Blue ground)

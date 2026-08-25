@@ -13,8 +13,7 @@
  * voids — nothing is ever destructively rewritten, so the whole history
  * stays reversible offline.
  *
- * `demo` renders the console against fixture data with no network at all —
- * used by the /design/live reference page.
+ * `demo` renders the console against fixture data with no network at all.
  */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

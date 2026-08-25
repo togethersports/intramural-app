@@ -21,6 +21,19 @@ export const LAST_UPDATED = "29 July 2026";
 export const APP_STORE_URL = "https://apps.apple.com/app/id6795986822";
 
 /**
+ * Who built it, in the footer.
+ *
+ * NOTE: this is the link that was handed over, and it is a Google search
+ * rather than a LinkedIn profile — the tracking parameters have been
+ * stripped, since they described one person's browser session and had no
+ * business on a public page. The footer draws a LinkedIn mark next to it,
+ * so swap this for the `linkedin.com/in/…` URL when it is to hand and the
+ * icon will finally match where it goes.
+ */
+export const BUILT_BY = "Harry Honig";
+export const BUILT_BY_URL = "https://www.google.com/search?q=harry+honig";
+
+/**
  * An absolute URL into the app.
  *
  * Reminders and recaps are read outside the browser — in an inbox, in a text

@@ -7,8 +7,7 @@ supports other sports.
 
 The full product brief lives in [`docs/BRIEF.md`](docs/BRIEF.md). The brand
 is [`docs/BRANDBOOK.html`](docs/BRANDBOOK.html) (v1.0) and
-[`docs/DESIGN.md`](docs/DESIGN.md) maps it onto the code — living reference
-at `/design`.
+[`docs/DESIGN.md`](docs/DESIGN.md) maps it onto the code.
 
 ## Status
 

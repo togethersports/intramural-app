@@ -50,8 +50,7 @@ RLS stays the one place access is decided.
 the code. Read DESIGN.md before building UI.** Tokens in `app/globals.css`
 (`@theme` = the light Sideline preset), palette maths in `@core/theme`,
 primitives in `components/ui.tsx`, the shell in `components/shell/shell.tsx`,
-the mark in `components/mark.tsx`, living references at `/design`,
-`/design/league`, `/design/identity`, `/design/dashboard`, `/design/live`.
+the mark in `components/mark.tsx`.
 
 **Every colour is a runtime variable — never write a hex.** Leagues restyle
 themselves (Console → Appearance) and people override that for themselves
