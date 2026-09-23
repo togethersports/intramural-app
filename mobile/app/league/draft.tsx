@@ -91,7 +91,7 @@ export default function Draft() {
 
   const taken = new Set(picks.map((p) => p.user_id));
   const available = members
-    .filter((m) => (m.role === "player" || m.role === "captain") && !taken.has(m.user_id))
+    .filter((m) => m.role !== "spectator" && !taken.has(m.user_id))
     .sort((a, b) => a.full_name.localeCompare(b.full_name));
   const myPick = (onClock != null && onClock === myTeamId) || isAdmin;
   const nameOfTeam = (id: string | null) =>

@@ -3,6 +3,7 @@
 import { useOptimistic, useTransition } from "react";
 import { setAvailability } from "../actions";
 import type { TimeSlotRow } from "@core/types";
+import { slotRange } from "@core/time";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const OPTIONS = [
@@ -50,8 +51,7 @@ export function AvailabilityGrid({
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{slot.label}</p>
               <p className="text-sm text-ink-body">
-                {DAYS[slot.day_of_week]} · {slot.start_time.slice(0, 5)}–
-                {slot.end_time.slice(0, 5)}
+                {DAYS[slot.day_of_week]} · {slotRange(slot.start_time, slot.end_time)}
               </p>
             </div>
             <div className="flex shrink-0 gap-1.5" role="radiogroup" aria-label={slot.label}>

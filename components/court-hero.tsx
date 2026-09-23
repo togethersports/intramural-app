@@ -175,7 +175,7 @@ export default function CourtHero({
             once on load and then never move, fade, or drift — during the
             board's exit and the final hold they are the only thing left. */}
         <div className="absolute inset-x-0 bottom-0 z-30 flex h-[34%] flex-col items-center justify-start gap-4 px-4 pt-1 sm:h-[24%]">
-          <p className="ch-cta max-w-[52ch] text-center text-[clamp(15px,1.3vw,18px)] font-medium leading-[1.5] text-white">
+          <p className="ch-cta max-w-[52ch] text-center text-[clamp(15px,1.3vw,18px)] font-medium leading-[1.5] text-on-canvas">
             Captains draft teams. Games fit into lunch and free periods. Stats
             are tracked live from the sideline. Playoffs settle it.
           </p>
@@ -210,7 +210,7 @@ export default function CourtHero({
 
         {/* Corner labels — fade out first once the exit begins */}
         <div
-          className="label pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-between p-5 !text-[11px] !text-white/80 sm:p-7"
+          className="label pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-between p-5 !text-[11px] !text-on-canvas/80 sm:p-7"
           style={{ opacity: "calc(1 - var(--ch-p, 0) * 1.6)" }}
         >
           <span>School intramural sports</span>
@@ -235,11 +235,12 @@ export default function CourtHero({
           letter-spacing: -0.04em;
           line-height: 1;
           white-space: nowrap;
-          color: #17171a;
+          color: var(--color-ink);
         }
         .ch-word-outline {
           color: transparent;
-          -webkit-text-stroke: 2px rgba(23, 23, 26, 0.55);
+          -webkit-text-stroke: 2px
+            color-mix(in srgb, var(--color-ink) 55%, transparent);
         }
         @keyframes ch-scroll {
           from { transform: translateX(0); }

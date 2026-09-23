@@ -1,11 +1,23 @@
 // Pure constants/types — safe to import from client components.
 
+/*
+  What someone can do to the *league*. Captaincy is deliberately not here:
+  it is a fact about a team (`teams.captain_id`), so a captain can also be
+  an admin without the two fighting over one column. See migration 0023.
+*/
 export type LeagueRole =
   | "commissioner"
   | "admin"
-  | "captain"
   | "player"
   | "spectator";
+
+/** Assignable in the members list — commissioner is held by one person and
+    transferred, not picked from a menu. */
+export const ASSIGNABLE_ROLES: LeagueRole[] = [
+  "admin",
+  "player",
+  "spectator",
+];
 
 export const SPORTS = [
   { value: "basketball", label: "Basketball" },
