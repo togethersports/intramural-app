@@ -295,7 +295,7 @@ export async function getFreeAgents(
       .select("user_id, role, profile:profiles(full_name, avatar_url, grade)")
       .eq("league_id", leagueId)
       .eq("status", "active")
-      .in("role", ["player", "captain", "commissioner", "admin"]),
+      .neq("role", "spectator"),
     getTeamsWithRosters(seasonId),
   ]);
   const taken = new Set(

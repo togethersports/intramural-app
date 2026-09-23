@@ -7,6 +7,7 @@ import {
   getLeagueMembers,
   isLeagueAdmin,
 } from "@/lib/leagues";
+import { getActiveSeason, getTeams } from "@/lib/data";
 import { MemberControls } from "./member-controls";
 
 export default async function MembersPage({
@@ -20,6 +21,17 @@ export default async function MembersPage({
   if (!league) notFound();
   const members = await getLeagueMembers(league.id);
   const admin = isLeagueAdmin(league.role);
+
+  // Captaincy is a fact about a team, not a league role, so it is read from
+  // the teams rather than from the member row. That is what lets someone be
+  // a captain *and* an admin — the two no longer share a column.
+  const season = await getActiveSeason(league.id);
+  const captainOf = new Map<string, string>();
+  if (season) {
+    for (const t of await getTeams(season.id)) {
+      if (t.captain_id) captainOf.set(t.captain_id, t.name);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -62,6 +74,11 @@ export default async function MembersPage({
                   {m.grade ? `Grade ${m.grade}` : "Grade —"}
                 </p>
               </div>
+              {captainOf.has(m.user_id) ? (
+                <span className="label !text-[10px] !text-accent-ink">
+                  Captain · {captainOf.get(m.user_id)}
+                </span>
+              ) : null}
               <RoleBadge role={m.role} />
               {admin ? (
                 <MemberControls

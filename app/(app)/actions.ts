@@ -209,12 +209,6 @@ export async function loadDemoLeague(
         supabase.from("teams").update({ captain_id: captainIds[i] }).eq("id", t.id as string),
       ),
     );
-    const { error: captainRoleError } = await supabase
-      .from("league_members")
-      .update({ role: "captain" })
-      .eq("league_id", leagueId)
-      .in("user_id", captainIds);
-    if (captainRoleError) throw new Error(captainRoleError.message);
 
     // ------------------------------------------------------------ schedule
     const rnd = makeRng(Math.floor(Math.random() * 2 ** 31));
@@ -615,7 +609,7 @@ export async function updateMemberRole(formData: FormData) {
   const memberId = String(formData.get("member_id") ?? "");
   const role = String(formData.get("role") ?? "");
   const slug = String(formData.get("slug") ?? "");
-  const allowed = ["admin", "captain", "player", "spectator"];
+  const allowed = ["admin", "player", "spectator"];
   if (!memberId || !allowed.includes(role)) return;
 
   const supabase = await createClient();

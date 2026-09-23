@@ -7,14 +7,11 @@ import { getMyAvailability, getTimeSlots, setAvailability } from "@/lib/data";
 import { loadLeagueContext } from "@/lib/active-league";
 import { color, radius, space, type, HIT } from "@/theme";
 import type { TimeSlotRow } from "@core/types";
+import { slotRange } from "@core/time";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** "15:15:00" → "3:15" — a US school app has no business in 24-hour time. */
-function clock(t: string): string {
-  const [h, m] = t.split(":").map(Number);
-  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}`;
-}
 type Status = "yes" | "maybe" | "no";
 const OPTIONS: { value: Status; label: string; bg: string; fg: string }[] = [
   { value: "yes", label: "In", bg: color.positiveBg, fg: color.positive },
@@ -84,7 +81,7 @@ export default function Availability() {
               <View>
                 <Text style={[type.bodyMedium, { color: color.ink }]}>{slot.label}</Text>
                 <Text style={[type.small, { color: color.inkMuted }]}>
-                  {DAYS[slot.day_of_week]} · {clock(slot.start_time)}–{clock(slot.end_time)}
+                  {DAYS[slot.day_of_week]} · {slotRange(slot.start_time, slot.end_time)}
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: space(0.75) }}>

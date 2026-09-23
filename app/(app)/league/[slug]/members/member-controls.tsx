@@ -2,8 +2,7 @@
 
 import { useRef, useTransition } from "react";
 import { removeMember, updateMemberRole } from "../../../actions";
-
-const roles = ["admin", "captain", "player", "spectator"] as const;
+import { ASSIGNABLE_ROLES } from "@core/league-constants";
 
 export function MemberControls({
   memberId,
@@ -36,7 +35,7 @@ export function MemberControls({
           }
           className="min-h-11 rounded-control border border-rule bg-paper px-3 text-sm font-medium capitalize focus:border-ink/30 focus:outline-none"
         >
-          {roles.map((r) => (
+          {ASSIGNABLE_ROLES.map((r) => (
             <option key={r} value={r}>
               {r}
             </option>
