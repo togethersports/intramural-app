@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getGame, getGameEvents, getGameGuests, getLineups, getSeasonAvailability, getTeams, getTeamsWithRosters } from "@/lib/data";
 import { computeBoxScore } from "@core/stats";
 import { generateSchedule, slotDateFor } from "@core/scheduler";
-import { computeStandings } from "@core/standings";
+import { computeStandings, deleteBlockedReason } from "@core/standings";
 import { buildBracket } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
@@ -1123,21 +1123,44 @@ export async function rescheduleGame(formData: FormData) {
   revalidateLeague(slug);
 }
 
-export async function deleteGame(formData: FormData) {
-  if (!isSupabaseConfigured()) return;
+export type DeleteGameState = { error: string | null };
+
+export async function deleteGame(
+  _prev: DeleteGameState,
+  formData: FormData,
+): Promise<DeleteGameState> {
+  if (!isSupabaseConfigured()) return { error: null };
   const supabase = await createClient();
   const gameId = str(formData, "game_id");
-  // A scheduled game can always be deleted (nothing happened yet). A played
-  // one only if it is an exhibition — official finals are the ledger, but a
-  // scrimmage's box score belongs to the commissioner to keep or not.
   const { data: game } = await supabase
     .from("games")
-    .select("status, counts_for_standings")
+    .select("status, counts_for_standings, is_playoff")
     .eq("id", gameId)
     .maybeSingle();
-  if (!game) return;
-  if (game.status !== "scheduled" && game.counts_for_standings) return;
-  await supabase.from("games").delete().eq("id", gameId);
+  if (!game) return { error: "That game no longer exists — refresh the page." };
+
+  // The rule is @core's, shared with the buttons that offer Delete, so the
+  // screen and the server cannot disagree again. They used to: this returned
+  // early for any started game that counted, so a live official game showed
+  // a Delete button that did nothing at all — live games aren't in the
+  // standings, so there was nothing there to protect.
+  const blocked = deleteBlockedReason(game);
+  if (blocked) return { error: blocked };
+
+  // Every table that hangs off a game cascades, so this is the whole delete.
+  // Its result is checked: a refusal used to redirect exactly like success.
+  // RLS doesn't raise on a refused delete, it just matches nothing — so ask
+  // for the deleted row back and treat an empty answer as the refusal it is.
+  const { data: gone, error } = await supabase
+    .from("games")
+    .delete()
+    .eq("id", gameId)
+    .select("id");
+  if (error) return { error: `Couldn't delete the game: ${error.message}` };
+  if (!gone?.length) {
+    return { error: "Only the commissioner or a league admin can delete games." };
+  }
+
   const slug = str(formData, "slug");
   revalidateLeague(slug);
   // The game page no longer exists — land somewhere that does.

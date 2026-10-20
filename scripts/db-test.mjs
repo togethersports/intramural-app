@@ -878,6 +878,49 @@ assert(
   "the exhibition game is invisible to a counts_for_standings filter",
 );
 
+// ------------------------------------------- deleting a game mid-game
+// The report: an official pickup game, live, with plays recorded, and Delete
+// did nothing. The app's rule now allows it (live games aren't in the
+// standings), so the database has to allow it too — and take everything
+// recorded in the game with it, rather than leaving orphaned plays behind.
+console.log("\n— deleting a live official game —");
+await asOwner();
+const liveOfficial = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, status,
+                      is_adhoc, counts_for_standings)
+   values ($1, 6, $2, $3, 'live', true, true) returning *`,
+  [season.id, teamA.id, teamB.id],
+);
+await db.query(
+  `insert into game_events (game_id, seq, period, type, user_id, team_id, created_by, client_uuid, value)
+   values ($1, 1, 1, 'fg2_made', $2, $3, $4, $5, 2),
+          ($1, 2, 1, 'ast',      $6, $3, $4, $7, null)`,
+  [liveOfficial.id, uid(4), teamA.id, uid(1), crypto.randomUUID(), uid(5), crypto.randomUUID()],
+);
+await db.query(
+  `insert into game_guests (game_id, team_id, display_name) values ($1, $2, 'Walk-on')`,
+  [liveOfficial.id, teamB.id],
+);
+
+await asAuthenticated(6);
+assert(
+  await rejects(`delete from games where id = $1`, [liveOfficial.id]),
+  "a player cannot delete a game",
+);
+
+await asAuthenticated(1);
+const deleted = await db.query(`delete from games where id = $1 returning id`, [liveOfficial.id]);
+assert(deleted.rows.length === 1, "the commissioner can delete a live official game");
+await asOwner();
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1`, [liveOfficial.id])).c === 0,
+  "its recorded plays go with it",
+);
+assert(
+  (await one(`select count(*)::int as c from game_guests where game_id = $1`, [liveOfficial.id])).c === 0,
+  "and so do its guest players",
+);
+
 // ------------------------------------------- captain AND admin, together
 console.log("\n— captaincy is not a league role —");
 
