@@ -358,17 +358,15 @@ export async function createTeam(
     .single();
   if (error) return { error: error.message };
   if (captainId && team) {
+    // `teams.captain_id` is set with the team above and is the whole record
+    // of captaincy. There used to be a matching league_members role stamped
+    // here, guarded with `.eq("role", "player")` so it would not clobber an
+    // admin — which meant naming an admin as captain quietly did nothing.
     await supabase.from("team_members").insert({
       team_id: team.id,
       user_id: captainId,
       is_captain: true,
     });
-    await supabase
-      .from("league_members")
-      .update({ role: "captain" })
-      .eq("league_id", str(formData, "league_id"))
-      .eq("user_id", captainId)
-      .eq("role", "player");
   }
   revalidateLeague(str(formData, "slug"));
   return { error: null };
@@ -729,7 +727,7 @@ export async function nudgeAvailability(formData: FormData) {
       .select("user_id")
       .eq("league_id", leagueId)
       .eq("status", "active")
-      .in("role", ["player", "captain"]),
+      .neq("role", "spectator"),
     getSeasonAvailability(seasonId),
   ]);
   const done = new Set(submitted.map((a) => a.user_id));

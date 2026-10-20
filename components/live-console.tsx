@@ -28,7 +28,7 @@ import {
   timeoutsUsed,
   withRunningScore,
 } from "@core/live";
-import { computeBoxScore, type GameEventInput } from "@core/stats";
+import { computeBoxScore, emptyLine, type GameEventInput } from "@core/stats";
 import type { GameGuestRow, GameRow, LineupRow, RosterEntry } from "@core/types";
 import {
   abandonGame,
@@ -86,6 +86,29 @@ const STAT_ACTIONS = [
 ] as const;
 
 const STAT_VALUE: Record<string, number> = { fg2_made: 2, fg3_made: 3, ft_made: 1 };
+
+/*
+  The simple tracker's whole vocabulary: P R A ST BLK, on every player's own
+  row, one tap each. Points are three buttons rather than one because a
+  single P cannot know whether the shot was worth one, two or three, and
+  asking would turn the most common tap into two.
+
+  R records a defensive rebound. The simple tracker doesn't ask which end it
+  came from — nothing in the app displays OREB and DREB separately, only the
+  REB total, so the split would be a question nobody reads the answer to.
+*/
+const SIMPLE_STATS = [
+  { type: "ft_made", label: "+1", said: "+1", points: true },
+  { type: "fg2_made", label: "+2", said: "+2", points: true },
+  { type: "fg3_made", label: "+3", said: "+3", points: true },
+  { type: "dreb", label: "R", said: "rebound", points: false },
+  { type: "ast", label: "A", said: "assist", points: false },
+  { type: "stl", label: "ST", said: "steal", points: false },
+  { type: "blk", label: "BLK", said: "block", points: false },
+] as const;
+
+/** Which console a scorekeeper last used, so the choice sticks per device. */
+const MODE_KEY = "live:mode";
 
 const OTHER_KEYS = [
   ["1 – 5", "Select home player"],
@@ -267,6 +290,31 @@ export function LiveConsole({
     [home.id]: lineups.find((l) => l.team_id === home.id)?.on_court ?? [],
     [away.id]: lineups.find((l) => l.team_id === away.id)?.on_court ?? [],
   }));
+
+  // Simple is the default: both rosters side by side, P R A ST BLK on each
+  // player's own row, no select-then-tap, no clock, no starting fives. The
+  // full console — fouls, subs, timeouts, the clock — is one click away for a
+  // scorekeeper who wants it, and the choice is remembered on this device.
+  // Read after mount, not in the initializer: localStorage doesn't exist on
+  // the server, and a different first render would break hydration.
+  const [mode, setMode] = useState<"simple" | "full">("simple");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(MODE_KEY) === "full") setMode("full");
+    } catch {
+      // storage unavailable — simple it is
+    }
+  }, []);
+  const chooseMode = (next: "simple" | "full") => {
+    setMode(next);
+    setSelected(null);
+    setAssist(null);
+    try {
+      localStorage.setItem(MODE_KEY, next);
+    } catch {
+      // fine — it just won't be remembered
+    }
+  };
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const say = useCallback((msg: string) => {
@@ -722,7 +770,9 @@ export function LiveConsole({
     pushGameState({ period: next, clock_ms: ms });
   };
 
-  const tipOff = async () => {
+  /** `startClock` is false from the simple tracker, which has no clock on
+      screen — a hidden one would still tick to 0:00 and say so. */
+  const tipOff = async (startClock = true) => {
     if (!demo) {
       for (const side of [home, away]) {
         await saveLineup(game.id, side.id, starters[side.id], 0).catch(() => null);
@@ -733,7 +783,7 @@ export function LiveConsole({
     setClockMs(periodMs);
     setClockEpoch((n) => n + 1);
     record("period_start", { period: 1, clockMs: periodMs });
-    setRunning(true);
+    setRunning(startClock);
     pushGameState({ status: "live", period: 1, clock_ms: periodMs });
   };
 
@@ -801,6 +851,14 @@ export function LiveConsole({
       )
         return;
       if (status !== "live") return;
+
+      // The simple tracker shows no selection and no clock, so the keys that
+      // drive them must not act behind its back: "2" then "A" would credit
+      // an assist to a player the screen never highlighted. Undo still works.
+      if (mode === "simple") {
+        if (e.key.toUpperCase() === "U") undo();
+        return;
+      }
 
       if (e.key === " ") { e.preventDefault(); setRunning((r) => !r); return; }
       const k = e.key.toUpperCase();
@@ -1006,6 +1064,311 @@ export function LiveConsole({
     </Modal>
   ) : null;
 
+  /* ------------------------------ simple tracker ------------------------------ */
+  // Every player of both teams on screen at once, each with their own P R A
+  // ST BLK buttons, and the box score underneath. It writes through the same
+  // record()/undo() as the full console, so offline queueing, idempotent
+  // sync and the box score replay are exactly the ones already trusted.
+  // Finalizing hands off to the shared confirm screen below.
+  if (mode === "simple" && !confirmFinal) {
+    const live = status === "live";
+
+    const tapSimple = (teamId: string, userId: string, type: string, said: string) => {
+      if (!live) return;
+      record(type, { teamId, userId, value: STAT_VALUE[type] ?? null });
+      // The toast names the player as well as the stat: on a full roster the
+      // likeliest mistake is the right button on the wrong row.
+      say(`${said[0] === "+" ? said : said[0].toUpperCase() + said.slice(1)} — ${nameOf(userId)}`);
+    };
+
+    const startSimple = () => tipOff(false);
+
+    // Two events in one handler cannot both ask nextSeq(): eventsRef only
+    // catches up after the render, so they would share a sequence number.
+    // The full console never hits this because its period_end and
+    // period_start happen on separate taps, either side of a modal.
+    const nextPeriodSimple = () => {
+      if (!live) return;
+      const seq = nextSeq();
+      const next = period + 1;
+      const ms =
+        (next > gameRules.periods ? gameRules.overtimeMinutes : gameRules.periodMinutes) * 60_000;
+      record("period_end", { seq });
+      setPeriod(next);
+      setClockMs(ms);
+      setClockEpoch((n) => n + 1);
+      record("period_start", { period: next, clockMs: ms, seq: seq + 1 });
+      pushGameState({ period: next, clock_ms: ms });
+      say(`${periodLabel(next, gameRules.periods)} started`);
+    };
+
+    const ordered = (teamId: string) =>
+      [...rosterOf(teamId)].sort(
+        (a, b) =>
+          (a.jersey_number ?? 999) - (b.jersey_number ?? 999) ||
+          a.full_name.localeCompare(b.full_name),
+      );
+
+    const lineOf = (userId: string) => box.players.get(userId) ?? emptyLine();
+    const scoreOf = (side: TeamSide) => (side.id === home.id ? box.homeScore : box.awayScore);
+
+    const syncLabel = demo
+      ? "Demo"
+      : netDown
+        ? "Offline — saved on this device"
+        : pendingCount > 0
+          ? "Syncing"
+          : "Saved";
+
+    const BOX_COLS = [
+      ["pts", "PTS"],
+      ["reb", "REB"],
+      ["ast", "AST"],
+      ["stl", "STL"],
+      ["blk", "BLK"],
+    ] as const;
+
+    // Rows lay out by the card's width, not the screen's: the same card is
+    // full-width on a phone, half of a wide monitor, and half of a laptop
+    // that has also given 248px to the sidebar. Below 32rem the name moves
+    // above its buttons — otherwise seven 44px targets leave it no room and
+    // the scorekeeper can't see whose row they are tapping.
+    const tracker = (side: TeamSide) => (
+      <section key={side.id} className="card @container overflow-hidden">
+        <div className="flex items-center gap-2.5 border-b border-rule px-4 py-3">
+          <TeamBadge abbrev={side.abbrev} color={side.color} size={26} />
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{side.name}</span>
+          <span className="num text-[26px] leading-none">{scoreOf(side)}</span>
+        </div>
+        {/* One grid per team so the button columns line up under their
+            headers like a scoresheet. */}
+        <div
+          className="label grid grid-cols-7 items-end gap-1 px-3 pt-2.5 pb-1.5 !text-[10px] @lg:grid-cols-[minmax(0,1fr)_repeat(7,2.75rem)]"
+          aria-hidden
+        >
+          <span className="hidden @lg:block">Player</span>
+          <span className="col-span-3 text-center">P</span>
+          <span className="text-center">R</span>
+          <span className="text-center">A</span>
+          <span className="text-center">ST</span>
+          <span className="text-center">BLK</span>
+        </div>
+        {ordered(side.id).map((r) => {
+          const pts = lineOf(r.user_id).pts;
+          return (
+            <div
+              key={r.user_id}
+              className="border-t border-rule px-3 py-2 @lg:grid @lg:grid-cols-[minmax(0,1fr)_repeat(7,2.75rem)] @lg:items-center @lg:gap-1 @lg:py-1.5"
+            >
+              <div className="flex min-w-0 items-baseline gap-2 @lg:block">
+                <p className="truncate text-[14px] font-semibold">
+                  {r.jersey_number != null ? (
+                    <span className="num mr-1.5 text-[12px] text-ink-faint">{r.jersey_number}</span>
+                  ) : null}
+                  {r.full_name}
+                </p>
+                <p className="num shrink-0 text-[11px] text-ink-muted">{pts} pts</p>
+              </div>
+              {/* `contents` dissolves this wrapper on a wide card, so the
+                  buttons become cells of the row's own grid. */}
+              <div className="mt-1.5 grid grid-cols-7 gap-1 @lg:contents">
+              {SIMPLE_STATS.map((s) => (
+                <button
+                  key={s.type}
+                  onClick={() => tapSimple(side.id, r.user_id, s.type, s.said)}
+                  disabled={!live}
+                  aria-label={`${s.said} for ${r.full_name}`}
+                  className={`num h-11 rounded-control text-[13px] font-semibold transition-transform active:scale-95 disabled:opacity-30 ${
+                    s.points ? "bg-ink text-on-ink" : "bg-rule text-ink"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+              </div>
+            </div>
+          );
+        })}
+        <button
+          onClick={() => setAddingFor(side.id)}
+          className="min-h-11 w-full border-t border-rule px-4 text-left text-[13px] font-semibold text-ink-body hover:bg-paper"
+        >
+          Add a player by name
+        </button>
+      </section>
+    );
+
+    const boxTable = (side: TeamSide) => {
+      const rows = ordered(side.id);
+      const total = rows.reduce(
+        (t, r) => {
+          const l = lineOf(r.user_id);
+          return {
+            pts: t.pts + l.pts,
+            reb: t.reb + l.reb,
+            ast: t.ast + l.ast,
+            stl: t.stl + l.stl,
+            blk: t.blk + l.blk,
+          };
+        },
+        { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
+      );
+      return (
+        <div key={side.id} className="min-w-0">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+            <TeamBadge abbrev={side.abbrev} color={side.color} size={20} />
+            <span className="text-[13px] font-semibold">{side.name}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="label !text-[10px]">
+                  <th className="px-4 py-1.5 text-left font-medium">Player</th>
+                  {BOX_COLS.map(([, h]) => (
+                    <th key={h} className="w-12 px-1 py-1.5 text-right font-medium last:pr-4">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const l = lineOf(r.user_id);
+                  return (
+                    <tr key={r.user_id} className="border-t border-rule">
+                      <td className="max-w-0 truncate px-4 py-1.5 font-medium">{r.full_name}</td>
+                      {BOX_COLS.map(([k]) => (
+                        <td key={k} className="num px-1 py-1.5 text-right text-ink-body last:pr-4">
+                          {l[k]}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+                <tr className="border-t-2 border-rule font-semibold">
+                  <td className="px-4 py-1.5">Team</td>
+                  {BOX_COLS.map(([k]) => (
+                    <td key={k} className="num px-1 py-1.5 text-right last:pr-4">
+                      {total[k]}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="mx-auto max-w-6xl space-y-3 pb-10">
+        {/* ------------------------------ header ------------------------------ */}
+        <section className="card flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <TeamBadge abbrev={home.abbrev} color={home.color} size={28} />
+            <p className="num text-[32px] leading-none">
+              {box.homeScore}
+              <span className="px-2 text-ink-faint">–</span>
+              {box.awayScore}
+            </p>
+            <TeamBadge abbrev={away.abbrev} color={away.color} size={28} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="label !text-[11px]">
+              {live ? periodLabel(period, gameRules.periods) : "Not started"}
+            </span>
+            {live ? (
+              <button
+                onClick={nextPeriodSimple}
+                className="min-h-11 rounded-full px-3 text-[12px] font-semibold text-ink-body hover:bg-rule"
+              >
+                Next period
+              </button>
+            ) : null}
+          </div>
+          <p className="label !text-[11px]">
+            <span className={demo || (!netDown && pendingCount === 0) ? "" : "!text-accent-ink"}>
+              {syncLabel}
+            </span>
+          </p>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => chooseMode("full")}
+              className="min-h-11 rounded-full px-3 text-[13px] font-medium text-ink-muted hover:bg-rule hover:text-ink"
+            >
+              Full console
+            </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="min-h-11 rounded-full px-3 text-[13px] font-medium text-ink-muted hover:bg-rule hover:text-ink"
+            >
+              Settings
+            </button>
+            <button
+              onClick={undo}
+              disabled={!live || eventCount === 0}
+              className="min-h-11 rounded-full bg-rule px-4 text-[13px] font-semibold disabled:opacity-35"
+            >
+              Undo
+            </button>
+            {live ? (
+              <Button
+                variant="accent"
+                onClick={() => setConfirmFinal(true)}
+                className="!min-h-11 !px-5 !py-2 !text-[14px]"
+              >
+                Finish game
+              </Button>
+            ) : (
+              <Button
+                variant="accent"
+                onClick={startSimple}
+                className="!min-h-11 !px-5 !py-2 !text-[14px]"
+              >
+                Start game
+              </Button>
+            )}
+          </div>
+        </section>
+
+        {!live ? (
+          <p className="rounded-row bg-paper px-4 py-3 text-[14px] text-ink-body">
+            Start the game to begin tracking. Every player is listed — tap a
+            stat on their row to credit it to them.
+          </p>
+        ) : null}
+
+        {/* ------------------------- both teams, side by side ------------------------- */}
+        <div className="grid gap-3 lg:grid-cols-2">
+          {tracker(home)}
+          {tracker(away)}
+        </div>
+
+        {/* -------------------------------- box score -------------------------------- */}
+        <section className="card overflow-hidden">
+          <div className="flex items-baseline justify-between border-b border-rule px-4 py-2.5">
+            <h3 className="text-[15px] font-semibold">Box score</h3>
+            <span className="label !text-[10px]">Updates as you tap</span>
+          </div>
+          <div className="grid divide-y divide-rule lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+            {boxTable(home)}
+            {boxTable(away)}
+          </div>
+        </section>
+
+        {toast ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+            <p className="card-float rounded-full bg-ink px-5 py-2.5 text-[14px] font-medium text-on-ink">
+              {toast}
+            </p>
+          </div>
+        ) : null}
+        {addPlayerModal}
+        {settingsModal}
+      </div>
+    );
+  }
+
   /* ----------------------------- pre-game screen ----------------------------- */
   if (status === "scheduled") {
     const toggleStarter = (teamId: string, userId: string) => {
@@ -1066,7 +1429,7 @@ export function LiveConsole({
             </div>
           </section>
         ))}
-        <Button onClick={tipOff} disabled={!ready} variant="accent" className="w-full">
+        <Button onClick={() => tipOff()} disabled={!ready} variant="accent" className="w-full">
           Tip off
         </Button>
         {addingFor ? addPlayerModal : null}
@@ -1244,6 +1607,12 @@ export function LiveConsole({
               ))}
             </div>
             <div className="mt-1 flex items-center justify-center gap-3">
+              <button
+                onClick={() => chooseMode("simple")}
+                className="label !text-[10px] !text-ink-faint hover:!text-ink"
+              >
+                Simple tracker
+              </button>
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="label !text-[10px] !text-ink-faint hover:!text-ink"

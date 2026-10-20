@@ -26,6 +26,7 @@ import {
 import { DangerZone } from "./danger-zone";
 import { ConfirmForm } from "@/components/confirm-form";
 import { deleteAnnouncement } from "../actions";
+import { slotRange } from "@core/time";
 
 export const metadata: Metadata = { title: "Console" };
 
@@ -203,8 +204,8 @@ export default async function ConsolePage({
                 <div>
                   <p className="font-semibold">{s.label}</p>
                   <p className="text-sm text-ink-body">
-                    {DAYS[s.day_of_week]} · {s.start_time.slice(0, 5)}–
-                    {s.end_time.slice(0, 5)} · {KIND_LABEL[s.kind]}
+                    {DAYS[s.day_of_week]} · {slotRange(s.start_time, s.end_time)} ·{" "}
+                    {KIND_LABEL[s.kind]}
                   </p>
                 </div>
                 <form action={deleteTimeSlot}>

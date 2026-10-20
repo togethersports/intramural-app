@@ -132,9 +132,9 @@ assert(
   "9 active members after joins",
 );
 
-// captains
+// Captaincy is not a league role — it is teams.captain_id, set with the
+// teams below. Users 2 and 3 stay 'player' here and become captains there.
 await actAs(1);
-await db.query(`update league_members set role = 'captain' where user_id in ($1, $2)`, [uid(2), uid(3)]);
 
 // season + slots + venue
 const season = await one(
@@ -877,6 +877,51 @@ assert(
   )).c === 0,
   "the exhibition game is invisible to a counts_for_standings filter",
 );
+
+// ------------------------------------------- captain AND admin, together
+console.log("\n— captaincy is not a league role —");
+
+// The whole point of migration 0023. User 3 captains the Hawks; making them
+// an admin must not cost them the team, and captaining must not cost them
+// the admin rights, because the two facts no longer share a column.
+await asOwner();
+await db.query(`update league_members set role = 'admin' where user_id = $1 and league_id = $2`, [
+  uid(3),
+  league.id,
+]);
+assert(
+  (await one(`select role from league_members where user_id = $1 and league_id = $2`, [uid(3), league.id])).role === "admin",
+  "a captain can be made an admin",
+);
+assert(
+  (await one(`select captain_id from teams where id = $1`, [teamB.id])).captain_id === uid(3),
+  "and they are still the captain of their team",
+);
+await asAuthenticated(3);
+assert(
+  (await one(`select public.is_league_captain($1) as ok`, [league.id])).ok === true,
+  "is_league_captain() sees them through the team, not the role",
+);
+assert(
+  (await one(`select public.is_league_admin($1) as ok`, [league.id])).ok === true,
+  "and is_league_admin() still sees them too — both at once",
+);
+// 'captain' is no longer a value the column will take.
+let roleRejected = false;
+try {
+  await asOwner();
+  await db.query(`update league_members set role = 'captain' where user_id = $1`, [uid(3)]);
+} catch {
+  roleRejected = true;
+}
+assert(roleRejected, "'captain' is rejected as a league role");
+
+// Put them back so the scenarios below read as a plain captain.
+await asOwner();
+await db.query(`update league_members set role = 'player' where user_id = $1 and league_id = $2`, [
+  uid(3),
+  league.id,
+]);
 
 // ------------------------------------------- captains, lineups, sub pool
 console.log("\n— captain powers and the sub pool —");

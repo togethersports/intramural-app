@@ -29,10 +29,14 @@ type ButtonVariant = "accent" | "primary" | "light" | "quiet" | "canvas";
 const buttonStyles: Record<ButtonVariant, string> = {
   accent: "bg-accent text-on-accent hover:bg-accent-strong active:scale-[0.98]",
   primary: "bg-ink text-on-ink hover:opacity-90 active:scale-[0.98]",
-  light: "bg-paper text-ink hover:bg-surface active:scale-[0.98]",
+  // The hairline is what keeps a paper button visible when the ground is
+  // also paper. Inset, so it costs no layout, and it is a border rather
+  // than a shadow — resting surfaces stay flat.
+  light:
+    "bg-paper text-ink shadow-[inset_0_0_0_1px_var(--color-rule)] hover:bg-surface active:scale-[0.98]",
   quiet: "bg-paper text-ink font-medium hover:bg-surface active:scale-[0.98]",
   canvas:
-    "bg-white/22 text-on-canvas backdrop-blur-sm hover:bg-white/32 active:scale-[0.98]",
+    "bg-on-canvas/20 text-on-canvas backdrop-blur-sm hover:bg-on-canvas/30 active:scale-[0.98]",
 };
 
 const buttonBase =
