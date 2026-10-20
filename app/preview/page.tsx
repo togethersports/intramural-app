@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { LandingPage } from "@/components/landing-page";
 import { getUser } from "@/lib/auth";
 
@@ -62,6 +64,15 @@ const WHISTLE_RED = `
 `;
 
 export default async function WhistleRedPreview() {
+  // Preview deployments only. The palette hasn't been chosen, and the live
+  // site should not carry a second version of its own front page while it
+  // is being decided — so on production this route does not exist. Vercel
+  // sets VERCEL_ENV to "preview" on every branch deployment, where it does.
+  // connection() first: without it the build prerenders this page and the
+  // check runs once, at build time, against the build's environment.
+  await connection();
+  if (process.env.VERCEL_ENV === "production") notFound();
+
   const user = await getUser();
   return (
     <>
