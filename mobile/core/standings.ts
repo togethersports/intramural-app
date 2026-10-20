@@ -37,8 +37,38 @@ export const TIEBREAKER_LABELS: Record<Tiebreaker, string> = {
   points_for: "points scored",
 };
 
+/** A game is in the ledger once it is decided. Live and scheduled games are
+    not — standings never read them. */
+export function isDecided(status: string): boolean {
+  return status === "final" || status === "forfeit";
+}
+
 function countable(g: GameResult) {
-  return g.status === "final" || g.status === "forfeit";
+  return isDecided(g.status);
+}
+
+/**
+ * Why a game cannot be deleted, or null when it can.
+ *
+ * The rule lives beside `isDecided` because it is the same idea: what the
+ * standings read is the ledger, and the ledger is not deleted out from under
+ * them. Everything else can go — including a live game, which nothing has
+ * counted yet. Each reason names the fix rather than just the refusal.
+ */
+export function deleteBlockedReason(g: {
+  status: string;
+  counts_for_standings: boolean;
+  is_playoff?: boolean;
+}): string | null {
+  // The bracket node points at its game; deleting one that has started would
+  // leave a round with a hole in it.
+  if (g.is_playoff && g.status !== "scheduled") {
+    return "Playoff games can't be deleted once they start — the bracket is built on them.";
+  }
+  if (isDecided(g.status) && g.counts_for_standings) {
+    return "This result is in the standings. Make it an exhibition first, then delete it.";
+  }
+  return null;
 }
 
 export interface StandingsResult {

@@ -17,9 +17,10 @@ import { getSchedulePolls } from "@/lib/data";
 import { getUser } from "@/lib/auth";
 import { getLeagueMembers } from "@/lib/leagues";
 import { isLeagueAdmin } from "@core/league-constants";
+import { deleteBlockedReason } from "@core/standings";
+import { DeleteGameButton } from "@/components/delete-game-button";
 import { SchedulePolls } from "../polls/poll-panel";
 import {
-  deleteGame,
   reassignGameTeams,
   rescheduleGame,
   setScorekeeper,
@@ -303,13 +304,17 @@ export default async function SchedulePage({
                               Assign scorekeeper
                             </button>
                           </form>
-                          <form action={deleteGame}>
-                            <input type="hidden" name="game_id" value={g.id} />
-                            <input type="hidden" name="slug" value={slug} />
-                            <button className="min-h-11 rounded-control px-3 text-xs font-semibold text-accent-ink hover:bg-tint">
-                              Delete
-                            </button>
-                          </form>
+                          {deleteBlockedReason(g) ? (
+                            <span className="text-xs text-ink-faint">
+                              {deleteBlockedReason(g)}
+                            </span>
+                          ) : (
+                            <DeleteGameButton
+                              gameId={g.id}
+                              slug={slug}
+                              played={g.status !== "scheduled" && g.status !== "postponed"}
+                            />
+                          )}
                         </div>
                       </div>
                     </details>

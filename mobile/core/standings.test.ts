@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeStandings, type GameResult } from "./standings";
+import {
+  computeStandings,
+  deleteBlockedReason,
+  isDecided,
+  type GameResult,
+} from "./standings";
 
 const g = (
   home: string,
@@ -96,5 +101,51 @@ describe("computeStandings", () => {
     expect(r1.standings.map((s) => s.teamId)).toEqual(
       r2.standings.map((s) => s.teamId),
     );
+  });
+});
+
+describe("deleting a game", () => {
+  const game = (status: string, counts = true, is_playoff = false) => ({
+    status,
+    counts_for_standings: counts,
+    is_playoff,
+  });
+
+  it("allows a live official game — standings have not read it yet", () => {
+    // The case that was refused: a pickup game marked official, mid-game.
+    expect(isDecided("live")).toBe(false);
+    expect(deleteBlockedReason(game("live"))).toBeNull();
+  });
+
+  it("allows anything not yet decided", () => {
+    for (const status of ["scheduled", "live", "postponed", "abandoned"]) {
+      expect(deleteBlockedReason(game(status))).toBeNull();
+    }
+  });
+
+  it("allows a decided exhibition — it was never in the ledger", () => {
+    expect(deleteBlockedReason(game("final", false))).toBeNull();
+    expect(deleteBlockedReason(game("forfeit", false))).toBeNull();
+  });
+
+  it("protects a decided official result and names the fix", () => {
+    for (const status of ["final", "forfeit"]) {
+      const reason = deleteBlockedReason(game(status));
+      expect(reason).toMatch(/exhibition first/);
+    }
+  });
+
+  it("protects a playoff game once it starts, but not before", () => {
+    expect(deleteBlockedReason(game("scheduled", true, true))).toBeNull();
+    expect(deleteBlockedReason(game("live", true, true))).toMatch(/bracket/);
+    expect(deleteBlockedReason(game("final", true, true))).toMatch(/bracket/);
+  });
+
+  it("agrees with what the standings count", () => {
+    // The guard and the ledger share one definition, so a game the standings
+    // skip is never one the guard protects as a result.
+    const live = g("a", "b", 10, 0, "live");
+    expect(computeStandings(["a", "b"], [live]).standings.every((s) => s.w + s.l + s.t === 0)).toBe(true);
+    expect(deleteBlockedReason({ ...live, counts_for_standings: true })).toBeNull();
   });
 });

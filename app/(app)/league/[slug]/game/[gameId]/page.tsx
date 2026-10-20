@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ConfirmForm } from "@/components/confirm-form";
+import { DeleteGameButton } from "@/components/delete-game-button";
 import { RecapCard } from "@/components/recap-card";
 import { Button, TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -18,11 +18,11 @@ import {
 import { SubPanel } from "../../subs/sub-panel";
 import {
   adoptExternalTeam,
-  deleteGame,
   reassignGameTeams,
   setGameCounts,
 } from "../../actions";
 import { isLeagueAdmin } from "@core/league-constants";
+import { deleteBlockedReason } from "@core/standings";
 import { EVENT_LABELS } from "@core/game-constants";
 import { computeBoxScore, type StatLine } from "@core/stats";
 import { createClient } from "@/lib/supabase/server";
@@ -422,24 +422,21 @@ export default async function GamePage({
                             ) : null}
                           </div>
                         )}
-                        <ConfirmForm
-                          action={deleteGame}
-                          message={
-                            played
-                              ? "Delete this exhibition game and its box score permanently?"
-                              : "Delete this exhibition game?"
-                          }
-                          hidden={{ game_id: game.id, slug }}
-                        >
-                          <Button
-                            type="submit"
-                            variant="quiet"
-                            className="!text-caution"
-                          >
-                            Delete this game
-                          </Button>
-                        </ConfirmForm>
                       </>
+                    )}
+                    {/* Offered by the same rule the server enforces, so an
+                        official game that is still live can go too — the
+                        standings haven't read it. When it can't, the controls
+                        beside it already say why (make it an exhibition; the
+                        playoff note). */}
+                    {deleteBlockedReason(game) ? null : (
+                      <DeleteGameButton
+                        gameId={game.id}
+                        slug={slug}
+                        played={played}
+                        label="Delete this game"
+                        appearance="button"
+                      />
                     )}
                   </div>
                   {!game.counts_for_standings && bothInLeague ? (
