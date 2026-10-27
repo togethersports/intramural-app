@@ -1272,6 +1272,51 @@ export async function addGameGuest(
   return { error: error?.message ?? null };
 }
 
+/** Put a league member from another team (or none) on one side for this
+    game. The checks — scorekeeper, league member, not already playing in
+    this game — live in the add_game_sub function, where the client can't
+    skip them. Needs a connection: unlike a guest, a sub is a real person
+    whose stats will land on their own season, so the server has to agree
+    first. */
+export async function addGameSub(
+  gameId: string,
+  teamId: string,
+  userId: string,
+  counts = true,
+): Promise<ActionState & { requestId?: string }> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("add_game_sub", {
+    p_game: gameId,
+    p_team: teamId,
+    p_user: userId,
+    p_counts: counts,
+  });
+  if (error) return { error: error.message };
+  return { error: null, requestId: data as string };
+}
+
+/** The commissioner's toggle: does this game count toward the sub's season. */
+export async function setGameSubCounts(
+  requestId: string,
+  counts: boolean,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_game_sub_counts", {
+    p_request: requestId,
+    p_counts: counts,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function removeGameSub(requestId: string): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_game_sub", { p_request: requestId });
+  return { error: error?.message ?? null };
+}
+
 export async function recordEvent(
   gameId: string,
   event: TrackerEvent,
@@ -1364,7 +1409,49 @@ async function writeStatLines(
 ): Promise<{ error: string | null; rows: { user_id: string | null; pts: number; reb: number }[] }> {
   const supabase = await createClient();
   const guestIds = new Set((await getGameGuests(gameId)).map((g) => g.id));
-  const all = [...box.players.entries()].map(([key, line]) => ({
+
+  // A sub whose game doesn't count toward their season is stored the way a
+  // walk-on guest is: by name, for this game only. Every season number —
+  // averages, leaders, awards, the phone's PPG — groups lines by user, so
+  // none of them reads it, while this game's box score still shows the line.
+  // The guest row reuses the sub request's id, so a second finalize writes
+  // the same row instead of a duplicate.
+  const { data: quietSubs } = await supabase
+    .from("sub_requests")
+    .select("id, team_id, fill_user_id, fill:profiles!sub_requests_fill_user_id_fkey(full_name)")
+    .eq("game_id", gameId)
+    .eq("status", "approved")
+    .eq("counts_toward_stats", false);
+  const asGuest = new Map<string, string>(); // user id → guest id
+  for (const s of quietSubs ?? []) {
+    const userId = s.fill_user_id as string | null;
+    if (!userId || !box.players.has(userId)) continue;
+    const { error } = await supabase.from("game_guests").upsert(
+      {
+        id: s.id as string,
+        game_id: gameId,
+        team_id: s.team_id as string,
+        display_name:
+          (s.fill as unknown as { full_name: string } | null)?.full_name || "Sub",
+      },
+      { onConflict: "id" },
+    );
+    if (error) return { error: error.message, rows: [] };
+    asGuest.set(userId, s.id as string);
+    guestIds.add(s.id as string);
+  }
+  if (asGuest.size > 0) {
+    // In case this game was finalized before the choice was made.
+    await supabase
+      .from("player_game_stats")
+      .delete()
+      .eq("game_id", gameId)
+      .in("user_id", [...asGuest.keys()]);
+  }
+
+  const all = [...box.players.entries()].map(([rawKey, line]) => {
+    const key = asGuest.get(rawKey) ?? rawKey;
+    return {
     game_id: gameId,
     user_id: guestIds.has(key) ? null : key,
     guest_id: guestIds.has(key) ? key : null,
@@ -1373,7 +1460,8 @@ async function writeStatLines(
     ftm: line.ftm, fta: line.fta, oreb: line.oreb, dreb: line.dreb,
     reb: line.reb, ast: line.ast, stl: line.stl, blk: line.blk,
     tov: line.tov, pf: line.pf, plus_minus: line.plus_minus,
-  }));
+    };
+  });
   const userRows = all.filter((r) => r.user_id !== null);
   const guestRows = all.filter((r) => r.guest_id !== null);
   if (userRows.length > 0) {

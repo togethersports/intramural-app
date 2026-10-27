@@ -30,9 +30,13 @@ import {
 } from "@core/live";
 import { computeBoxScore, emptyLine, type GameEventInput } from "@core/stats";
 import type { GameGuestRow, GameRow, LineupRow, RosterEntry } from "@core/types";
+import type { GameSub, SubCandidate } from "@/lib/data";
 import {
   abandonGame,
   addGameGuest,
+  addGameSub,
+  removeGameSub,
+  setGameSubCounts,
   finalizeGame,
   recordEvent,
   saveLineup,
@@ -216,6 +220,9 @@ export function LiveConsole({
   lineups,
   rules,
   serverGuests = [],
+  serverSubs = [],
+  subCandidates = [],
+  isAdmin = false,
   demo = false,
 }: {
   slug: string;
@@ -226,6 +233,12 @@ export function LiveConsole({
   lineups: LineupRow[];
   rules: GameRules;
   serverGuests?: GameGuestRow[];
+  /** League members from other teams playing for a side in this game. */
+  serverSubs?: GameSub[];
+  /** Who could be added as a sub: league members on neither side. */
+  subCandidates?: SubCandidate[];
+  /** Commissioner or admin — decides whether a sub's stats count. */
+  isAdmin?: boolean;
   demo?: boolean;
 }) {
   const router = useRouter();
@@ -258,6 +271,14 @@ export function LiveConsole({
   useEffect(() => {
     guestsRef.current = guests;
   }, [guests]);
+
+  // Subs from other teams. Unlike guests these are real league members whose
+  // stats land on their own season, so adding one waits for the server.
+  const [subs, setSubs] = useState<GameSub[]>(serverSubs);
+  const [subbingFor, setSubbingFor] = useState<string | null>(null);
+  const [subQuery, setSubQuery] = useState("");
+  const [subCounts, setSubCounts] = useState(true);
+  const [subBusy, setSubBusy] = useState(false);
 
   const [status, setStatus] = useState(game.status);
   const [period, setPeriod] = useState(Math.max(1, game.period));
@@ -517,13 +538,30 @@ export function LiveConsole({
     [guests],
   );
 
+  const subEntries = useMemo(
+    () =>
+      subs.map(
+        (sb): RosterEntry & { teamId: string } => ({
+          id: sb.requestId,
+          user_id: sb.userId,
+          full_name: sb.name,
+          jersey_number: null,
+          is_captain: false,
+          teamId: sb.teamId,
+        }),
+      ),
+    [subs],
+  );
+  const subOf = (userId: string) => subs.find((sb) => sb.userId === userId) ?? null;
+
   const everyone = useMemo(() => {
     const m = new Map<string, RosterEntry & { teamId: string }>();
     for (const r of home.roster) m.set(r.user_id, { ...r, teamId: home.id });
     for (const r of away.roster) m.set(r.user_id, { ...r, teamId: away.id });
     for (const g of guestEntries) m.set(g.user_id, g);
+    for (const sb of subEntries) m.set(sb.user_id, sb);
     return m;
-  }, [home, away, guestEntries]);
+  }, [home, away, guestEntries, subEntries]);
 
   const nameOf = useCallback(
     (userId: string | null | undefined) => {
@@ -539,10 +577,11 @@ export function LiveConsole({
   const fouledOut = (userId: string) => foulsOf(userId) >= gameRules.foulLimit;
 
   const sideOf = (teamId: string) => (teamId === home.id ? home : away);
-  /** Rostered players plus any guests added for this game. */
+  /** Rostered players plus any guests and subs added for this game. */
   const rosterOf = (teamId: string) => [
     ...sideOf(teamId).roster,
     ...guestEntries.filter((g) => g.teamId === teamId),
+    ...subEntries.filter((sb) => sb.teamId === teamId),
   ];
   const courtList = (teamId: string) =>
     rosterOf(teamId)
@@ -884,6 +923,153 @@ export function LiveConsole({
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  /* ----------------------------- subs from other teams ----------------------------- */
+
+  const addSub = async (teamId: string, candidate: SubCandidate) => {
+    if (demo) { say("Demo console — subs are disabled here."); return; }
+    setSubBusy(true);
+    const res = await addGameSub(game.id, teamId, candidate.userId, subCounts).catch(() => ({
+      error: "Adding a sub needs a connection — get back online and try again.",
+      requestId: undefined,
+    }));
+    setSubBusy(false);
+    if (res.error || !res.requestId) {
+      say(res.error ?? "Couldn't add that sub.");
+      return;
+    }
+    setSubs((prev) => [
+      ...prev.filter((sb) => sb.userId !== candidate.userId),
+      {
+        requestId: res.requestId!,
+        teamId,
+        userId: candidate.userId,
+        name: candidate.name,
+        fromTeam: candidate.teamName,
+        counts: subCounts,
+      },
+    ]);
+    setSubbingFor(null);
+    setSubQuery("");
+    setSubCounts(true);
+    say(`${candidate.name} is subbing for ${sideOf(teamId).name}`);
+  };
+
+  const toggleSubCounts = async (sb: GameSub) => {
+    const next = !sb.counts;
+    setSubs((prev) => prev.map((p) => (p.requestId === sb.requestId ? { ...p, counts: next } : p)));
+    const res = await setGameSubCounts(sb.requestId, next).catch(() => ({ error: "Network failed — try again." }));
+    if (res.error) {
+      setSubs((prev) => prev.map((p) => (p.requestId === sb.requestId ? { ...p, counts: sb.counts } : p)));
+      say(res.error);
+      return;
+    }
+    say(next ? `${sb.name}'s stats count toward their season` : `${sb.name}'s stats stay with this game only`);
+  };
+
+  const hasStats = (userId: string) =>
+    events.some((e) => !e.voided && (e.user_id === userId || e.related_user_id === userId));
+
+  const dropSub = async (sb: GameSub) => {
+    if (hasStats(sb.userId)) {
+      say(`${sb.name} has stats in this game — undo those first, then remove them.`);
+      return;
+    }
+    const res = await removeGameSub(sb.requestId).catch(() => ({ error: "Network failed — try again." }));
+    if (res.error) { say(res.error); return; }
+    setSubs((prev) => prev.filter((p) => p.requestId !== sb.requestId));
+    setStarters((prev) => ({
+      ...prev,
+      [sb.teamId]: (prev[sb.teamId] ?? []).filter((u) => u !== sb.userId),
+    }));
+    say(`${sb.name} removed`);
+  };
+
+  /** A sub's tag: where they came from, and — if it's off — that it won't count. */
+  const subTag = (userId: string) => {
+    const sb = subOf(userId);
+    if (!sb) return null;
+    return (
+      <span className="label !text-[10px] !text-accent-ink">
+        Sub{sb.fromTeam ? ` · ${sb.fromTeam}` : ""}
+        {sb.counts ? "" : " · not counted"}
+      </span>
+    );
+  };
+
+  const subModal = subbingFor ? (() => {
+    const taken = new Set(subs.map((sb) => sb.userId));
+    const q = subQuery.trim().toLowerCase();
+    const pool = subCandidates.filter(
+      (c) => !taken.has(c.userId) && (!q || c.name.toLowerCase().includes(q) || (c.teamName ?? "").toLowerCase().includes(q)),
+    );
+    const groups = new Map<string, SubCandidate[]>();
+    for (const c of pool) {
+      const key = c.teamName ?? "Not on a team";
+      groups.set(key, [...(groups.get(key) ?? []), c]);
+    }
+    return (
+      <Modal
+        title={`Add a sub to ${sideOf(subbingFor).name}`}
+        onClose={() => { setSubbingFor(null); setSubQuery(""); setSubCounts(true); }}
+      >
+        <div className="space-y-3">
+          <input
+            autoFocus
+            value={subQuery}
+            onChange={(e) => setSubQuery(e.target.value)}
+            placeholder="Search by name or team"
+            aria-label="Search players"
+            className="w-full min-h-11 rounded-control border border-rule bg-paper px-4 text-[17px] text-ink placeholder:text-ink-faint focus:border-ink/40 focus:outline-none"
+          />
+          {isAdmin ? (
+            <label className="flex min-h-11 items-start gap-3 rounded-panel bg-paper px-4 py-3">
+              <input
+                type="checkbox"
+                checked={subCounts}
+                onChange={(e) => setSubCounts(e.target.checked)}
+                className="mt-0.5 size-5 accent-ink"
+              />
+              <span>
+                <span className="block text-sm font-semibold">Count this game toward their season</span>
+                <span className="block text-[13px] text-ink-body">
+                  Off keeps what they do in this game&apos;s box score only — not their averages or the leaderboards.
+                </span>
+              </span>
+            </label>
+          ) : null}
+          <div className="scroll-contain max-h-80 space-y-3 overflow-y-auto">
+            {pool.length === 0 ? (
+              <p className="px-1 py-3 text-sm text-ink-muted">
+                {q ? "Nobody by that name outside these two teams." : "Everyone in the league is already on one of these teams."}
+              </p>
+            ) : (
+              [...groups.entries()].map(([teamName, people]) => (
+                <div key={teamName}>
+                  <p className="label mb-1.5 px-1 !text-[10px]">{teamName}</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {people.map((c) => (
+                      <button
+                        key={c.userId}
+                        disabled={subBusy}
+                        onClick={() => addSub(subbingFor, c)}
+                        className="min-h-11 rounded-control bg-rule px-3 text-left text-sm font-semibold disabled:opacity-50"
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <p className="text-[13px] leading-relaxed text-ink-body">
+            They play for {sideOf(subbingFor).name} in this game only and stay on their own team.
+          </p>
+        </div>
+      </Modal>
+    );
+  })() : null;
+
   /* --------------------- add player / settings / abandon --------------------- */
 
   const addPlayerModal = addingFor ? (
@@ -1160,7 +1346,7 @@ export function LiveConsole({
               key={r.user_id}
               className="border-t border-rule px-3 py-2 @lg:grid @lg:grid-cols-[minmax(0,1fr)_repeat(7,2.75rem)] @lg:items-center @lg:gap-1 @lg:py-1.5"
             >
-              <div className="flex min-w-0 items-baseline gap-2 @lg:block">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 @lg:block">
                 <p className="truncate text-[14px] font-semibold">
                   {r.jersey_number != null ? (
                     <span className="num mr-1.5 text-[12px] text-ink-faint">{r.jersey_number}</span>
@@ -1168,6 +1354,27 @@ export function LiveConsole({
                   {r.full_name}
                 </p>
                 <p className="num shrink-0 text-[11px] text-ink-muted">{pts} pts</p>
+                {subOf(r.user_id) ? (
+                  <div className="flex flex-wrap items-center gap-x-2.5">
+                    {subTag(r.user_id)}
+                    {isAdmin ? (
+                      <button
+                        onClick={() => toggleSubCounts(subOf(r.user_id)!)}
+                        className="min-h-6 text-[11px] font-semibold text-ink-muted hover:text-ink"
+                      >
+                        {subOf(r.user_id)!.counts ? "Don't count" : "Count it"}
+                      </button>
+                    ) : null}
+                    {!hasStats(r.user_id) ? (
+                      <button
+                        onClick={() => dropSub(subOf(r.user_id)!)}
+                        className="min-h-6 text-[11px] font-semibold text-ink-muted hover:text-accent-ink"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               {/* `contents` dissolves this wrapper on a wide card, so the
                   buttons become cells of the row's own grid. */}
@@ -1189,12 +1396,20 @@ export function LiveConsole({
             </div>
           );
         })}
-        <button
-          onClick={() => setAddingFor(side.id)}
-          className="min-h-11 w-full border-t border-rule px-4 text-left text-[13px] font-semibold text-ink-body hover:bg-paper"
-        >
-          Add a player by name
-        </button>
+        <div className="grid grid-cols-2 border-t border-rule">
+          <button
+            onClick={() => { setSubbingFor(side.id); setSubCounts(true); }}
+            className="min-h-11 px-4 text-left text-[13px] font-semibold text-ink hover:bg-paper"
+          >
+            Add a sub from another team
+          </button>
+          <button
+            onClick={() => setAddingFor(side.id)}
+            className="min-h-11 border-l border-rule px-4 text-left text-[13px] font-semibold text-ink-body hover:bg-paper"
+          >
+            Add a player by name
+          </button>
+        </div>
       </section>
     );
 
@@ -1236,7 +1451,12 @@ export function LiveConsole({
                   const l = lineOf(r.user_id);
                   return (
                     <tr key={r.user_id} className="border-t border-rule">
-                      <td className="max-w-0 truncate px-4 py-1.5 font-medium">{r.full_name}</td>
+                      <td className="max-w-0 truncate px-4 py-1.5 font-medium">
+                        {r.full_name}
+                        {subOf(r.user_id) ? (
+                          <span className="ml-2">{subTag(r.user_id)}</span>
+                        ) : null}
+                      </td>
                       {BOX_COLS.map(([k]) => (
                         <td key={k} className="num px-1 py-1.5 text-right text-ink-body last:pr-4">
                           {l[k]}
@@ -1364,6 +1584,7 @@ export function LiveConsole({
           </div>
         ) : null}
         {addPlayerModal}
+        {subModal}
         {settingsModal}
       </div>
     );
@@ -1421,6 +1642,12 @@ export function LiveConsole({
                 );
               })}
               <button
+                onClick={() => { setSubbingFor(side.id); setSubCounts(true); }}
+                className="min-h-11 rounded-control border border-dashed border-ink/25 px-3 text-left text-sm font-semibold text-ink"
+              >
+                Add a sub from another team
+              </button>
+              <button
                 onClick={() => setAddingFor(side.id)}
                 className="min-h-11 rounded-control border border-dashed border-ink/25 px-3 text-left text-sm font-semibold text-ink-body"
               >
@@ -1433,6 +1660,7 @@ export function LiveConsole({
           Tip off
         </Button>
         {addingFor ? addPlayerModal : null}
+        {subModal}
       </div>
     );
   }
@@ -1707,11 +1935,17 @@ export function LiveConsole({
                             {r.full_name}
                           </span>
                           <span className="label shrink-0 !text-[10px] !text-ink-faint">
-                            {out ? "Fouled out" : "Sub in"}
+                            {out ? "Fouled out" : subOf(r.user_id) ? `Sub · ${subOf(r.user_id)!.fromTeam ?? "no team"}` : "Sub in"}
                           </span>
                         </button>
                       );
                     })}
+                    <button
+                      onClick={() => { setSubbingFor(side.id); setSubCounts(true); }}
+                      className="flex min-h-11 w-full items-center rounded-control px-3 text-sm font-semibold text-ink hover:bg-rule/60"
+                    >
+                      Add a sub from another team
+                    </button>
                     <button
                       onClick={() => setAddingFor(side.id)}
                       className="flex min-h-11 w-full items-center rounded-control px-3 text-sm font-semibold text-ink-body hover:bg-rule/60"
@@ -2013,6 +2247,7 @@ export function LiveConsole({
       ) : null}
 
       {addPlayerModal}
+      {subModal}
       {settingsModal}
 
       {/* -------------------------------- shortcuts -------------------------------- */}

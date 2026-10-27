@@ -7,7 +7,7 @@ import {
   getActiveSeason,
   getLeague,
   getSeasonPlayerStats,
-  getTeams,
+  getTeamsWithRosters,
 } from "@/lib/data";
 import {
   aggregateLines,
@@ -47,9 +47,13 @@ export default async function StatsPage({
 
   const [rows, teams] = await Promise.all([
     getSeasonPlayerStats(season.id),
-    getTeams(season.id),
+    getTeamsWithRosters(season.id),
   ]);
   const teamById = new Map(teams.map((t) => [t.id, t]));
+  // A player's team is the one they're rostered on — not the team on their
+  // first stat line, which after a sub appearance could be someone else's.
+  const rosterTeam = new Map<string, string>();
+  for (const t of teams) for (const r of t.roster) rosterTeam.set(r.user_id, t.id);
 
   const byPlayer = new Map<
     string,
@@ -60,7 +64,7 @@ export default async function StatsPage({
       byPlayer.set(r.user_id, {
         name: r.full_name ?? "Unnamed",
         avatarUrl: r.avatar_url ?? null,
-        teamId: r.team_id,
+        teamId: rosterTeam.get(r.user_id) ?? r.team_id,
         lines: [],
       });
     byPlayer.get(r.user_id)!.lines.push(r);

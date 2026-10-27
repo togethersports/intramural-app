@@ -459,6 +459,117 @@ export async function getGameGuests(gameId: string): Promise<GameGuestRow[]> {
   return (data as GameGuestRow[]) ?? [];
 }
 
+/** A league member playing for one side in one game, from another team or
+    from none. Backed by an approved sub_requests row. */
+export interface GameSub {
+  requestId: string;
+  teamId: string;
+  userId: string;
+  name: string;
+  /** Their own team this season, for the "Sub · from …" label. */
+  fromTeam: string | null;
+  /** The commissioner's call: does this game count toward their season? */
+  counts: boolean;
+}
+
+/** Approved subs for a game — the scorekeeper's direct adds and anything
+    approved through the ask-and-approve flow alike, since both mean the same
+    thing: this person plays for this side today. */
+export async function getGameSubs(gameId: string, seasonId: string): Promise<GameSub[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sub_requests")
+    .select("id, team_id, fill_user_id, counts_toward_stats, fill:profiles!sub_requests_fill_user_id_fkey(full_name)")
+    .eq("game_id", gameId)
+    .eq("status", "approved")
+    .not("fill_user_id", "is", null)
+    .order("created_at");
+  if (error) {
+    console.error(`getGameSubs(${gameId}) failed: ${error.message}`);
+    return [];
+  }
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+  const homeTeamOf = await rosterTeamByUser(
+    seasonId,
+    rows.map((r) => r.fill_user_id as string),
+  );
+  return rows.map((r) => ({
+    requestId: r.id as string,
+    teamId: r.team_id as string,
+    userId: r.fill_user_id as string,
+    name: (r.fill as unknown as { full_name: string } | null)?.full_name || "Unnamed",
+    fromTeam: homeTeamOf.get(r.fill_user_id as string)?.name ?? null,
+    counts: r.counts_toward_stats !== false,
+  }));
+}
+
+/** Where each of these people is rostered this season. */
+async function rosterTeamByUser(
+  seasonId: string,
+  userIds: string[],
+): Promise<Map<string, { id: string; name: string }>> {
+  const out = new Map<string, { id: string; name: string }>();
+  if (userIds.length === 0) return out;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("team_members")
+    .select("user_id, team:teams!inner(id, name, season_id)")
+    .in("user_id", userIds)
+    .is("left_at", null)
+    .eq("team.season_id", seasonId);
+  for (const row of data ?? []) {
+    const t = row.team as unknown as { id: string; name: string } | null;
+    if (t) out.set(row.user_id as string, { id: t.id, name: t.name });
+  }
+  return out;
+}
+
+export interface SubCandidate {
+  userId: string;
+  name: string;
+  /** Null for someone in the league who isn't on any roster. */
+  teamName: string | null;
+}
+
+/** Everyone who could sub into this game: active league members who play,
+    minus both sides' rosters. Spectators signed up to watch. */
+export async function getSubCandidates(
+  leagueId: string,
+  seasonId: string,
+  sides: [string, string],
+): Promise<SubCandidate[]> {
+  const supabase = await createClient();
+  const [{ data: members }, teams] = await Promise.all([
+    supabase
+      .from("league_members")
+      .select("user_id, profile:profiles(full_name)")
+      .eq("league_id", leagueId)
+      .eq("status", "active")
+      .neq("role", "spectator"),
+    getTeamsWithRosters(seasonId),
+  ]);
+  const teamOf = new Map<string, string>();
+  const inGame = new Set<string>();
+  for (const t of teams) {
+    for (const r of t.roster) {
+      teamOf.set(r.user_id, t.name);
+      if (sides.includes(t.id)) inGame.add(r.user_id);
+    }
+  }
+  return (members ?? [])
+    .filter((m) => !inGame.has(m.user_id as string))
+    .map((m) => ({
+      userId: m.user_id as string,
+      name: (m.profile as unknown as { full_name: string } | null)?.full_name || "Unnamed",
+      teamName: teamOf.get(m.user_id as string) ?? null,
+    }))
+    .sort(
+      (a, b) =>
+        (a.teamName ?? "~").localeCompare(b.teamName ?? "~") || a.name.localeCompare(b.name),
+    );
+}
+
 export async function getLineups(gameId: string): Promise<LineupRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
