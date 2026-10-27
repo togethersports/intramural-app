@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBracket, resolveBracket, roundName, seedOrder } from "./bracket";
+import { buildBracket, hasPlayIn, maxPlayIn, resolveBracket, roundName, seedOrder } from "./bracket";
 
 describe("seedOrder", () => {
   it("produces the classic 8-team pattern", () => {
@@ -72,5 +72,63 @@ describe("roundName", () => {
     expect(roundName(2, 3)).toBe("Semifinals");
     expect(roundName(1, 3)).toBe("Quarterfinals");
     expect(roundName(1, 4)).toBe("Round 1");
+  });
+});
+
+describe("play-in", () => {
+  it("plays 4 v 5 for the last spot in a 4-team bracket", () => {
+    const plan = buildBracket(5, 1);
+    expect(plan.filter((n) => n.round === 1)).toEqual([
+      { round: 1, position: 0, homeSource: "seed:4", awaySource: "seed:5" },
+    ]);
+    const semis = plan.filter((n) => n.round === 2);
+    expect(semis).toEqual([
+      { round: 2, position: 0, homeSource: "seed:1", awaySource: "winner:1-0" },
+      { round: 2, position: 1, homeSource: "seed:2", awaySource: "seed:3" },
+    ]);
+    expect(plan.filter((n) => n.round === 3)).toHaveLength(1);
+  });
+
+  it("plays 3 v 6 and 4 v 5 with six teams, and the winners meet 2 and 1", () => {
+    const plan = buildBracket(6, 2);
+    expect(plan.filter((n) => n.round === 1).map((n) => [n.homeSource, n.awaySource])).toEqual([
+      ["seed:4", "seed:5"],
+      ["seed:3", "seed:6"],
+    ]);
+    expect(plan.filter((n) => n.round === 2).map((n) => [n.homeSource, n.awaySource])).toEqual([
+      ["seed:1", "winner:1-0"],
+      ["seed:2", "winner:1-1"],
+    ]);
+  });
+
+  it("resolves the play-in winner into the top seed's game", () => {
+    const seeds = ["A", "B", "C", "D", "E"];
+    const nodes = resolveBracket(buildBracket(5, 1), seeds, new Map([["1-0", "E"]]));
+    const semi = nodes.find((n) => n.round === 2 && n.position === 0)!;
+    expect([semi.homeTeamId, semi.awayTeamId]).toEqual(["A", "E"]);
+  });
+
+  it("falls back to byes when the play-in doesn't fit", () => {
+    // Three play-in games can't feed a 4-team bracket — only two spots exist
+    // below the top two.
+    expect(buildBracket(7, 3)).toEqual(buildBracket(7));
+  });
+
+  it("caps the play-in at half the bracket and at the teams available", () => {
+    expect(maxPlayIn(4, 6)).toBe(2);
+    expect(maxPlayIn(4, 5)).toBe(1);
+    expect(maxPlayIn(4, 4)).toBe(0);
+    expect(maxPlayIn(8, 16)).toBe(4);
+    expect(maxPlayIn(6, 8)).toBe(0);
+  });
+
+  it("names the play-in round, and only when the bracket has one", () => {
+    const plan = buildBracket(6, 2);
+    expect(hasPlayIn(plan)).toBe(true);
+    expect(hasPlayIn(buildBracket(6))).toBe(false);
+    expect(hasPlayIn(buildBracket(4))).toBe(false);
+    expect(roundName(1, 3, true)).toBe("Play-in");
+    expect(roundName(2, 3, true)).toBe("Semifinals");
+    expect(roundName(3, 3, true)).toBe("Championship");
   });
 });

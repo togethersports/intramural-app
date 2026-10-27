@@ -11,7 +11,7 @@ import { Card, EmptyState, Label, Num } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { loadLeagueContext } from "@/lib/active-league";
 import { getBracketNodes, getGames, getTeams } from "@/lib/data";
-import { roundName } from "@core/bracket";
+import { hasPlayIn, roundName } from "@core/bracket";
 import type { GameRow, TeamRow } from "@core/types";
 import { color, space, type } from "@/theme";
 
@@ -65,7 +65,7 @@ export default function Playoffs() {
       ) : (
         rounds.map((round) => (
           <Card key={round} style={{ gap: space(1.25) }}>
-            <Label>{roundName(round, total)}</Label>
+            <Label>{roundName(round, total, hasPlayIn(nodes))}</Label>
             {nodes
               .filter((n) => n.round === round)
               .map((n) => {
