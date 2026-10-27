@@ -6,6 +6,8 @@ import {
   getGame,
   getGameEvents,
   getGameGuests,
+  getGameSubs,
+  getSubCandidates,
   getLeague,
   getLineups,
   getSeason,
@@ -39,12 +41,14 @@ export default async function LiveConsolePage({
     redirect(`/league/${slug}/game/${gameId}`);
   }
 
-  const [teams, events, lineups, season, guests] = await Promise.all([
+  const [teams, events, lineups, season, guests, subs, subCandidates] = await Promise.all([
     getTeamsWithRosters(game.season_id),
     getGameEvents(gameId),
     getLineups(gameId),
     getSeason(game.season_id),
     getGameGuests(gameId),
+    getGameSubs(gameId, game.season_id),
+    getSubCandidates(league.id, game.season_id, [game.home_team_id, game.away_team_id]),
   ]);
 
   // An external (free-text) opponent isn't in the league team list — fetch
@@ -84,6 +88,9 @@ export default async function LiveConsolePage({
       // season's rules
       rules={parseGameRules({ ...(season?.rules ?? {}), ...game.rules_override })}
       serverGuests={guests}
+      serverSubs={subs}
+      subCandidates={subCandidates}
+      isAdmin={isLeagueAdmin(league.role)}
       serverEvents={events.map((e) => ({
         id: e.id,
         seq: e.seq,

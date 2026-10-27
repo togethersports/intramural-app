@@ -921,6 +921,87 @@ assert(
   "and so do its guest players",
 );
 
+// ------------------------------------------- a sub from another team
+console.log("\n— a sub from another team —");
+await asOwner();
+const xtGame = await one(
+  `insert into games (season_id, week, home_team_id, away_team_id, status, counts_for_standings, scorekeeper_id)
+   values ($1, 7, $2, $3, 'live', true, $4) returning *`,
+  [season.id, teamA.id, teamB.id, uid(6)],
+);
+// Someone in the league who plays for neither side today.
+const xtSub = await one(
+  `select lm.user_id from league_members lm
+   where lm.league_id = $1 and lm.status = 'active' and lm.role <> 'spectator'
+     and not exists (select 1 from team_members tm where tm.user_id = lm.user_id
+                     and tm.left_at is null and tm.team_id in ($2, $3))
+   limit 1`,
+  [league.id, teamA.id, teamB.id],
+);
+assert(Boolean(xtSub), "there is a league member on neither side to sub in");
+
+await asAuthenticated(7);
+assert(
+  await rejects(`select public.add_game_sub($1, $2, $3)`, [xtGame.id, teamA.id, xtSub.user_id]),
+  "a player who isn't scoring the game can't add a sub",
+);
+
+await asAuthenticated(6); // the assigned scorekeeper, not an admin
+assert(
+  await rejects(`select public.add_game_sub($1, $2, $3, false)`, [xtGame.id, teamA.id, xtSub.user_id]),
+  "only the commissioner can choose not to count a sub's stats",
+);
+const xtReq = await one(`select public.add_game_sub($1, $2, $3) as id`, [xtGame.id, teamA.id, xtSub.user_id]);
+assert(Boolean(xtReq.id), "the scorekeeper can add a sub from another team");
+const xtAgain = await one(`select public.add_game_sub($1, $2, $3) as id`, [xtGame.id, teamA.id, xtSub.user_id]);
+assert(xtAgain.id === xtReq.id, "adding the same sub twice is a no-op, not a duplicate");
+assert(
+  await rejects(`select public.add_game_sub($1, $2, $3)`, [xtGame.id, teamB.id, xtSub.user_id]),
+  "a sub can't play for both sides",
+);
+const xtRostered = await one(
+  `select user_id from team_members where team_id = $1 and left_at is null limit 1`,
+  [teamB.id],
+);
+assert(
+  await rejects(`select public.add_game_sub($1, $2, $3)`, [xtGame.id, teamA.id, xtRostered.user_id]),
+  "someone already on a team in this game can't also sub",
+);
+
+await db.query(
+  `insert into game_events (game_id, seq, period, type, user_id, team_id, created_by, client_uuid, value)
+   values ($1, 1, 1, 'fg2_made', $2, $3, $4, $5, 2)`,
+  [xtGame.id, xtSub.user_id, teamA.id, uid(6), crypto.randomUUID()],
+);
+assert(
+  (await one(`select count(*)::int as c from game_events where game_id = $1 and user_id = $2 and team_id = $3`,
+    [xtGame.id, xtSub.user_id, teamA.id])).c === 1,
+  "the sub's basket is recorded for the side they're playing for",
+);
+assert(
+  await rejects(`select public.remove_game_sub($1)`, [xtReq.id]),
+  "a sub with stats can't be removed until those are undone",
+);
+
+await asAuthenticated(1);
+await db.query(`select public.set_game_sub_counts($1, false)`, [xtReq.id]);
+await asOwner();
+assert(
+  (await one(`select counts_toward_stats from sub_requests where id = $1`, [xtReq.id])).counts_toward_stats === false,
+  "the commissioner can stop a sub's game counting toward their season",
+);
+
+// The side door the feature would otherwise have opened.
+await asAuthenticated(7);
+assert(
+  await rejects(
+    `insert into sub_requests (game_id, team_id, requested_by, fill_user_id, status)
+     values ($1, $2, $3, $3, 'approved')`,
+    [xtGame.id, teamA.id, uid(7)],
+  ),
+  "nobody can insert a sub request that's already approved",
+);
+
 // ------------------------------------------- captain AND admin, together
 console.log("\n— captaincy is not a league role —");
 
