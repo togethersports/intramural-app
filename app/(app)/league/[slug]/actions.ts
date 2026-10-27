@@ -1167,6 +1167,36 @@ export async function deleteGame(
   redirect(`/league/${slug}/schedule`);
 }
 
+/** Write a finished game's recap again — after a team is renamed, a stat is
+    corrected, or the API key is fixed. Commissioner only; the recap's write
+    policy says the same, this just says so in words. */
+export async function rewriteRecap(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const gameId = str(formData, "game_id");
+  const { data: game } = await supabase
+    .from("games")
+    .select("season:seasons(league_id)")
+    .eq("id", gameId)
+    .maybeSingle();
+  const leagueId = (game?.season as unknown as { league_id: string } | null)?.league_id;
+  if (!leagueId) return { error: "That game no longer exists — refresh the page." };
+  const { data: admin } = await supabase.rpc("is_league_admin", { p_league: leagueId });
+  if (!admin) return { error: "Only the commissioner or a league admin can rewrite a recap." };
+
+  const result = await generateGameRecap(gameId, supabase);
+  if (result.source === "skipped") return { error: result.detail };
+  if (!result.ok) return { error: `Couldn't save the recap: ${result.detail}` };
+
+  revalidateLeague(str(formData, "slug"));
+  return result.source === "claude"
+    ? { error: null, notice: "Rewritten by Claude." }
+    : { error: null, notice: `Written from the box score. ${result.reason ?? ""}`.trim() };
+}
+
 /** Take a visiting team into the league for real. An ad-hoc opponent starts
     as an is_external row so the stats pipeline works without a roster; this
     is how it graduates — it then appears in Teams, the draft, standings and

@@ -89,7 +89,7 @@ export async function generatePlayerOfTheWeek(
     facts: awardFacts(winner, week, runnersUp),
     task:
       "Write the Player of the Week card. Say who it is, what they did, and — only if the facts show it — what separated them from the others named. Two or three sentences.",
-    maxTokens: 600,
+    maxTokens: 3000,
   });
 
   const plain = fallbackAward(winner, week);
@@ -100,8 +100,8 @@ export async function generatePlayerOfTheWeek(
       category: "player_of_the_week",
       user_id: winner.userId,
       team_id: winner.teamId,
-      headline: written?.headline || plain.headline,
-      blurb: written?.body || plain.body,
+      headline: (written.ok && written.headline) || plain.headline,
+      blurb: written.ok ? written.body : plain.body,
       stat_line: {
         games: winner.totals.games,
         pts: winner.totals.pts,
@@ -113,7 +113,7 @@ export async function generatePlayerOfTheWeek(
         fga: winner.totals.fga,
         impact: Math.round(winner.impact * 10) / 10,
       },
-      source: written ? "claude" : "fallback",
+      source: written.ok ? "claude" : "fallback",
     },
     { onConflict: "season_id,week,category" },
   );
