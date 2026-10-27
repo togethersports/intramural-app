@@ -810,13 +810,23 @@ export function LiveConsole({
   };
 
   /** `startClock` is false from the simple tracker, which has no clock on
-      screen — a hidden one would still tick to 0:00 and say so. */
+      screen — a hidden one would still tick to 0:00 and say so.
+
+      Guarded by a ref, not just the button's disabled state: the lineups
+      save over the network first, and every tap in that window used to
+      start the game again — one game logged three period starts. */
+  const tippingRef = useRef(false);
+  const [tipping, setTipping] = useState(false);
   const tipOff = async (startClock = true) => {
+    if (tippingRef.current || status === "live") return;
+    tippingRef.current = true;
+    setTipping(true);
     if (!demo) {
       for (const side of [home, away]) {
         await saveLineup(game.id, side.id, starters[side.id], 0).catch(() => null);
       }
     }
+    setTipping(false);
     setStatus("live");
     setPeriod(1);
     setClockMs(periodMs);
@@ -1543,9 +1553,10 @@ export function LiveConsole({
               <Button
                 variant="accent"
                 onClick={startSimple}
+                disabled={tipping}
                 className="!min-h-11 !px-5 !py-2 !text-[14px]"
               >
-                Start game
+                {tipping ? "Starting…" : "Start game"}
               </Button>
             )}
           </div>
@@ -1656,8 +1667,8 @@ export function LiveConsole({
             </div>
           </section>
         ))}
-        <Button onClick={() => tipOff()} disabled={!ready} variant="accent" className="w-full">
-          Tip off
+        <Button onClick={() => tipOff()} disabled={!ready || tipping} variant="accent" className="w-full">
+          {tipping ? "Starting…" : "Tip off"}
         </Button>
         {addingFor ? addPlayerModal : null}
         {subModal}

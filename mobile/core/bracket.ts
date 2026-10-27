@@ -22,12 +22,38 @@ export function seedOrder(size: number): number[] {
   return order;
 }
 
+const isPowerOfTwo = (n: number) => n >= 2 && (n & (n - 1)) === 0;
+
+/** Play-in games a bracket of `mainSize` can take with `numTeams` seeded:
+    each one adds a team, and at most half the main bracket's spots can be
+    played for. */
+export function maxPlayIn(mainSize: number, numTeams: number): number {
+  if (!isPowerOfTwo(mainSize)) return 0;
+  return Math.max(0, Math.min(mainSize / 2, numTeams - mainSize));
+}
+
+/** Which seeds meet in each play-in game: the last spots, 4 v 5 first, then
+    3 v 6, and so on. */
+export function playInMatchups(mainSize: number, playIn: number): [number, number][] {
+  return Array.from({ length: playIn }, (_, k) => [mainSize - k, mainSize + 1 + k]);
+}
+
 /**
- * Builds the full node plan for `numTeams` seeds. Top seeds get byes when
- * the field isn't a power of two.
+ * Builds the full node plan for `numTeams` seeds.
+ *
+ * With `playIn` games, the main bracket is `numTeams - playIn` (a power of
+ * two) and round 1 is the play-in: the lowest seeds that made it play the
+ * ones just below the line for those last spots, and the winner takes the
+ * higher seed's place. Without, top seeds get byes when the field isn't a
+ * power of two.
  */
-export function buildBracket(numTeams: number): BracketNodePlan[] {
+export function buildBracket(numTeams: number, playIn = 0): BracketNodePlan[] {
   if (numTeams < 2) return [];
+  const mainSize = numTeams - playIn;
+  if (playIn > 0 && playIn <= maxPlayIn(mainSize, numTeams)) {
+    return withPlayIn(mainSize, playIn);
+  }
+
   let size = 2;
   while (size < numTeams) size *= 2;
 
@@ -45,9 +71,36 @@ export function buildBracket(numTeams: number): BracketNodePlan[] {
       awaySource: awaySeed <= numTeams ? `seed:${awaySeed}` : "bye",
     });
   }
+  return [...nodes, ...laterRounds(firstRoundGames / 2, 2)];
+}
 
-  let gamesInRound = firstRoundGames / 2;
-  let round = 2;
+function withPlayIn(mainSize: number, playIn: number): BracketNodePlan[] {
+  const nodes: BracketNodePlan[] = playInMatchups(mainSize, playIn).map(([hi, lo], k) => ({
+    round: 1,
+    position: k,
+    homeSource: `seed:${hi}`,
+    awaySource: `seed:${lo}`,
+  }));
+
+  // A seed whose spot is played for is filled by that play-in's winner.
+  const source = (seed: number) =>
+    seed > mainSize - playIn ? `winner:1-${mainSize - seed}` : `seed:${seed}`;
+  const order = seedOrder(mainSize);
+  for (let p = 0; p < mainSize / 2; p++) {
+    nodes.push({
+      round: 2,
+      position: p,
+      homeSource: source(order[p * 2]),
+      awaySource: source(order[p * 2 + 1]),
+    });
+  }
+  return [...nodes, ...laterRounds(mainSize / 4, 3)];
+}
+
+function laterRounds(firstGames: number, firstRound: number): BracketNodePlan[] {
+  const nodes: BracketNodePlan[] = [];
+  let gamesInRound = firstGames;
+  let round = firstRound;
   while (gamesInRound >= 1) {
     for (let p = 0; p < gamesInRound; p++) {
       nodes.push({
@@ -61,6 +114,17 @@ export function buildBracket(numTeams: number): BracketNodePlan[] {
     round++;
   }
   return nodes;
+}
+
+/**
+ * Whether round 1 of a stored bracket is a play-in. A full first round has
+ * twice the games of the round after it; a play-in round has fewer, because
+ * the top seeds skip it entirely. (Older brackets padded with byes are full.)
+ */
+export function hasPlayIn(nodes: { round: number }[]): boolean {
+  const r1 = nodes.filter((n) => n.round === 1).length;
+  const r2 = nodes.filter((n) => n.round === 2).length;
+  return r1 > 0 && r2 > 0 && r1 < 2 * r2;
 }
 
 export interface ResolvedNode extends BracketNodePlan {
@@ -113,7 +177,8 @@ export function resolveBracket(
   return out;
 }
 
-export function roundName(round: number, totalRounds: number): string {
+export function roundName(round: number, totalRounds: number, playIn = false): string {
+  if (playIn && round === 1) return "Play-in";
   const fromEnd = totalRounds - round;
   if (fromEnd === 0) return "Championship";
   if (fromEnd === 1) return "Semifinals";

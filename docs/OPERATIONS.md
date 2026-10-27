@@ -190,17 +190,28 @@ else's notifications.
 
 ## 6. AI recaps and Player of the Week
 
-Set `ANTHROPIC_API_KEY`. Without it both still get written — from the box
-score, in plainer prose — and the card says "Recap" instead of "Recap ·
-written by Claude".
+Set `ANTHROPIC_API_KEY` in Vercel → Settings → Environment Variables, for
+**Production**, then redeploy — a new variable reaches only deployments
+built after it. Without it both still get written — from the box score, in
+plainer prose — and only a recap Claude wrote carries "Written by Claude"
+under it.
+
+On a game page the commissioner sees why a recap came from the box score
+(no key on the server, a rejected key, no credit, a rate limit — whatever
+Anthropic said) and a **Rewrite recap** button that writes it again from
+the current names and numbers. Use it after renaming a team, correcting a
+stat, or fixing the key: a recap is written once, at finalize, and doesn't
+follow later edits on its own.
 
 Recaps are written when a game finalizes. `/api/cron/weekly-awards` (daily
 in `vercel.json`) catches up anything that was missed and writes one Player
 of the Week card per season per run, for the most recent week whose games
 are all in.
 
-The model only ever sees facts that were already computed — the box score
-plus the run of play from replaying the event log. It is asked to write, not
+The model only ever sees facts that were already computed — the box score,
+team totals, the score after each period, the go-ahead basket, the biggest
+deficit overcome, and every scoring play with the score after it, all from
+replaying the event log (`@core/recap-input`). It is asked to write, not
 to infer, so it cannot invent a statistic. The Player of the Week *pick* is
 not the model's at all: `impactScore` in `@core/awards` decides, and the
 prose only describes.

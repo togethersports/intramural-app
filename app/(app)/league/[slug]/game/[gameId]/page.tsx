@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteGameButton } from "@/components/delete-game-button";
-import { RecapCard } from "@/components/recap-card";
+import { MissingRecapCard, RecapCard } from "@/components/recap-card";
+import { isAiConfigured } from "@/lib/ai/write";
 import { Button, TeamBadge, Panel } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
@@ -275,7 +276,19 @@ export default async function GamePage({
         </div>
       ) : null}
 
-      {recap ? <RecapCard recap={recap} /> : null}
+      {recap ? (
+        <RecapCard
+          recap={recap}
+          admin={
+            isLeagueAdmin(league.role)
+              ? { gameId, slug, aiConfigured: isAiConfigured() }
+              : undefined
+          }
+        />
+      ) : isLeagueAdmin(league.role) &&
+        (game.status === "final" || game.status === "forfeit") ? (
+        <MissingRecapCard gameId={gameId} slug={slug} />
+      ) : null}
 
       <SubPanel
         slug={slug}

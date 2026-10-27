@@ -10,10 +10,10 @@ import {
   getLeague,
   getTeams,
 } from "@/lib/data";
-import { roundName } from "@core/bracket";
+import { hasPlayIn, roundName } from "@core/bracket";
 import { isLeagueAdmin } from "@core/league-constants";
 import type { BracketNodeRow, GameRow, TeamRow } from "@core/types";
-import { GenerateBracketForm } from "./playoff-forms";
+import { GenerateBracketForm, ResetBracketForm } from "./playoff-forms";
 
 export const metadata: Metadata = { title: "Playoffs" };
 
@@ -45,9 +45,17 @@ function NodeCard({
     if (src.startsWith("winner:")) {
       const prev = nodesById.get(src.slice(7));
       const teamId = prev?.winner_team_id ?? null;
+      // A play-in feeds straight into this game: say which one.
+      const seedsOf = prev
+        ? [prev.home_source, prev.away_source].filter((x) => x.startsWith("seed:")).map((x) => x.slice(5))
+        : [];
       return {
         teamId,
-        label: teamId ? (teams.get(teamId)?.name ?? "?") : "Winner TBD",
+        label: teamId
+          ? (teams.get(teamId)?.name ?? "?")
+          : seedsOf.length === 2
+            ? `Winner of ${seedsOf[0]} v ${seedsOf[1]}`
+            : "Winner TBD",
       };
     }
     return { teamId: null, label: "TBD" };
@@ -161,6 +169,9 @@ export default async function PlayoffsPage({
 
   const rounds = [...new Set(nodes.map((n) => n.round))].sort((a, b) => a - b);
   const maxRound = rounds[rounds.length - 1];
+  const playIn = hasPlayIn(nodes);
+  // Until a playoff game tips off, the bracket can still be rebuilt.
+  const untouched = games.filter((g) => g.is_playoff).every((g) => g.status === "scheduled");
   const champion =
     nodes.find((n) => n.round === maxRound)?.winner_team_id ?? null;
 
@@ -183,7 +194,7 @@ export default async function PlayoffsPage({
           {rounds.map((round) => (
             <div key={round} className="flex flex-col gap-4">
               <h3 className="text-xs font-bold uppercase tracking-wide text-ink-faint">
-                {roundName(round, maxRound)}
+                {roundName(round, maxRound, playIn)}
               </h3>
               <div className="flex flex-1 flex-col justify-around gap-4">
                 {nodes
@@ -207,6 +218,15 @@ export default async function PlayoffsPage({
           Winners advance automatically when playoff games go final. Playoff
           games are scheduled from the Schedule tab like any other game.
         </p>
+        {admin && untouched ? (
+          <div className="mt-4 border-t border-rule pt-4">
+            <p className="mb-3 max-w-[60ch] text-[14px] text-ink-body">
+              No playoff game has started yet, so you can still rebuild the bracket — to add a
+              play-in, change its size, or reseed after a late result.
+            </p>
+            <ResetBracketForm slug={slug} seasonId={season.id} />
+          </div>
+        ) : null}
       </Panel>
     </div>
   );

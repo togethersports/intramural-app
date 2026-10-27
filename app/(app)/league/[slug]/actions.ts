@@ -6,7 +6,7 @@ import { getGame, getGameEvents, getGameGuests, getLineups, getSeasonAvailabilit
 import { computeBoxScore } from "@core/stats";
 import { generateSchedule, slotDateFor } from "@core/scheduler";
 import { computeStandings, deleteBlockedReason } from "@core/standings";
-import { buildBracket } from "@core/bracket";
+import { buildBracket, maxPlayIn } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
 import { postAnnouncement as fanOutAnnouncement } from "@/lib/announce";
@@ -1167,6 +1167,36 @@ export async function deleteGame(
   redirect(`/league/${slug}/schedule`);
 }
 
+/** Write a finished game's recap again — after a team is renamed, a stat is
+    corrected, or the API key is fixed. Commissioner only; the recap's write
+    policy says the same, this just says so in words. */
+export async function rewriteRecap(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const gameId = str(formData, "game_id");
+  const { data: game } = await supabase
+    .from("games")
+    .select("season:seasons(league_id)")
+    .eq("id", gameId)
+    .maybeSingle();
+  const leagueId = (game?.season as unknown as { league_id: string } | null)?.league_id;
+  if (!leagueId) return { error: "That game no longer exists — refresh the page." };
+  const { data: admin } = await supabase.rpc("is_league_admin", { p_league: leagueId });
+  if (!admin) return { error: "Only the commissioner or a league admin can rewrite a recap." };
+
+  const result = await generateGameRecap(gameId, supabase);
+  if (result.source === "skipped") return { error: result.detail };
+  if (!result.ok) return { error: `Couldn't save the recap: ${result.detail}` };
+
+  revalidateLeague(str(formData, "slug"));
+  return result.source === "claude"
+    ? { error: null, notice: "Rewritten by Claude." }
+    : { error: null, notice: `Written from the box score. ${result.reason ?? ""}`.trim() };
+}
+
 /** Take a visiting team into the league for real. An ad-hoc opponent starts
     as an is_external row so the stats pipeline works without a roster; this
     is how it graduates — it then appears in Teams, the draft, standings and
@@ -1720,6 +1750,8 @@ export async function generateBracketAction(
   const seasonId = str(formData, "season_id");
   const slug = str(formData, "slug");
   const numTeams = parseInt(str(formData, "num_teams") || "4", 10);
+  // Play-in games for the last spots: each one brings in one more team.
+  const playIn = Math.max(0, parseInt(str(formData, "play_in") || "0", 10) || 0);
   const supabase = await createClient();
 
   const { data: existing } = await supabase
@@ -1747,9 +1779,16 @@ export async function generateBracketAction(
       home_score: number; away_score: number; status: string;
     }[],
   );
-  const seeds = standings.slice(0, Math.min(numTeams, teams.length)).map((s) => s.teamId);
+  if (playIn > maxPlayIn(numTeams, teams.length)) {
+    return {
+      error: `A ${numTeams}-team bracket can take at most ${maxPlayIn(numTeams, teams.length)} play-in games with ${teams.length} teams.`,
+    };
+  }
+  const seeds = standings
+    .slice(0, Math.min(numTeams + playIn, teams.length))
+    .map((s) => s.teamId);
 
-  const plan = buildBracket(seeds.length);
+  const plan = buildBracket(seeds.length, playIn);
   // insert round by round so winner: sources can reference real uuids
   const idByKey = new Map<string, string>();
   for (const node of plan.sort((a, b) => a.round - b.round || a.position - b.position)) {
@@ -1770,12 +1809,14 @@ export async function generateBracketAction(
     idByKey.set(`${node.round}-${node.position}`, inserted.id);
   }
 
-  // resolve byes + create round-1 games
+  // Create every game whose two sides are already known — round 1, plus,
+  // with a play-in, the top seeds' games that don't wait on it — and
+  // auto-advance byes.
   const { data: nodes } = await supabase
     .from("bracket_nodes")
     .select("*")
     .eq("season_id", seasonId)
-    .eq("round", 1);
+    .order("round");
   const { data: season } = await supabase
     .from("seasons")
     .select("num_weeks")
@@ -1793,7 +1834,7 @@ export async function generateBracketAction(
         .from("games")
         .insert({
           season_id: seasonId,
-          week: (season?.num_weeks ?? 0) + 1,
+          week: (season?.num_weeks ?? 0) + (node.round as number),
           home_team_id: home,
           away_team_id: away,
           is_playoff: true,
@@ -1803,7 +1844,7 @@ export async function generateBracketAction(
         .single();
       if (g)
         await supabase.from("bracket_nodes").update({ game_id: g.id }).eq("id", node.id);
-    } else if (home || away) {
+    } else if ((node.round as number) === 1 && (home || away)) {
       // bye — auto-advance, then propagate (may create round-2 games)
       await advanceBracketAfterFinal(seasonId, node.id as string, {
         winner: (home ?? away)!,
@@ -1820,7 +1861,61 @@ export async function generateBracketAction(
     .eq("id", seasonId);
 
   revalidateLeague(slug);
-  return { error: null, notice: `Bracket created with ${seeds.length} teams.` };
+  return {
+    error: null,
+    notice: playIn
+      ? `Bracket created: ${numTeams} teams, with ${playIn} play-in ${playIn === 1 ? "game" : "games"} for the last ${playIn === 1 ? "spot" : "spots"}.`
+      : `Bracket created with ${seeds.length} teams.`,
+  };
+}
+
+/** Take a bracket down so it can be built again — with a play-in, a
+    different size, or new seeding after a late result. Only before any
+    playoff game has started: once one has, the bracket is the record of
+    who got through. */
+export async function resetBracketAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const seasonId = str(formData, "season_id");
+  const slug = str(formData, "slug");
+  const supabase = await createClient();
+
+  const { data: season } = await supabase
+    .from("seasons")
+    .select("league_id")
+    .eq("id", seasonId)
+    .maybeSingle();
+  if (!season) return { error: "That season no longer exists — refresh the page." };
+  const { data: admin } = await supabase.rpc("is_league_admin", { p_league: season.league_id });
+  if (!admin) return { error: "Only the commissioner or a league admin can start the bracket over." };
+
+  const { data: playoffGames } = await supabase
+    .from("games")
+    .select("id, status")
+    .eq("season_id", seasonId)
+    .eq("is_playoff", true);
+  if ((playoffGames ?? []).some((g) => g.status !== "scheduled")) {
+    return {
+      error: "A playoff game has already started, so the bracket stays. Finish the playoffs as seeded.",
+    };
+  }
+
+  const ids = (playoffGames ?? []).map((g) => g.id as string);
+  if (ids.length) {
+    const { error } = await supabase.from("games").delete().in("id", ids);
+    if (error) return { error: `Couldn't remove the playoff games: ${error.message}` };
+  }
+  const { error: nodesError } = await supabase.from("bracket_nodes").delete().eq("season_id", seasonId);
+  if (nodesError) return { error: `Couldn't remove the bracket: ${nodesError.message}` };
+  await supabase
+    .from("seasons")
+    .update({ status: "active", playoff_format: { type: "single_elim" } })
+    .eq("id", seasonId);
+
+  revalidateLeague(slug);
+  return { error: null, notice: "Bracket cleared. Build it again below." };
 }
 
 /* ----------------------------------- feed ----------------------------------- */

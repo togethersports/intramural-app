@@ -3,7 +3,7 @@ import { write } from "@/lib/ai/write";
 import {
   buildRecapLines,
   fallbackRecap,
-  keyPlays,
+  playByPlay,
   recapFacts,
   summarizeFlow,
   type RecapInput,
@@ -25,7 +25,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export async function generateGameRecap(
   gameId: string,
   client?: SupabaseClient,
-): Promise<{ ok: boolean; source: "claude" | "fallback" | "skipped"; detail: string }> {
+): Promise<{
+  ok: boolean;
+  source: "claude" | "fallback" | "skipped";
+  detail: string;
+  /** Why the model didn't write it, when it didn't. */
+  reason?: string;
+}> {
   const supabase = client ?? (await createClient());
 
   const { data: game } = await supabase
@@ -41,7 +47,7 @@ export async function generateGameRecap(
     return { ok: false, source: "skipped", detail: `Game is ${game.status}, not final.` };
   }
 
-  const [{ data: teams }, { data: stats }, { data: events }] = await Promise.all([
+  const [{ data: teams }, { data: stats }, { data: events }, { data: subs }] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, abbrev")
@@ -57,6 +63,13 @@ export async function generateGameRecap(
       )
       .eq("game_id", gameId)
       .order("seq"),
+    // Subs from other teams: the recap should say who they really play for.
+    supabase
+      .from("sub_requests")
+      .select("id, fill_user_id, fill:profiles!sub_requests_fill_user_id_fkey(full_name)")
+      .eq("game_id", gameId)
+      .eq("status", "approved")
+      .not("fill_user_id", "is", null),
   ]);
 
   const teamById = new Map(
@@ -79,6 +92,36 @@ export async function generateGameRecap(
   for (const s of statRows) {
     const key = (s.user_id ?? s.guest_id) as string | null;
     if (key && s.profile?.full_name) nameOf.set(key, s.profile.full_name);
+  }
+
+  // A sub's line is keyed by their user id, or — when the commissioner chose
+  // not to count it — by the sub request's id, stored as a one-game guest.
+  // Their plays are under their user id either way, so name both keys.
+  const subFromOf = new Map<string, string>();
+  const subRows = subs ?? [];
+  if (subRows.length > 0) {
+    const { data: rostered } = await supabase
+      .from("team_members")
+      .select("user_id, team:teams!inner(name, season_id)")
+      .in("user_id", subRows.map((r) => r.fill_user_id as string))
+      .is("left_at", null)
+      .eq("team.season_id", game.season_id);
+    const teamOfUser = new Map(
+      (rostered ?? []).map((r) => [
+        r.user_id as string,
+        (r.team as unknown as { name: string } | null)?.name ?? "",
+      ]),
+    );
+    for (const r of subRows) {
+      const userId = r.fill_user_id as string;
+      const name = (r.fill as unknown as { full_name: string } | null)?.full_name;
+      if (name && !nameOf.has(userId)) nameOf.set(userId, name);
+      const from = teamOfUser.get(userId);
+      if (from) {
+        subFromOf.set(userId, from);
+        subFromOf.set(r.id as string, from);
+      }
+    }
   }
 
   const eventRows = ((events ?? []) as unknown as GameEventRow[]).map((e) => ({
@@ -109,39 +152,45 @@ export async function generateGameRecap(
     isPlayoff: Boolean(game.is_playoff),
     venue: (game.venue as unknown as { name: string } | null)?.name ?? null,
     slot: (game.time_slot as unknown as { label: string } | null)?.label ?? null,
-    lines: buildRecapLines(statRows, nameOf),
+    lines: buildRecapLines(statRows, nameOf, subFromOf),
     ...flow,
   };
 
   const facts = [
     recapFacts(input),
     "",
-    "Closing sequence (most recent last):",
-    keyPlays(eventRows, nameOf),
+    "Every scoring play, in order, with the score after it:",
+    playByPlay(eventRows, input, nameOf),
   ].join("\n");
 
   const written = await write({
     facts,
-    task:
-      "Write the recap of this intramural basketball game. Lead with the result, then the run of play — how the lead moved and where it turned. Name the two or three players whose lines actually decided it, with their numbers. End on the result's meaning for the two teams if the facts support one, and stop if they don't.",
+    task: [
+      "Write the recap of this intramural basketball game for the league's app.",
+      "Lead with the result. Then tell the game the way it went: who had it early, where the lead moved, and the stretch that decided it — use the score by period, the runs and the go-ahead basket rather than listing numbers.",
+      "Name the two or three players whose lines decided it, with their numbers, and at least one player from the losing side.",
+      "If someone played as a sub from another team, say so once.",
+      "Finish on what decided the game. Do not speculate about standings, the season or anything not in the facts.",
+    ].join(" "),
   });
 
   const plain = fallbackRecap(input);
-  const source = written ? "claude" : "fallback";
-  const headline = written?.headline || plain.headline;
-  const body = written?.body || plain.body;
+  const source = written.ok ? "claude" : "fallback";
+  const headline = (written.ok && written.headline) || plain.headline;
+  const body = written.ok ? written.body : plain.body;
 
   const { error } = await supabase.from("game_recaps").upsert(
     {
       game_id: gameId,
       headline,
       body,
-      model: written?.model ?? "",
+      model: written.ok ? written.model : "",
       source,
     },
     { onConflict: "game_id" },
   );
-  if (error) return { ok: false, source, detail: error.message };
+  const reason = written.ok ? undefined : written.reason;
+  if (error) return { ok: false, source, detail: error.message, reason };
 
-  return { ok: true, source, detail: headline };
+  return { ok: true, source, detail: headline, reason };
 }
