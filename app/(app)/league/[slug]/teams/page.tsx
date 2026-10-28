@@ -23,6 +23,7 @@ import {
 import { MyAvailability, StatusChip } from "./my-availability";
 import { SubPool } from "./sub-pool";
 import { CreateTeamForm } from "./team-forms";
+import { RemoveVisitorButton } from "./remove-visitor-button";
 
 export const metadata: Metadata = { title: "Teams" };
 
@@ -272,7 +273,8 @@ export default async function TeamsPage({
         <Panel title="Visiting teams">
           <p className="mb-4 max-w-[62ch] text-sm text-ink-muted">
             Teams typed into a pickup game. Their results stay out of the
-            standings until you add them to the league.
+            standings until you add them to the league. Remove one once its
+            games are deleted.
           </p>
           <ul className="space-y-2">
             {visiting.map((t) => (
@@ -282,6 +284,7 @@ export default async function TeamsPage({
               >
                 <TeamBadge abbrev={t.abbrev} color={t.color} size={30} />
                 <span className="min-w-0 flex-1 truncate font-semibold">{t.name}</span>
+                <RemoveVisitorButton teamId={t.id} teamName={t.name} slug={slug} />
                 <form action={adoptExternalTeam}>
                   <input type="hidden" name="team_id" value={t.id} />
                   <input type="hidden" name="slug" value={slug} />
