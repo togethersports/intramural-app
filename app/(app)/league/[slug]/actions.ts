@@ -1134,7 +1134,7 @@ export async function deleteGame(
   const gameId = str(formData, "game_id");
   const { data: game } = await supabase
     .from("games")
-    .select("status, counts_for_standings, is_playoff")
+    .select("status, counts_for_standings, is_playoff, home_team_id, away_team_id")
     .eq("id", gameId)
     .maybeSingle();
   if (!game) return { error: "That game no longer exists — refresh the page." };
@@ -1160,6 +1160,7 @@ export async function deleteGame(
   if (!gone?.length) {
     return { error: "Only the commissioner or a league admin can delete games." };
   }
+  await dropOrphanedVisitors([game.home_team_id as string, game.away_team_id as string]);
 
   const slug = str(formData, "slug");
   revalidateLeague(slug);
@@ -1202,6 +1203,63 @@ export async function rewriteRecap(
     is how it graduates — it then appears in Teams, the draft, standings and
     every other surface that filters external teams out. Keeps its name,
     abbreviation and colour, all editable on the team page afterwards. */
+/** Clear away a visiting team — one typed into a pickup game whose games
+    are gone. Refused while it still has any: a team's games cascade with
+    it, and deleting games has its own rules (the standings, the bracket),
+    which a team delete would skip. Delete those games first. */
+export async function removeExternalTeam(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured()) return { error: NOT_CONFIGURED };
+  const supabase = await createClient();
+  const teamId = str(formData, "team_id");
+  // It goes into a filter string below, so it must be exactly an id.
+  if (!/^[0-9a-f-]{36}$/i.test(teamId)) return { error: "That team no longer exists — refresh the page." };
+  const { count } = await supabase
+    .from("games")
+    .select("id", { count: "exact", head: true })
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`);
+  if ((count ?? 0) > 0) {
+    return {
+      error: `This team still has ${count === 1 ? "a game" : `${count} games`}. Delete ${count === 1 ? "it" : "them"} from the schedule first, then remove the team.`,
+    };
+  }
+  const { data: gone, error } = await supabase
+    .from("teams")
+    .delete()
+    .eq("id", teamId)
+    .eq("is_external", true)
+    .select("id");
+  if (error) return { error: `Couldn't remove the team: ${error.message}` };
+  if (!gone?.length) {
+    return { error: "Only the commissioner or a league admin can remove a visiting team." };
+  }
+  revalidateLeague(str(formData, "slug"));
+  return { error: null };
+}
+
+/** A visiting team exists only for its games. When the last one goes, so
+    does the team — otherwise it lingers in Visiting teams with nothing
+    behind it, which is how "hi" and "hello" were left over. */
+async function dropOrphanedVisitors(teamIds: string[]) {
+  const supabase = await createClient();
+  const { data: visitors } = await supabase
+    .from("teams")
+    .select("id")
+    .in("id", teamIds)
+    .eq("is_external", true);
+  for (const t of visitors ?? []) {
+    const { count } = await supabase
+      .from("games")
+      .select("id", { count: "exact", head: true })
+      .or(`home_team_id.eq.${t.id},away_team_id.eq.${t.id}`);
+    if ((count ?? 0) === 0) {
+      await supabase.from("teams").delete().eq("id", t.id).eq("is_external", true);
+    }
+  }
+}
+
 export async function adoptExternalTeam(formData: FormData) {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();
