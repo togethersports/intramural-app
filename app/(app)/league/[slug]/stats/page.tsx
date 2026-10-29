@@ -11,7 +11,6 @@ import {
 } from "@/lib/data";
 import {
   aggregateLines,
-  pct,
   perGame,
   type SeasonTotals,
 } from "@core/stats";
@@ -103,7 +102,7 @@ export default async function StatsPage({
     { key: "apg", label: "Assists", value: (p) => perGame(p.totals.ast, p.totals.games), fmt: (v) => v.toFixed(1) },
     { key: "spg", label: "Steals", value: (p) => perGame(p.totals.stl, p.totals.games), fmt: (v) => v.toFixed(1) },
     { key: "bpg", label: "Blocks", value: (p) => perGame(p.totals.blk, p.totals.games), fmt: (v) => v.toFixed(1) },
-    { key: "fg", label: "FG% (min 5 FGA)", value: (p) => (p.totals.fga >= 5 ? (pct(p.totals.fgm, p.totals.fga) ?? 0) : -1), fmt: (v) => `${(v * 100).toFixed(1)}%` },
+    { key: "3pm", label: "Threes made", value: (p) => perGame(p.totals.tpm, p.totals.games), fmt: (v) => v.toFixed(1) },
   ];
 
   return (

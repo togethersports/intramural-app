@@ -170,6 +170,16 @@ export function computeBoxScore(
 
 /* ------------------------------- derived stats ------------------------------ */
 
+/**
+ * Made 2-pointers. The stat pages show makes by kind — 2PM, 3PM, FTM —
+ * rather than attempts and percentages: the tracker most leagues use has
+ * buttons for +1, +2 and +3 and none for a miss, so an attempt count there
+ * is just the makes again and every percentage reads 100%.
+ */
+export function twosMade(l: { fgm: number; tpm: number }): number {
+  return l.fgm - l.tpm;
+}
+
 export function pct(made: number, attempts: number): number | null {
   return attempts > 0 ? made / attempts : null;
 }

@@ -79,24 +79,22 @@ export function leadersIn(
  * Weighted so that the things that are hard and helpful outrank the things
  * that are merely numerous: an assist is worth more than a point because it
  * took two people, a steal or a block more still because it ended a
- * possession outright, and a turnover costs. Efficiency gets a small nudge
- * so 20-on-9-shots beats 20-on-24.
+ * possession outright, and a turnover costs. Shooting efficiency used to
+ * nudge it too, but the tracker counts makes without misses, so there is no
+ * efficiency to measure — the nudge only ever rewarded made threes twice.
  *
  * The weights are a judgement, not a law — but they are one judgement,
  * applied the same way every week, which is the property that matters when
  * a fourteen-year-old asks why it wasn't them.
  */
 export function impactScore(t: SeasonTotals): number {
-  const shots = t.fga + 0.44 * t.fta;
-  const efficiency = shots > 0 ? (t.pts / (2 * shots)) - 0.5 : 0;
   return (
     t.pts * 1 +
     t.reb * 1.2 +
     t.ast * 1.6 +
     t.stl * 2.2 +
     t.blk * 2.2 -
-    t.tov * 1.4 +
-    efficiency * 6
+    t.tov * 1.4
   );
 }
 
@@ -148,16 +146,20 @@ export function awardFacts(
   runnersUp: PlayerOfWeek[],
 ): string {
   const t = winner.totals;
+  // Makes only: misses aren't tracked, so there are no attempts to quote.
+  const twos = t.fgm - t.tpm;
   const splits = [
-    t.fga ? `${t.fgm}/${t.fga} from the field` : null,
-    t.tpa ? `${t.tpm}/${t.tpa} from three` : null,
-    t.fta ? `${t.ftm}/${t.fta} at the line` : null,
+    twos ? `${twos} two-pointers` : null,
+    t.tpm ? `${t.tpm} three-pointers` : null,
+    t.ftm ? `${t.ftm} free throws` : null,
   ].filter(Boolean);
 
   return [
     `Week ${week} player of the week: ${winner.name} (${winner.teamName}).`,
     `Across ${t.games} ${t.games === 1 ? "game" : "games"}: ${describeLine(t)}.`,
-    splits.length ? `Shooting: ${splits.join(", ")}.` : "",
+    splits.length
+      ? `Made: ${splits.join(", ")}. Misses aren't tracked, so there are no shooting percentages — don't describe any.`
+      : "",
     t.tov ? `Turnovers: ${t.tov}.` : "",
     runnersUp.length
       ? `Also in the conversation: ${runnersUp
@@ -180,7 +182,7 @@ export function fallbackAward(
     body: `${winner.name} put up ${describeLine(t)} across ${t.games} ${
       t.games === 1 ? "game" : "games"
     } for ${winner.teamName}${
-      t.fga ? `, shooting ${t.fgm} of ${t.fga} from the field` : ""
+      t.tpm >= 2 ? `, with ${t.tpm} threes` : ""
     }.`,
   };
 }

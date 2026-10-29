@@ -25,7 +25,7 @@ import {
 import { isLeagueAdmin } from "@core/league-constants";
 import { deleteBlockedReason } from "@core/standings";
 import { EVENT_LABELS } from "@core/game-constants";
-import { computeBoxScore, type StatLine } from "@core/stats";
+import { computeBoxScore, twosMade, type StatLine } from "@core/stats";
 import { createClient } from "@/lib/supabase/server";
 import type { PlayerGameStatRow } from "@core/types";
 import { LiveRefresher } from "./live-refresher";
@@ -52,7 +52,7 @@ function BoxTable({
           <thead>
             <tr className="text-left text-xs text-ink-faint">
               <th className="py-1 pr-2 font-medium">Player</th>
-              {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "FG", "3P", "FT", "+/−"].map((h) => (
+              {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "2PM", "3PM", "FTM", "+/−"].map((h) => (
                 <th key={h} className="tabular px-1.5 py-1 text-right font-medium">
                   {h}
                 </th>
@@ -80,9 +80,9 @@ function BoxTable({
                   <td className="tabular px-1.5 py-2 text-right">{r.blk}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.tov}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.pf}</td>
-                  <td className="tabular px-1.5 py-2 text-right">{r.fgm}/{r.fga}</td>
-                  <td className="tabular px-1.5 py-2 text-right">{r.tpm}/{r.tpa}</td>
-                  <td className="tabular px-1.5 py-2 text-right">{r.ftm}/{r.fta}</td>
+                  <td className="tabular px-1.5 py-2 text-right">{twosMade(r)}</td>
+                  <td className="tabular px-1.5 py-2 text-right">{r.tpm}</td>
+                  <td className="tabular px-1.5 py-2 text-right">{r.ftm}</td>
                   <td className="tabular px-1.5 py-2 text-right">
                     {r.plus_minus > 0 ? `+${r.plus_minus}` : r.plus_minus}
                   </td>

@@ -93,10 +93,6 @@ function relativeDay(date: string | null): string {
   });
 }
 
-function pct(made: number, attempts: number): string {
-  return attempts > 0 ? `${Math.round((made / attempts) * 100)}%` : "—";
-}
-
 /** Staggered entrance — index drives the delay, capped so a long list
     doesn't leave the last card hanging. */
 const rise = (i: number) =>
@@ -243,10 +239,11 @@ function StatLineCard({
     [line.stl, "STL"],
     [line.plus_minus > 0 ? `+${line.plus_minus}` : line.plus_minus, "+/−"],
   ] as const;
+  // Makes by kind — the tracker counts made shots, not attempts.
   const splits = [
-    [`${line.fgm}/${line.fga}`, "FG", pct(line.fgm, line.fga)],
-    [`${line.tpm}/${line.tpa}`, "3PT", pct(line.tpm, line.tpa)],
-    [`${line.ftm}/${line.fta}`, "FT", pct(line.ftm, line.fta)],
+    [line.fgm - line.tpm, "2PM"],
+    [line.tpm, "3PM"],
+    [line.ftm, "FTM"],
   ] as const;
 
   return (
@@ -270,12 +267,10 @@ function StatLineCard({
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-rule pt-4">
-        {splits.map(([made, k, p]) => (
+        {splits.map(([made, k]) => (
           <div key={k}>
             <p className="label !text-[10px]">{k}</p>
-            <p className="num mt-1.5 text-[15px]">
-              {made} <span className="text-[13px] text-ink-faint">{p}</span>
-            </p>
+            <p className="num mt-1.5 text-[15px]">{made}</p>
           </div>
         ))}
       </div>
