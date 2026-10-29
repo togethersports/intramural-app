@@ -300,9 +300,7 @@ export function recapFacts(input: RecapInput): string {
       l.stl ? `${l.stl} stl` : null,
       l.blk ? `${l.blk} blk` : null,
       l.tov ? `${l.tov} TO` : null,
-      l.fga ? `${l.fgm}/${l.fga} FG` : null,
-      l.tpa ? `${l.tpm}/${l.tpa} 3PT` : null,
-      l.fta ? `${l.ftm}/${l.fta} FT` : null,
+      ...madeShots(l),
     ].filter(Boolean);
     const sub = l.subFrom ? `; subbing in from ${l.subFrom}` : "";
     return `- ${l.name} (${teamName(input, l.teamId)}${sub}): ${bits.join(", ")}`;
@@ -313,9 +311,7 @@ export function recapFacts(input: RecapInput): string {
     const sum = (k: keyof RecapLine) => mine.reduce((n, l) => n + (Number(l[k]) || 0), 0);
     const bits = [
       `${t.score} pts`,
-      sum("fga") ? `${sum("fgm")}/${sum("fga")} FG` : null,
-      sum("tpa") ? `${sum("tpm")}/${sum("tpa")} 3PT` : null,
-      sum("fta") ? `${sum("ftm")}/${sum("fta")} FT` : null,
+      ...madeShots({ fgm: sum("fgm"), tpm: sum("tpm"), ftm: sum("ftm") }),
       `${sum("reb")} reb`,
       `${sum("ast")} ast`,
       sum("stl") ? `${sum("stl")} stl` : null,
@@ -379,6 +375,10 @@ export function recapFacts(input: RecapInput): string {
       : null,
     input.wasClose ? "It was a one-possession game late." : null,
     "",
+    // Without this the model sees 7 makes, no misses, and writes "a perfect
+    // 7-of-7" about a game where nobody counted the misses.
+    "Shots are counted as makes only (2PM, 3PM, FTM). Misses aren't tracked, so there are no attempts or shooting percentages — don't describe any.",
+    "",
     "Team totals:",
     ...totals,
     "",
@@ -387,6 +387,16 @@ export function recapFacts(input: RecapInput): string {
   ]
     .filter((s): s is string => s !== null)
     .join("\n");
+}
+
+/** Made shots by kind, zeros left out: "4 2PM, 3 3PM, 5 FTM". */
+function madeShots(l: { fgm: number; tpm: number; ftm: number }): string[] {
+  const twos = l.fgm - l.tpm;
+  return [
+    twos ? `${twos} 2PM` : null,
+    l.tpm ? `${l.tpm} 3PM` : null,
+    l.ftm ? `${l.ftm} FTM` : null,
+  ].filter((x): x is string => x !== null);
 }
 
 function nameIn(input: RecapInput, key: string): string | null {
@@ -573,9 +583,9 @@ export function fallbackRecap(input: RecapInput): { headline: string; body: stri
   const secondSide = tied ? input.away : loser;
   const leader = topScorer(firstSide.id) ?? ofTeam(firstSide.id)[0];
   if (leader) {
-    const shooting =
-      leader.fga >= 5 && leader.fgm * 2 >= leader.fga ? ` on ${leader.fgm}-of-${leader.fga} shooting` : "";
-    sentences.push(`${tag(leader)} led ${firstSide.name} with ${describeLine(leader)}${shooting}.`);
+    // Makes only — there are no attempts to make a percentage from.
+    const threes = leader.tpm >= 3 ? ` made ${leader.tpm} threes and` : "";
+    sentences.push(`${tag(leader)}${threes} led ${firstSide.name} with ${describeLine(leader)}.`);
   }
   const helper = ofTeam(firstSide.id).find((l) => l !== leader && (l.pts >= 6 || standoutScore(l) >= 8));
   if (helper) sentences.push(`${tag(helper)} added ${describeLine(helper)}.`);

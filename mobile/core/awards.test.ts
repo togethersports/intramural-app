@@ -117,10 +117,10 @@ describe("impactScore", () => {
     expect(impactScore(clean)).toBeGreaterThan(impactScore(loose));
   });
 
-  it("rewards the same points on fewer shots", () => {
-    const efficient = aggregateLines([line({ pts: 20, fgm: 9, fga: 12 })]);
-    const chucker = aggregateLines([line({ pts: 20, fgm: 9, fga: 26 })]);
-    expect(impactScore(efficient)).toBeGreaterThan(impactScore(chucker));
+  it("ignores attempts — misses aren't tracked, so they can't count against anyone", () => {
+    const a = aggregateLines([line({ pts: 20, fgm: 9, fga: 12 })]);
+    const b = aggregateLines([line({ pts: 20, fgm: 9, fga: 26 })]);
+    expect(impactScore(a)).toBe(impactScore(b));
   });
 
   it("is zero for a line with nothing in it", () => {
@@ -193,16 +193,16 @@ describe("awardFacts and fallbackAward", () => {
     source("Harry Stone", [{ pts: 21, reb: 9, ast: 6, fgm: 8, fga: 14, tpm: 2, tpa: 5 }]),
   ])!;
 
-  it("states the line and the shooting splits", () => {
+  it("states the line and the makes, never a percentage", () => {
     const facts = awardFacts(winner, 5, []);
     expect(facts).toContain("Week 5 player of the week: Harry Stone (Panthers).");
     expect(facts).toContain("21 points, 9 rebounds and 6 assists");
-    expect(facts).toContain("8/14 from the field");
-    expect(facts).toContain("2/5 from three");
+    expect(facts).toContain("Made: 6 two-pointers, 2 three-pointers.");
+    expect(facts).not.toContain("8/14");
   });
 
-  it("omits a split nobody attempted", () => {
-    expect(awardFacts(winner, 5, [])).not.toContain("at the line");
+  it("omits a kind of shot nobody made", () => {
+    expect(awardFacts(winner, 5, [])).not.toContain("free throws");
   });
 
   it("names the runners-up when there are any", () => {

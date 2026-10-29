@@ -297,7 +297,17 @@ describe("recapFacts", () => {
   });
 
   it("adds up each team's totals from the lines", () => {
-    expect(recapFacts(INPUT)).toContain("- Panthers: 54 pts, 8/14 FG, 4 reb, 6 ast");
+    expect(recapFacts(INPUT)).toContain("- Panthers: 54 pts, 8 2PM, 4 reb, 6 ast");
+  });
+
+  it("counts makes only, and tells the model there are no percentages", () => {
+    const facts = recapFacts({
+      ...INPUT,
+      lines: [line({ name: "Shooter", pts: 13, fgm: 5, fga: 5, tpm: 3, tpa: 3 })],
+    });
+    expect(facts).toContain("Shooter (Panthers): 13 pts, 2 2PM, 3 3PM");
+    expect(facts).not.toContain("5/5");
+    expect(facts).toContain("Misses aren't tracked");
   });
 
   it("omits shooting splits nobody attempted", () => {
@@ -305,8 +315,8 @@ describe("recapFacts", () => {
       ...INPUT,
       lines: [line({ name: "Nobody Shot", pts: 0, reb: 5 })],
     });
-    expect(facts).not.toContain("3PT");
-    expect(facts).not.toContain("FT");
+    const row = facts.split("\n").find((l) => l.startsWith("- Nobody Shot"));
+    expect(row).toBe("- Nobody Shot (Panthers): 0 pts, 5 reb");
   });
 
   it("does not talk about periods in a game played as one", () => {
@@ -402,7 +412,7 @@ describe("fallbackRecap", () => {
     expect(body).toContain(
       "The lead changed hands 5 times before Panthers went ahead for good at 46-45 on Harry Stone's 3-pointer.",
     );
-    expect(body).toContain("Harry Stone led Panthers with 21 points, 6 assists and 4 rebounds on 8-of-14 shooting.");
+    expect(body).toContain("Harry Stone led Panthers with 21 points, 6 assists and 4 rebounds.");
     expect(body).toContain("Devon Cruz had 19 points and 7 rebounds for Comets.");
   });
 

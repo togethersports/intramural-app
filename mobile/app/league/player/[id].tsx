@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { loadLeagueContext } from "@/lib/active-league";
 import { getSeasonPlayerStats, getTeams } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
-import { aggregateLines, formatPct, pct, perGame, type SeasonTotals } from "@core/stats";
+import { aggregateLines, perGame, twosMade, type SeasonTotals } from "@core/stats";
 import type { PlayerGameStatRow } from "@core/types";
 import { color, space, type } from "@/theme";
 
@@ -94,9 +94,9 @@ export default function Player() {
               ["Points", String(totals.pts)],
               ["Rebounds", String(totals.reb)],
               ["Assists", String(totals.ast)],
-              ["Field goals", `${totals.fgm}/${totals.fga} · ${formatPct(pct(totals.fgm, totals.fga))}`],
-              ["Threes", `${totals.tpm}/${totals.tpa} · ${formatPct(pct(totals.tpm, totals.tpa))}`],
-              ["Free throws", `${totals.ftm}/${totals.fta} · ${formatPct(pct(totals.ftm, totals.fta))}`],
+              ["2-pointers made", String(twosMade(totals))],
+              ["3-pointers made", String(totals.tpm)],
+              ["Free throws made", String(totals.ftm)],
             ] as const).map(([k, v]) => (
               <View key={k} style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <Text style={[type.body, { color: color.inkBody }]}>{k}</Text>

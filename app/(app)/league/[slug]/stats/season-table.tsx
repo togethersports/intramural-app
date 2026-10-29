@@ -11,7 +11,7 @@
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { formatPct, pct, perGame, type SeasonTotals } from "@core/stats";
+import { perGame, twosMade, type SeasonTotals } from "@core/stats";
 
 export interface SeasonTableRow {
   userId: string;
@@ -30,7 +30,7 @@ interface Column {
   value: (r: SeasonTableRow, mode: Mode) => number;
   /** What the cell prints. */
   render: (r: SeasonTableRow, mode: Mode) => string;
-  /** Percentages and +/− are the same either way. */
+  /** Games played and +/− are the same either way. */
   rateOnly?: boolean;
 }
 
@@ -63,27 +63,11 @@ const COLUMNS: Column[] = [
   counted("stl", "STL", (t) => t.stl),
   counted("blk", "BLK", (t) => t.blk),
   counted("tov", "TO", (t) => t.tov),
-  {
-    key: "fg",
-    label: "FG%",
-    value: (r) => pct(r.totals.fgm, r.totals.fga) ?? -1,
-    render: (r) => formatPct(pct(r.totals.fgm, r.totals.fga)),
-    rateOnly: true,
-  },
-  {
-    key: "tp",
-    label: "3P%",
-    value: (r) => pct(r.totals.tpm, r.totals.tpa) ?? -1,
-    render: (r) => formatPct(pct(r.totals.tpm, r.totals.tpa)),
-    rateOnly: true,
-  },
-  {
-    key: "ft",
-    label: "FT%",
-    value: (r) => pct(r.totals.ftm, r.totals.fta) ?? -1,
-    render: (r) => formatPct(pct(r.totals.ftm, r.totals.fta)),
-    rateOnly: true,
-  },
+  // Makes, not percentages: the tracker counts made shots and has no miss
+  // button, so every percentage would read 100%.
+  counted("2pm", "2PM", twosMade),
+  counted("3pm", "3PM", (t) => t.tpm),
+  counted("ftm", "FTM", (t) => t.ftm),
   {
     key: "pm",
     label: "+/−",

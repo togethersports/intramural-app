@@ -7,7 +7,7 @@ import {
   getTeamsWithRosters,
 } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
-import { aggregateLines, formatPct, pct, perGame, tsPct } from "@core/stats";
+import { aggregateLines, perGame, twosMade } from "@core/stats";
 
 export default async function PlayerPage({
   params,
@@ -71,8 +71,8 @@ export default async function PlayerPage({
       {totals.games > 0 ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile label="Games" value={totals.games} />
-          <StatTile label="FG%" value={formatPct(pct(totals.fgm, totals.fga))} />
-          <StatTile label="TS%" value={formatPct(tsPct(totals.pts, totals.fga, totals.fta))} />
+          <StatTile label="3PM" value={totals.tpm} />
+          <StatTile label="FTM" value={totals.ftm} />
           <StatTile
             label="+/−"
             value={totals.plus_minus > 0 ? `+${totals.plus_minus}` : totals.plus_minus}
@@ -91,7 +91,7 @@ export default async function PlayerPage({
               <thead>
                 <tr className="text-left text-xs text-ink-faint">
                   <th className="py-1.5 pr-2 font-medium">Game</th>
-                  {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "FG", "3P", "FT", "+/−"].map(
+                  {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "2PM", "3PM", "FTM", "+/−"].map(
                     (h) => (
                       <th key={h} className="tabular px-2 py-1.5 text-right font-medium">
                         {h}
@@ -119,15 +119,9 @@ export default async function PlayerPage({
                       <td className="tabular px-2 py-2.5 text-right">{r.blk}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.tov}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.pf}</td>
-                      <td className="tabular px-2 py-2.5 text-right">
-                        {r.fgm}/{r.fga}
-                      </td>
-                      <td className="tabular px-2 py-2.5 text-right">
-                        {r.tpm}/{r.tpa}
-                      </td>
-                      <td className="tabular px-2 py-2.5 text-right">
-                        {r.ftm}/{r.fta}
-                      </td>
+                      <td className="tabular px-2 py-2.5 text-right">{twosMade(r)}</td>
+                      <td className="tabular px-2 py-2.5 text-right">{r.tpm}</td>
+                      <td className="tabular px-2 py-2.5 text-right">{r.ftm}</td>
                       <td className="tabular px-2 py-2.5 text-right">
                         {r.plus_minus > 0 ? `+${r.plus_minus}` : r.plus_minus}
                       </td>
