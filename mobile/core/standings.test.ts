@@ -3,6 +3,8 @@ import {
   computeStandings,
   deleteBlockedReason,
   isDecided,
+  oneOnOnesFrom,
+  withOneOnOne,
   type GameResult,
 } from "./standings";
 
@@ -147,5 +149,102 @@ describe("deleting a game", () => {
     const live = g("a", "b", 10, 0, "live");
     expect(computeStandings(["a", "b"], [live]).standings.every((s) => s.w + s.l + s.t === 0)).toBe(true);
     expect(deleteBlockedReason({ ...live, counts_for_standings: true })).toBeNull();
+  });
+});
+
+describe("tiebreakers: head-to-head, then head-to-head margin, then captains' 1v1", () => {
+  it("uses head-to-head point differential, not overall, when the record is split", () => {
+    // A and B both 2-1 and split their games, A by +9 in them. B has the far
+    // better overall differential (it beat C by 50) — which no longer counts.
+    const games = [
+      g("A", "B", 50, 40),
+      g("B", "A", 41, 40),
+      g("B", "C", 80, 30),
+      g("A", "C", 45, 40),
+    ];
+    const { standings, explanations } = computeStandings(["A", "B", "C"], games);
+    expect(standings.map((s) => s.teamId)).toEqual(["A", "B", "C"]);
+    expect(explanations).toContain("A ahead of B on head-to-head point differential (+9)");
+  });
+
+  it("never falls back to points scored", () => {
+    const games = [g("A", "B", 50, 40), g("B", "C", 50, 40), g("C", "A", 50, 40), g("A", "C", 50, 40), g("C", "B", 50, 40), g("B", "A", 50, 30)];
+    // All 2-2; A and B split, C split with both — a three-way tie on everything
+    // but margin among the three.
+    const { explanations } = computeStandings(["A", "B", "C"], games);
+    expect(explanations.every((e) => !e.includes("points scored"))).toBe(true);
+  });
+
+  it("sends a dead-even tie to the captains' 1v1, and flags it until it's recorded", () => {
+    // A and B both 1-1, split their own games by the same margin.
+    const games = [g("A", "B", 50, 40), g("B", "A", 50, 40)];
+    const before = computeStandings(["A", "B"], games);
+    expect(before.needsOneOnOne).toEqual([["A", "B"]]);
+
+    const after = computeStandings(["A", "B"], games, { oneOnOnes: [{ winner: "B", loser: "A" }] });
+    expect(after.needsOneOnOne).toEqual([]);
+    expect(after.standings.map((s) => s.teamId)).toEqual(["B", "A"]);
+    expect(after.explanations).toContain("B ahead of A on captains' 1v1");
+  });
+
+  it("treats teams that never met as level on head-to-head", () => {
+    // A and B never played; both 1-0 against C and D.
+    const games = [g("A", "C", 50, 40), g("B", "D", 60, 40)];
+    const { needsOneOnOne } = computeStandings(["A", "B", "C", "D"], games);
+    expect(needsOneOnOne).toContainEqual(["A", "B"]);
+  });
+
+  it("re-runs the steps for the teams left tied after a split", () => {
+    // A, B, C all 2-2. A beat both, so head-to-head among the three puts A
+    // first and leaves B and C level at 1-2. They start over on their own
+    // games: 1-1, B +5 between them — B. (Margins across all three games
+    // would have put C ahead: A beat B by 30 but C by only 1.)
+    const games = [
+      g("A", "B", 50, 20),
+      g("A", "C", 41, 40),
+      g("B", "C", 50, 40),
+      g("C", "B", 45, 40),
+      g("X", "A", 50, 40),
+      g("X", "A", 50, 40),
+      g("B", "Y", 50, 40),
+      g("C", "Y", 50, 40),
+    ];
+    const { standings } = computeStandings(["A", "B", "C", "X", "Y"], games);
+    const tied = standings.filter((s) => ["A", "B", "C"].includes(s.teamId)).map((s) => s.teamId);
+    expect(tied).toEqual(["A", "B", "C"]);
+  });
+
+  it("won't rank a three-way tie by 1v1 until every pair has played one", () => {
+    const games: GameResult[] = [g("A", "X", 1, 0), g("B", "X", 1, 0), g("C", "X", 1, 0)];
+    const partial = computeStandings(["A", "B", "C", "X"], games, {
+      oneOnOnes: [{ winner: "C", loser: "A" }],
+    });
+    expect(partial.needsOneOnOne).toEqual([["A", "B", "C"]]);
+
+    const full = computeStandings(["A", "B", "C", "X"], games, {
+      oneOnOnes: [
+        { winner: "C", loser: "A" },
+        { winner: "C", loser: "B" },
+        { winner: "A", loser: "B" },
+      ],
+    });
+    expect(full.needsOneOnOne).toEqual([]);
+    expect(full.standings.map((s) => s.teamId).slice(0, 3)).toEqual(["C", "A", "B"]);
+  });
+
+  it("asks for nothing before anyone has played", () => {
+    expect(computeStandings(["A", "B", "C"], []).needsOneOnOne).toEqual([]);
+  });
+
+  it("replaces an earlier 1v1 between the same teams", () => {
+    const once = withOneOnOne([], "A", "B");
+    expect(withOneOnOne(once, "B", "A")).toEqual([{ winner: "B", loser: "A" }]);
+  });
+
+  it("reads 1v1 results off season rules, ignoring junk", () => {
+    expect(
+      oneOnOnesFrom({ captains_1v1: [{ winner: "A", loser: "B" }, { winner: "A" }, "x", { winner: "C", loser: "C" }] }),
+    ).toEqual([{ winner: "A", loser: "B" }]);
+    expect(oneOnOnesFrom(null)).toEqual([]);
   });
 });

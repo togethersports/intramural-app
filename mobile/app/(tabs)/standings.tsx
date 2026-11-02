@@ -55,9 +55,12 @@ export default function Standings() {
     const [seasonTeams, games, stats] = await Promise.all([
       getTeams(seasonId), getGames(seasonId), getSeasonPlayerStats(seasonId),
     ]);
+    // Same ledger and tiebreakers as the web: official regular-season games
+    // only, with the captains' 1v1s the commissioner has recorded.
     const { standings } = computeStandings(
       seasonTeams.map((t) => t.id),
-      games.filter((g) => !g.is_playoff),
+      games.filter((g) => !g.is_playoff && g.counts_for_standings !== false),
+      { oneOnOnes: ctx.oneOnOnes },
     );
     const byId = new Map(seasonTeams.map((t) => [t.id, t]));
     setRows(standings.map((s) => ({

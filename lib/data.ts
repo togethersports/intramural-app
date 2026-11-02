@@ -770,21 +770,26 @@ export async function getRuleFiles(leagueId: string): Promise<RuleFileRow[]> {
 
 /* -------------------------------- standings -------------------------------- */
 
-import { computeStandings } from "@core/standings";
+import { computeStandings, oneOnOnesFrom } from "@core/standings";
 import type { StandingsDisplayRow } from "@/components/standings-table";
 
 export async function getSeasonStandings(seasonId: string): Promise<{
   rows: StandingsDisplayRow[];
   explanations: string[];
+  /** Groups still level after the games — each needs a captains' 1v1. */
+  needsOneOnOne: string[][];
 }> {
-  const [teams, games] = await Promise.all([
+  const supabase = await createClient();
+  const [teams, games, { data: season }] = await Promise.all([
     getTeams(seasonId), // external ad-hoc opponents excluded by default
     getGames(seasonId),
+    supabase.from("seasons").select("rules").eq("id", seasonId).maybeSingle(),
   ]);
   const regular = games.filter((g) => !g.is_playoff && g.counts_for_standings);
-  const { standings, explanations } = computeStandings(
+  const { standings, explanations, needsOneOnOne } = computeStandings(
     teams.map((t) => t.id),
     regular,
+    { oneOnOnes: oneOnOnesFrom(season?.rules) },
   );
   const byId = new Map(teams.map((t) => [t.id, t]));
   return {
@@ -795,6 +800,7 @@ export async function getSeasonStandings(seasonId: string): Promise<{
       color: byId.get(s.teamId)?.color ?? "#54749b",
     })),
     explanations,
+    needsOneOnOne,
   };
 }
 

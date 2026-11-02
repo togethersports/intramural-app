@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { getGame, getGameEvents, getGameGuests, getLineups, getSeasonAvailability, getTeams, getTeamsWithRosters } from "@/lib/data";
 import { computeBoxScore } from "@core/stats";
 import { generateSchedule, slotDateFor } from "@core/scheduler";
-import { computeStandings, deleteBlockedReason } from "@core/standings";
+import {
+  computeStandings,
+  deleteBlockedReason,
+  oneOnOnesFrom,
+  withOneOnOne,
+} from "@core/standings";
 import { buildBracket, maxPlayIn } from "@core/bracket";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { generateGameRecap } from "@/lib/ai/recap";
@@ -1800,6 +1805,33 @@ async function advanceBracketAfterFinal(
   }
 }
 
+/** Record who won a captains' 1v1 — the last standings tiebreaker, played
+    off the books. Stored on the season's rules; a second result between the
+    same two teams replaces the first. */
+export async function recordOneOnOne(formData: FormData) {
+  if (!isSupabaseConfigured()) return;
+  const seasonId = str(formData, "season_id");
+  const winner = str(formData, "winner");
+  const loser = str(formData, "loser");
+  if (!winner || !loser || winner === loser) return;
+  const supabase = await createClient();
+  const { data: season } = await supabase
+    .from("seasons")
+    .select("rules")
+    .eq("id", seasonId)
+    .maybeSingle();
+  if (!season) return;
+  const rules = (season.rules ?? {}) as Record<string, unknown>;
+  // The seasons write policy is admins-only, so this is the permission check.
+  await supabase
+    .from("seasons")
+    .update({
+      rules: { ...rules, captains_1v1: withOneOnOne(oneOnOnesFrom(rules), winner, loser) },
+    })
+    .eq("id", seasonId);
+  revalidateLeague(str(formData, "slug"));
+}
+
 export async function generateBracketAction(
   _prev: ActionState,
   formData: FormData,
@@ -1820,7 +1852,7 @@ export async function generateBracketAction(
   if ((existing ?? []).length > 0)
     return { error: "A bracket already exists for this season." };
 
-  const [teams, { data: gameRows }] = await Promise.all([
+  const [teams, { data: gameRows }, { data: seasonRow }] = await Promise.all([
     getTeams(seasonId),
     supabase
       .from("games")
@@ -1828,14 +1860,17 @@ export async function generateBracketAction(
       .eq("season_id", seasonId)
       .eq("is_playoff", false)
       .eq("counts_for_standings", true),
+    supabase.from("seasons").select("rules").eq("id", seasonId).maybeSingle(),
   ]);
   if (teams.length < 2) return { error: "Not enough teams." };
-  const { standings } = computeStandings(
+  // Seeding is the standings — including any captains' 1v1 already played.
+  const { standings, needsOneOnOne } = computeStandings(
     teams.map((t) => t.id),
     (gameRows ?? []) as {
       home_team_id: string; away_team_id: string;
       home_score: number; away_score: number; status: string;
     }[],
+    { oneOnOnes: oneOnOnesFrom(seasonRow?.rules) },
   );
   if (playIn > maxPlayIn(numTeams, teams.length)) {
     return {
@@ -1845,6 +1880,17 @@ export async function generateBracketAction(
   const seeds = standings
     .slice(0, Math.min(numTeams + playIn, teams.length))
     .map((s) => s.teamId);
+  // A tie still waiting on its 1v1 decides who gets in, or who plays whom:
+  // seeding it by a coin flip would be the bracket picking for them.
+  const blocking = needsOneOnOne.find((group) =>
+    group.some((id) => seeds.includes(id)),
+  );
+  if (blocking) {
+    const names = blocking.map((id) => teams.find((t) => t.id === id)?.name ?? "a team");
+    return {
+      error: `${names.join(" and ")} are still tied after head-to-head. Record their captains' 1v1 on the Standings page, then generate the bracket.`,
+    };
+  }
 
   const plan = buildBracket(seeds.length, playIn);
   // insert round by round so winner: sources can reference real uuids

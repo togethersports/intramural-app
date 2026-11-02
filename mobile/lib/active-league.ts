@@ -80,6 +80,7 @@ export function resolveTeam<T extends { league_id: string }>(
    from the league, and treats a team as a nice-to-have. */
 
 import { getActiveSeason, getMyLeagues, getMyTeams, type LeagueSummary, type MyTeam } from "./data";
+import { oneOnOnesFrom, type OneOnOne } from "@core/standings";
 
 export interface LeagueContext {
   league: LeagueSummary;
@@ -89,6 +90,8 @@ export interface LeagueContext {
   team: MyTeam | null;
   /** Commissioner or admin: the roles the database lets write. */
   isAdmin: boolean;
+  /** Captains' 1v1 results — the standings' last tiebreaker. */
+  oneOnOnes: OneOnOne[];
 }
 
 export async function loadLeagueContext(
@@ -106,5 +109,6 @@ export async function loadLeagueContext(
     seasonId: season?.id ?? teams.find((t) => t.league_id === league.id)?.season_id ?? null,
     team: teams.find((t) => t.league_id === league.id) ?? null,
     isAdmin: league.role === "commissioner" || league.role === "admin",
+    oneOnOnes: oneOnOnesFrom(season?.rules),
   };
 }

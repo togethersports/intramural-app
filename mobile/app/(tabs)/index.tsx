@@ -142,7 +142,8 @@ export default function Home() {
       setGames(upcoming);
       const { standings } = computeStandings(
         seasonTeams.map((t) => t.id),
-        seasonGames.filter((g) => !g.is_playoff),
+        seasonGames.filter((g) => !g.is_playoff && g.counts_for_standings !== false),
+        { oneOnOnes: ctx.oneOnOnes },
       );
       const idx = mine ? standings.findIndex((s) => s.teamId === mine.team_id) : -1;
       setStanding(

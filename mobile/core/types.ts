@@ -21,6 +21,8 @@ export interface SeasonRow {
     bonus_threshold?: number;
     timeouts_per_team?: number;
     overtime_minutes?: number;
+    /** Captains' 1v1 results, the last standings tiebreaker. */
+    captains_1v1?: { winner: string; loser: string }[];
   };
 }
 
