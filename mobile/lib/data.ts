@@ -26,7 +26,7 @@ export interface LeagueSummary {
 
 const GAME_SELECT = `id, season_id, week, home_team_id, away_team_id, venue_id,
   time_slot_id, scheduled_date, status, home_score, away_score, period,
-  clock_ms, scorekeeper_id, is_playoff, bracket_node_id,
+  clock_ms, scorekeeper_id, is_playoff, bracket_node_id, counts_for_standings,
   home_team:teams!games_home_team_id_fkey(name, abbrev, color),
   away_team:teams!games_away_team_id_fkey(name, abbrev, color),
   time_slot:time_slots(label), venue:venues(name)`;
