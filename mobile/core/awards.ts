@@ -79,9 +79,9 @@ export function leadersIn(
  * Weighted so that the things that are hard and helpful outrank the things
  * that are merely numerous: an assist is worth more than a point because it
  * took two people, a steal or a block more still because it ended a
- * possession outright, and a turnover costs. Shooting efficiency used to
- * nudge it too, but the tracker counts makes without misses, so there is no
- * efficiency to measure — the nudge only ever rewarded made threes twice.
+ * possession outright. Turnovers and shooting efficiency used to count
+ * too, but the league doesn't track turnovers or misses, so neither had
+ * anything real to measure.
  *
  * The weights are a judgement, not a law — but they are one judgement,
  * applied the same way every week, which is the property that matters when
@@ -93,8 +93,7 @@ export function impactScore(t: SeasonTotals): number {
     t.reb * 1.2 +
     t.ast * 1.6 +
     t.stl * 2.2 +
-    t.blk * 2.2 -
-    t.tov * 1.4
+    t.blk * 2.2
   );
 }
 
@@ -160,7 +159,6 @@ export function awardFacts(
     splits.length
       ? `Made: ${splits.join(", ")}. Misses aren't tracked, so there are no shooting percentages — don't describe any.`
       : "",
-    t.tov ? `Turnovers: ${t.tov}.` : "",
     runnersUp.length
       ? `Also in the conversation: ${runnersUp
           .map((r) => `${r.name} (${r.teamName}), ${describeLine(r.totals)}`)

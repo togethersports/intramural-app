@@ -614,20 +614,50 @@ export async function getSeasonPlayerStats(
   });
 }
 
+export type PlayerLogRow = PlayerGameStatRow & {
+  game: GameRow;
+  /** Set when they played this game as a sub for another team. `counts`
+      false means the commissioner kept it out of their season numbers. */
+  sub: { counts: boolean } | null;
+};
+
+/**
+ * Every game a player has a line in this season, sub games included.
+ *
+ * A sub whose game doesn't count has their line stored under the sub
+ * request's id, not their user id — that is what keeps it out of every
+ * season total. It still belongs on their own game log, marked, so it is
+ * fetched back here by that id; callers leave it out of the averages.
+ */
 export async function getPlayerGameLog(
   seasonId: string,
   userId: string,
-): Promise<(PlayerGameStatRow & { game: GameRow })[]> {
+): Promise<PlayerLogRow[]> {
   const supabase = await createClient();
   const games = await getGames(seasonId);
   const byId = new Map(games.map((g) => [g.id, g]));
-  const { data } = await supabase
-    .from("player_game_stats")
-    .select("*")
-    .eq("user_id", userId)
-    .in("game_id", games.map((g) => g.id));
-  return ((data as unknown as PlayerGameStatRow[]) ?? [])
-    .map((r) => ({ ...r, game: byId.get(r.game_id)! }))
+  const gameIds = games.map((g) => g.id);
+  const { data: subs } = await supabase
+    .from("sub_requests")
+    .select("id, game_id, counts_toward_stats")
+    .eq("fill_user_id", userId)
+    .eq("status", "approved")
+    .in("game_id", gameIds);
+  const subByGame = new Map(
+    (subs ?? []).map((s) => [s.game_id as string, { counts: s.counts_toward_stats !== false }]),
+  );
+  const uncountedIds = (subs ?? [])
+    .filter((s) => s.counts_toward_stats === false)
+    .map((s) => s.id as string);
+
+  const [{ data: own }, { data: uncounted }] = await Promise.all([
+    supabase.from("player_game_stats").select("*").eq("user_id", userId).in("game_id", gameIds),
+    uncountedIds.length
+      ? supabase.from("player_game_stats").select("*").in("guest_id", uncountedIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  return ([...(own ?? []), ...(uncounted ?? [])] as unknown as PlayerGameStatRow[])
+    .map((r) => ({ ...r, game: byId.get(r.game_id)!, sub: subByGame.get(r.game_id) ?? null }))
     .filter((r) => r.game)
     .sort((a, b) => (a.game.week ?? 0) - (b.game.week ?? 0));
 }

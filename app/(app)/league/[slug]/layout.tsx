@@ -65,9 +65,9 @@ export default async function LeagueLayout({
           color: league.primary_color,
         }}
         nav={{
-          player: leagueNav(slug, { admin, commissioner, mode: "player" }),
+          player: leagueNav(slug, { admin, commissioner, mode: "player", me: profile?.id ?? null }),
           commish: admin
-            ? leagueNav(slug, { admin, commissioner, mode: "commish" })
+            ? leagueNav(slug, { admin, commissioner, mode: "commish", me: profile?.id ?? null })
             : null,
         }}
         badges={{ inbox: unread, trades: openTrades }}

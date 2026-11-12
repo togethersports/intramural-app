@@ -111,10 +111,10 @@ describe("impactScore", () => {
     expect(impactScore(passer)).toBeGreaterThan(impactScore(scorer));
   });
 
-  it("penalises turnovers", () => {
+  it("ignores turnovers — the league doesn't track them", () => {
     const clean = aggregateLines([line({ pts: 12, fgm: 6, fga: 12 })]);
     const loose = aggregateLines([line({ pts: 12, tov: 6, fgm: 6, fga: 12 })]);
-    expect(impactScore(clean)).toBeGreaterThan(impactScore(loose));
+    expect(impactScore(clean)).toBe(impactScore(loose));
   });
 
   it("ignores attempts — misses aren't tracked, so they can't count against anyone", () => {

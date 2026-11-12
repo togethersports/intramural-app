@@ -10,7 +10,7 @@ import { EVENT_LABELS } from "@core/game-constants";
 import { color, space, type } from "@/theme";
 import type { GameRow, PlayerGameStatRow } from "@core/types";
 
-const COLS = ["PTS","REB","AST","STL","BLK","TO","PF","+/−"] as const;
+const COLS = ["PTS","REB","AST","STL","BLK","PF","+/−"] as const;
 
 export default function GameDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -117,7 +117,7 @@ export default function GameDetail() {
                 <Text numberOfLines={1} style={[type.bodyMedium, { width: 130, color: color.ink }]}>
                   {names.get(r.userId) ?? "Unnamed"}
                 </Text>
-                {([r.pts, r.reb, r.ast, r.stl, r.blk, r.tov, r.pf,
+                {([r.pts, r.reb, r.ast, r.stl, r.blk, r.pf,
                    r.plus_minus > 0 ? `+${r.plus_minus}` : r.plus_minus] as const).map((v, i) => (
                   <Num key={i} size={15} style={{ width: 46, textAlign: "right" }}>{v}</Num>
                 ))}

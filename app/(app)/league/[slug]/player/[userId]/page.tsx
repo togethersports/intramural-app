@@ -28,7 +28,9 @@ export default async function PlayerPage({
   if (!profile) notFound();
 
   const log = season ? await getPlayerGameLog(season.id, userId) : [];
-  const totals = aggregateLines(log);
+  // A sub game the commissioner chose not to count stays on the log, marked,
+  // but out of every total and average.
+  const totals = aggregateLines(log.filter((r) => r.sub?.counts !== false));
   const teams = season ? await getTeamsWithRosters(season.id) : [];
   const myTeam = teams.find((t) => t.roster.some((r) => r.user_id === userId));
 
@@ -91,7 +93,7 @@ export default async function PlayerPage({
               <thead>
                 <tr className="text-left text-xs text-ink-faint">
                   <th className="py-1.5 pr-2 font-medium">Game</th>
-                  {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "2PM", "3PM", "FTM", "+/−"].map(
+                  {["PTS", "REB", "AST", "STL", "BLK", "PF", "2PM", "3PM", "FTM", "+/−"].map(
                     (h) => (
                       <th key={h} className="tabular px-2 py-1.5 text-right font-medium">
                         {h}
@@ -106,18 +108,30 @@ export default async function PlayerPage({
                   const opponent = opponentIsHome
                     ? r.game.home_team?.name
                     : r.game.away_team?.name;
+                  const playedFor = opponentIsHome
+                    ? r.game.away_team?.name
+                    : r.game.home_team?.name;
+                  const uncounted = r.sub?.counts === false;
                   return (
-                    <tr key={r.game_id} className="border-t border-rule">
+                    <tr
+                      key={r.game_id}
+                      className={`border-t border-rule ${uncounted ? "text-ink-muted" : ""}`}
+                    >
                       <td className="py-2.5 pr-2 font-medium">
                         Wk {r.game.week} · {opponentIsHome ? "@" : "vs"}{" "}
                         {opponent ?? "?"}
+                        {r.sub ? (
+                          <span className="mt-0.5 block text-xs font-medium text-ink-faint">
+                            Sub for {playedFor ?? "another team"}
+                            {uncounted ? " · not counted" : ""}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="tabular px-2 py-2.5 text-right font-semibold">{r.pts}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.reb}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.ast}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.stl}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.blk}</td>
-                      <td className="tabular px-2 py-2.5 text-right">{r.tov}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.pf}</td>
                       <td className="tabular px-2 py-2.5 text-right">{twosMade(r)}</td>
                       <td className="tabular px-2 py-2.5 text-right">{r.tpm}</td>
@@ -130,6 +144,12 @@ export default async function PlayerPage({
                 })}
               </tbody>
             </table>
+            {log.some((r) => r.sub?.counts === false) ? (
+              <p className="mt-3 text-[12.5px] text-ink-muted">
+                Games marked “not counted” were played as a sub and are left out of the totals
+                and averages above.
+              </p>
+            ) : null}
           </div>
         )}
       </Panel>
