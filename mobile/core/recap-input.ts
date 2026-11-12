@@ -196,7 +196,7 @@ export function summarizeFlow(
 }
 
 const standoutScore = (l: RecapLine) =>
-  l.pts + l.reb * 1.2 + l.ast * 1.5 + l.stl * 2 + l.blk * 2 - l.tov;
+  l.pts + l.reb * 1.2 + l.ast * 1.5 + l.stl * 2 + l.blk * 2;
 
 /** Stat lines worth naming, best first. Everyone who scored, plus anyone
  *  whose rebounding or passing carried a possession count of its own. */
@@ -299,7 +299,6 @@ export function recapFacts(input: RecapInput): string {
       l.ast ? `${l.ast} ast` : null,
       l.stl ? `${l.stl} stl` : null,
       l.blk ? `${l.blk} blk` : null,
-      l.tov ? `${l.tov} TO` : null,
       ...madeShots(l),
     ].filter(Boolean);
     const sub = l.subFrom ? `; subbing in from ${l.subFrom}` : "";
@@ -316,7 +315,6 @@ export function recapFacts(input: RecapInput): string {
       `${sum("ast")} ast`,
       sum("stl") ? `${sum("stl")} stl` : null,
       sum("blk") ? `${sum("blk")} blk` : null,
-      sum("tov") ? `${sum("tov")} TO` : null,
     ].filter(Boolean);
     return `- ${t.name}: ${bits.join(", ")}`;
   });

@@ -52,7 +52,7 @@ function BoxTable({
           <thead>
             <tr className="text-left text-xs text-ink-faint">
               <th className="py-1 pr-2 font-medium">Player</th>
-              {["PTS", "REB", "AST", "STL", "BLK", "TO", "PF", "2PM", "3PM", "FTM", "+/−"].map((h) => (
+              {["PTS", "REB", "AST", "STL", "BLK", "PF", "2PM", "3PM", "FTM", "+/−"].map((h) => (
                 <th key={h} className="tabular px-1.5 py-1 text-right font-medium">
                   {h}
                 </th>
@@ -78,7 +78,6 @@ function BoxTable({
                   <td className="tabular px-1.5 py-2 text-right">{r.ast}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.stl}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.blk}</td>
-                  <td className="tabular px-1.5 py-2 text-right">{r.tov}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.pf}</td>
                   <td className="tabular px-1.5 py-2 text-right">{twosMade(r)}</td>
                   <td className="tabular px-1.5 py-2 text-right">{r.tpm}</td>

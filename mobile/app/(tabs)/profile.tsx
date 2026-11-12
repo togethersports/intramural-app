@@ -89,6 +89,11 @@ export default function Profile() {
             <Text style={[type.small, { color: color.ink, fontWeight: "600" }]}>Edit</Text>
           </Pressable>
         </View>
+        {user ? (
+          <Button variant="quiet" onPress={() => router.push(`/league/player/${user.id}` as never)}>
+            My stats
+          </Button>
+        ) : null}
       </Card>
 
       <Card style={{ gap: space(1.5) }}>

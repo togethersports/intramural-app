@@ -25,7 +25,6 @@ interface StatRow {
   ast: number;
   stl: number;
   blk: number;
-  tov: number;
 }
 
 const COLUMNS = [
@@ -35,7 +34,6 @@ const COLUMNS = [
   { key: "ast", label: "AST" },
   { key: "stl", label: "STL" },
   { key: "blk", label: "BLK" },
-  { key: "tov", label: "TO" },
 ] as const;
 
 type SortKey = (typeof COLUMNS)[number]["key"] | "name";
@@ -79,7 +77,6 @@ export default function FullStats() {
           ast: perGame(t.ast, t.games),
           stl: perGame(t.stl, t.games),
           blk: perGame(t.blk, t.games),
-          tov: perGame(t.tov, t.games),
         };
       }),
     );
@@ -165,7 +162,7 @@ export default function FullStats() {
                   <Num size={14} style={{ width: COL_WIDTH, textAlign: "right", color: color.inkBody }}>
                     {r.gp}
                   </Num>
-                  {(["pts", "reb", "ast", "stl", "blk", "tov"] as const).map((k) => (
+                  {(["pts", "reb", "ast", "stl", "blk"] as const).map((k) => (
                     <Num
                       key={k}
                       size={14}

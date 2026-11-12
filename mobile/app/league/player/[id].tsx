@@ -77,7 +77,6 @@ export default function Player() {
                 ["AST", per(totals.ast)],
                 ["STL", per(totals.stl)],
                 ["BLK", per(totals.blk)],
-                ["TO", per(totals.tov)],
               ] as const).map(([k, v]) => (
                 <View key={k} style={{ minWidth: 64 }}>
                   <Label>{k}</Label>

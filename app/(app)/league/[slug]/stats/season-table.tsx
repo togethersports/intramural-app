@@ -62,7 +62,6 @@ const COLUMNS: Column[] = [
   counted("ast", "AST", (t) => t.ast),
   counted("stl", "STL", (t) => t.stl),
   counted("blk", "BLK", (t) => t.blk),
-  counted("tov", "TO", (t) => t.tov),
   // Makes, not percentages: the tracker counts made shots and has no miss
   // button, so every percentage would read 100%.
   counted("2pm", "2PM", twosMade),

@@ -66,11 +66,18 @@ function numbered(groups: { label: string; items: Omit<NavItem, "tag">[] }[]) {
 
 /**
  * The league rail. `admin` adds the Console; `mode` decides whether the
- * week's play or the commissioner's queue sits at the top.
+ * week's play or the commissioner's queue sits at the top. `me` is the
+ * viewer's user id, for the one destination that is about them: their own
+ * player page, which otherwise took finding yourself on a leaderboard.
  */
 export function leagueNav(
   slug: string,
-  { admin, mode, commissioner = admin }: { admin: boolean; mode: Mode; commissioner?: boolean },
+  {
+    admin,
+    mode,
+    commissioner = admin,
+    me = null,
+  }: { admin: boolean; mode: Mode; commissioner?: boolean; me?: string | null },
 ): NavGroup[] {
   const b = `/league/${slug}`;
   const overview = { href: b, label: "Overview", icon: "home" as const, exact: true };
@@ -83,6 +90,7 @@ export function leagueNav(
   };
   const standings = { href: `${b}/standings`, label: "Standings", icon: "list" as const };
   const stats = { href: `${b}/stats`, label: "Stat leaders", icon: "chart" as const };
+  const myStats = me ? [{ href: `${b}/player/${me}`, label: "My stats", icon: "user" as const }] : [];
   const playoffs = { href: `${b}/playoffs`, label: "Playoffs", icon: "trophy" as const };
   const teams = { href: `${b}/teams`, label: "Teams", icon: "users" as const };
   const draft = { href: `${b}/draft`, label: "Draft", icon: "queue" as const };
@@ -103,13 +111,13 @@ export function leagueNav(
           : [overview, schedule, availability],
       },
       { label: "Roster moves", items: [teams, draft, trades, members] },
-      { label: "The season", items: [standings, stats, playoffs] },
+      { label: "The season", items: [standings, stats, ...myStats, playoffs] },
       { label: "Setup", items: [console, rules] },
     ]);
   }
 
   return numbered([
-    { label: "This week", items: [overview, schedule, availability] },
+    { label: "This week", items: [overview, schedule, availability, ...myStats] },
     { label: "The season", items: [standings, stats, playoffs] },
     {
       label: "The league",
